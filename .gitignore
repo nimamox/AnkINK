@@ -1,0 +1,13 @@
+# Local builds
+/build*/
+/cmake-build-*/
+
+# Credentials and device-local collections
+config.json
+*.anki2
+*.anki21
+*.apkg
+
+# macOS
+.DS_Store
+
