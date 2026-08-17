@@ -1,10 +1,9 @@
 # syntax=docker/dockerfile:1
 # A native Linux builder (amd64 or arm64) that cross-compiles PW2-compatible
 # ARMEL binaries. The target is always armv7-unknown-linux-gnueabi.
-FROM debian:bullseye-slim
+FROM debian:trixie-slim
 
 ARG ANKI_COMMIT=666c2c64d4a1772c03948f5b667438da63ddaa76
-ARG CMAKE_VERSION=3.30.5
 ARG PROTOC_VERSION=29.3
 ARG RUST_TOOLCHAIN=1.92.0
 
@@ -28,17 +27,12 @@ RUN apt-get update >/dev/null && apt-get install -y --no-install-recommends \
         make \
         ninja-build \
         pkg-config \
-        python3-pip \
+        qemu-user \
         unzip \
         util-linux \
     >/dev/null && rm -rf /var/lib/apt/lists/*
 
-# Bullseye's CMake is 3.18, while AnkINK requires 3.20. Keep Bullseye for its
-# compatible ARMEL cross sysroot, but use CMake's native pip wheel (available
-# for Linux amd64 and arm64) on the Docker host architecture.
-RUN python3 -m pip install --no-cache-dir "cmake==${CMAKE_VERSION}"
-
-# Protobuf from Bullseye is too old for Anki's proto3 optional fields.
+# Pin protoc to the version used by the Anki backend build.
 RUN case "$(dpkg --print-architecture)" in \
         amd64) protoc_arch=x86_64 ;; \
         arm64) protoc_arch=aarch_64 ;; \

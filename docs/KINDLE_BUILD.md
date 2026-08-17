@@ -15,7 +15,9 @@ Install Docker Desktop or Docker Engine and run from the repository root:
 The script builds/reuses `ankink-kindle-builder:local`, then runs a temporary
 container with the repository mounted read-only and `dist/` mounted as output.
 The Docker image contains the pinned Anki 26.08 source, Rust 1.92, Protobuf
-29.3, and a Debian Bullseye ARMEL sysroot. Cargo and CMake intermediates persist
+29.3, and a Debian Trixie ARMEL sysroot. Trixie's current glibc is required on
+the Kindle because its loader does not reject the Oasis's Linux 3.0.35 kernel.
+Cargo and CMake intermediates persist
 in the `ankink-kindle-build-cache` Docker volume.
 
 The ready-to-install result is:

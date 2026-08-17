@@ -36,6 +36,12 @@ rm -rf "$STAGE" "$OUTPUT/ankink" "$OUTPUT/extensions"
 "$WORKSPACE/scripts/package-kindle.sh" \
   "$KINDLE_SDK_ROOT/armel" "$KINDLE_BUILD_DIR" "$STAGE"
 
+# The Oasis/PW2 kernel is Linux 3.0.35. Exercise the exact packaged loader and
+# libraries under that reported kernel version so an incompatible glibc cannot
+# reach dist/ unnoticed.
+qemu-arm -r 3.0.35 "$STAGE/lib/ld-linux.so.3" \
+  --library-path "$STAGE/lib" "$STAGE/bin/ankinkd" --help >/dev/null
+
 mkdir -p "$OUTPUT/extensions"
 mv "$STAGE" "$OUTPUT/ankink"
 mv "$OUTPUT/ankink/kual-extension/AnkINK" "$OUTPUT/extensions/AnkINK"
