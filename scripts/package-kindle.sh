@@ -7,6 +7,7 @@ fi
 ANKINK_SYSROOT=$1
 ANKINK_BUILD_DIR=$2
 ANKINK_OUTPUT=$3
+ANKINK_ROOT=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 ANKINK_READELF=${CROSS_COMPILE:-arm-linux-gnueabi-}readelf
 ANKINK_STRIP=${CROSS_COMPILE:-arm-linux-gnueabi-}strip
 
@@ -19,13 +20,16 @@ fi
 mkdir -p "$ANKINK_OUTPUT/bin" "$ANKINK_OUTPUT/lib" "$ANKINK_OUTPUT/share/ankink" \
   "$ANKINK_OUTPUT/kual-extension/AnkINK"
 cp "$ANKINK_BUILD_DIR/ankinkd" "$ANKINK_OUTPUT/bin/ankinkd"
-cp assets/index.html assets/app.css assets/app.js assets/config.xml "$ANKINK_OUTPUT/share/ankink/"
-cp -R assets/vendor "$ANKINK_OUTPUT/share/ankink/"
-cp scripts/run-kindle.sh "$ANKINK_OUTPUT/ankink.sh"
-cp scripts/stop-kindle.sh "$ANKINK_OUTPUT/stop-ankink.sh"
-cp packaging/README-KINDLE.txt "$ANKINK_OUTPUT/README.txt"
-cp LICENSE "$ANKINK_OUTPUT/LICENSE"
-cp assets/kual/config.xml assets/kual/menu.json "$ANKINK_OUTPUT/kual-extension/AnkINK/"
+cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
+  "$ANKINK_ROOT/assets/app.js" "$ANKINK_ROOT/assets/config.xml" \
+  "$ANKINK_OUTPUT/share/ankink/"
+cp -R "$ANKINK_ROOT/assets/vendor" "$ANKINK_OUTPUT/share/ankink/"
+cp "$ANKINK_ROOT/scripts/run-kindle.sh" "$ANKINK_OUTPUT/ankink.sh"
+cp "$ANKINK_ROOT/scripts/stop-kindle.sh" "$ANKINK_OUTPUT/stop-ankink.sh"
+cp "$ANKINK_ROOT/packaging/README-KINDLE.txt" "$ANKINK_OUTPUT/README.txt"
+cp "$ANKINK_ROOT/LICENSE" "$ANKINK_OUTPUT/LICENSE"
+cp "$ANKINK_ROOT/assets/kual/config.xml" "$ANKINK_ROOT/assets/kual/menu.json" \
+  "$ANKINK_OUTPUT/kual-extension/AnkINK/"
 chmod 755 "$ANKINK_OUTPUT/bin/ankinkd" "$ANKINK_OUTPUT/ankink.sh" "$ANKINK_OUTPUT/stop-ankink.sh"
 
 ANKINK_QUEUE=$(mktemp "${TMPDIR:-/tmp}/ankink-queue.XXXXXX")
@@ -36,7 +40,7 @@ echo "$ANKINK_OUTPUT/bin/ankinkd" > "$ANKINK_QUEUE"
 find_library() {
   ANKINK_NAME=$1
   [ -f "$ANKINK_OUTPUT/lib/$ANKINK_NAME" ] && return
-  ANKINK_SOURCE=$(find "$ANKINK_SYSROOT/lib" "$ANKINK_SYSROOT/usr/lib" \
+  ANKINK_SOURCE=$(find -L "$ANKINK_SYSROOT/lib" "$ANKINK_SYSROOT/usr/lib" \
     \( -type f -o -type l \) -name "$ANKINK_NAME" 2>/dev/null | head -n 1)
   if [ -z "$ANKINK_SOURCE" ]; then echo "Missing target library: $ANKINK_NAME" >&2; exit 1; fi
   cp -L "$ANKINK_SOURCE" "$ANKINK_OUTPUT/lib/$ANKINK_NAME"

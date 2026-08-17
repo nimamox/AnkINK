@@ -1,35 +1,44 @@
 # Building AnkINK for PW2-compatible ARMEL Kindles
 
-The Kindle package contains a small C++ daemon and Mesquite web assets. It does
-not contain a browser engine or graphics stack.
+The supported release build is Docker-based and works from macOS (including
+Apple Silicon) and Linux. It cross-compiles an ARMEL binary for the Kindle;
+the development machine's CPU architecture is not relevant.
 
-On the Linux build host:
+## Build
 
-```sh
-export KINDLE_SDK_ROOT=/home/nima/ankink-sdk
-export KINDLE_ABI=armel
-cmake -S . -B cmake-build-kindle-armel -GNinja \
-  -DCMAKE_TOOLCHAIN_FILE=cmake/kindle-debian-toolchain.cmake \
-  -DCMAKE_BUILD_TYPE=MinSizeRel \
-  -DANKINK_BUILD_APP=ON -DANKINK_BUILD_TESTS=OFF
-cmake --build cmake-build-kindle-armel --parallel
-```
-
-Validate that the result is 32-bit ARM EABI5 using `/lib/ld-linux.so.3`, then
-package its minimal shared-library closure:
+Install Docker Desktop or Docker Engine and run from the repository root:
 
 ```sh
-export CROSS_COMPILE=arm-linux-gnueabi-
-scripts/package-kindle.sh \
-  "$KINDLE_SDK_ROOT/armel" \
-  cmake-build-kindle-armel \
-  AnkINK-kindle-armel
+./build_on_docker.sh
 ```
 
-Put `collection.anki2` in the bundle root. Copy the bundle to
-`/mnt/us/ankink` and copy `kual-extension/AnkINK` to
-`/mnt/us/extensions/AnkINK`. Launch it from KUAL.
+The script builds/reuses `ankink-kindle-builder:local`, then runs a temporary
+container with the repository mounted read-only and `dist/` mounted as output.
+The Docker image contains the pinned Anki 26.08 source, Rust 1.92, Protobuf
+29.3, and a Debian Bullseye ARMEL sysroot. Cargo and CMake intermediates persist
+in the `ankink-kindle-build-cache` Docker volume.
 
-For CLion, use the remote Linux toolchain and set the two environment variables
-above in the Kindle ARMEL CMake profile. The executable is
-`cmake-build-kindle-armel/ankinkd`; it is not directly runnable on the host.
+The ready-to-install result is:
+
+```text
+dist/ankink/
+dist/extensions/AnkINK/
+```
+
+`dist/ankink/ankinkd.sha256` contains the SHA-256 of the daemon.
+
+## Install over SSH
+
+```sh
+./push_over_ssh.sh root@192.168.15.244
+```
+
+This copies `dist/ankink/` to `/mnt/us/ankink/` and the KUAL extension to
+`/mnt/us/extensions/AnkINK/`. It does not delete unrelated Kindle files or
+restart AnkINK; reopen it from KUAL after the transfer.
+
+## Manual cross-build
+
+`scripts/build-rslib-kindle.sh` remains usable with an externally supplied
+`KINDLE_SDK_ROOT`, `PROTOC`, and pinned Anki checkout for advanced debugging.
+The Docker path is preferred for normal release builds.

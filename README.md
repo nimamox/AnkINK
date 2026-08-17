@@ -75,6 +75,40 @@ installation is required; SQLite and Rustls are linked into `ankinkd`.
 
 ## Kindle deployment
 
+### Docker cross-build (macOS or Linux)
+
+Install and start Docker Desktop on macOS, or Docker Engine on Linux. No remote
+Linux host or host-side ARM toolchain is required. Then run:
+
+```sh
+./build_on_docker.sh
+```
+
+The first build downloads the pinned Debian ARMEL cross-toolchain, Rust 1.92,
+Protobuf 29.3, and the pinned Anki 26.08 source into the Docker image. Later
+runs reuse Docker layers and the `ankink-kindle-build-cache` Docker volume.
+The container is short lived (`docker run --rm`); source is mounted read-only
+and only `dist/` receives build artifacts.
+
+The resulting USB layout is:
+
+```text
+dist/
+├── ankink/                 # copy to Kindle root as /mnt/us/ankink
+└── extensions/
+    └── AnkINK/             # copy to /mnt/us/extensions/AnkINK
+```
+
+To install the result over SSH instead of USB:
+
+```sh
+./push_over_ssh.sh root@192.168.15.244
+```
+
+The deployment script prefers `rsync` and falls back to `scp`. It only updates
+AnkINK's two target directories and does not restart the application; relaunch
+AnkINK from KUAL afterwards.
+
 Cross-build with `cmake/kindle-debian-toolchain.cmake`, then create the minimal
 runtime bundle using `scripts/package-kindle.sh`. Copy the resulting directory
 to `/mnt/us/ankink` and copy `kual-extension/AnkINK` to

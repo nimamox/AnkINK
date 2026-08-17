@@ -1,6 +1,7 @@
 # Local builds
 /build*/
 /cmake-build-*/
+/dist/
 
 # Credentials and device-local collections
 config.json

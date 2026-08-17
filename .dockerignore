@@ -1,0 +1,9 @@
+.git
+.idea
+.DS_Store
+build
+build-*
+cmake-build-*
+dist
+backend/rust/target
+third_party
