@@ -142,6 +142,23 @@ std::string mime_type(const std::string &path) {
   if (path.size() >= 4 && path.substr(path.size() - 4) == ".svg") return "image/svg+xml";
   return "application/octet-stream";
 }
+std::string base64(const std::string &value) {
+  static const char alphabet[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string output;
+  output.reserve(((value.size() + 2) / 3) * 4);
+  for (std::size_t i = 0; i < value.size(); i += 3) {
+    const unsigned a = static_cast<unsigned char>(value[i]);
+    const unsigned b = i + 1 < value.size() ? static_cast<unsigned char>(value[i + 1]) : 0;
+    const unsigned c = i + 2 < value.size() ? static_cast<unsigned char>(value[i + 2]) : 0;
+    const unsigned bits = (a << 16) | (b << 8) | c;
+    output.push_back(alphabet[(bits >> 18) & 63]);
+    output.push_back(alphabet[(bits >> 12) & 63]);
+    output.push_back(i + 1 < value.size() ? alphabet[(bits >> 6) & 63] : '=');
+    output.push_back(i + 2 < value.size() ? alphabet[bits & 63] : '=');
+  }
+  return output;
+}
 std::int64_t integer(const std::string &value, const char *name) {
   if (value.empty()) throw std::runtime_error(std::string("missing ") + name);
   std::size_t used = 0; const auto result = std::stoll(value, &used);
@@ -295,8 +312,10 @@ int HttpServer::run() {
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 collection_.full_download_json());
       } else if (request.method == "GET" &&
-                 request.target.compare(0, 11, "/api/media/") == 0) {
-        const std::string name = url_decode(request.target.substr(11));
+                 (request.target.compare(0, 11, "/api/media/") == 0 ||
+                  request.target.compare(0, 16, "/api/media-data/") == 0)) {
+        const bool as_data = request.target.compare(0, 16, "/api/media-data/") == 0;
+        const std::string name = url_decode(request.target.substr(as_data ? 16 : 11));
         if (name.empty() || name.find("..") != std::string::npos ||
             name.find('/') != std::string::npos || name.find('\\') != std::string::npos)
           throw std::runtime_error("invalid media filename");
@@ -306,6 +325,9 @@ int HttpServer::run() {
         media_dir += ".media/";
         const std::string body = read_file(media_dir + name);
         if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
+        else if (as_data)
+          respond(client, 200, "OK", "application/json; charset=utf-8",
+                  "{\"data\":\"data:" + mime_type(name) + ";base64," + base64(body) + "\"}");
         else respond(client, 200, "OK", mime_type(name), body);
       } else if (request.method == "GET" && options_.simulator &&
                  (request.target == "/simulator" ||

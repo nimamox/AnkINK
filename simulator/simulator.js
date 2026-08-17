@@ -25,8 +25,10 @@
   function layout() {
     if (!current) return;
     var scale = Math.max(0.1, scaleFor(current));
+    var statusHeight = current.statusBarHeight || 40;
     iframe.style.width = current.width + "px";
-    iframe.style.height = current.height + "px";
+    iframe.style.height = (current.height - statusHeight) + "px";
+    document.getElementById("kindle-status").style.height = statusHeight + "px";
     screen.style.width = current.width + "px";
     screen.style.height = current.height + "px";
     screen.style.transform = "scale(" + scale + ")";

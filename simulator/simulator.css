@@ -47,6 +47,17 @@ body {
   overflow: hidden;
 }
 #device-screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+#kindle-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 18px;
+  background: #fff;
+  color: #111;
+  border-bottom: 1px solid #aaa;
+  font: 16px Arial, sans-serif;
+}
 #ankink { display: block; border: 0; background: #fff; }
 .page-key {
   flex: 0 0 84px;

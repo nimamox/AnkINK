@@ -59,6 +59,7 @@ window.ANKINK_KINDLE_DEVICES = [
       id.indexOf("keyboard") < 0 && id !== "kindle-4" && id !== "kindle-5",
     color: id.indexOf("colorsoft") >= 0,
     screenSize: null,
-    ppi: null
+    ppi: null,
+    statusBarHeight: item[2] <= 824 ? 28 : (item[2] >= 1800 ? 50 : 40)
   };
 });

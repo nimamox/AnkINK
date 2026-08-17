@@ -1,7 +1,9 @@
 (function () {
   "use strict";
   var API = "http://127.0.0.1:8765";
+  var MEDIA_VERSION = String(new Date().getTime());
   var state = { deck: null, card: null, reviewed: 0, answerShown: false, inputBusy: false };
+  var warningTimer = null;
   var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
   var nightMode = window.localStorage.getItem("ankink_night_mode") === "1";
   function byId(id) { return document.getElementById(id); }
@@ -21,9 +23,19 @@
     window.setTimeout(closeInterface, 750);
   }
   function warning(message) {
+    if (warningTimer !== null) {
+      window.clearTimeout(warningTimer);
+      warningTimer = null;
+    }
     byId("warning").innerHTML = "";
     byId("warning").appendChild(document.createTextNode(message || ""));
-    if (message) show(byId("warning")); else hide(byId("warning"));
+    if (message) {
+      show(byId("warning"));
+      warningTimer = window.setTimeout(function () {
+        warningTimer = null;
+        warning("");
+      }, 2000);
+    } else hide(byId("warning"));
   }
   function request(method, path, body, callback, retries) {
     var xhr = new XMLHttpRequest();
@@ -59,9 +71,11 @@
               attribute = child.attributes[i]; name = attribute.name.toLowerCase();
               value = attribute.value.toLowerCase();
               if (name === "src" && child.tagName === "IMG" && value.indexOf("data:image/") !== 0 && value.indexOf("http://127.0.0.1:8765/api/media/") !== 0) {
-                if (value.indexOf("..") < 0 && value.indexOf(":") < 0 && value.indexOf("/") < 0)
-                  child.setAttribute("src", API + "/api/media/" + encodeURIComponent(attribute.value));
-                value = child.getAttribute("src").toLowerCase();
+                if (value.indexOf("..") < 0 && value.indexOf(":") < 0 && value.indexOf("/") < 0) {
+                  child.setAttribute("data-ankink-media", attribute.value);
+                  child.setAttribute("src", "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=");
+                }
+                value = (child.getAttribute("src") || "").toLowerCase();
               }
               if (name.indexOf("on") === 0 || name === "style" || name === "srcset" ||
                   (name === "src" && value.indexOf("data:image/") !== 0 &&
@@ -81,8 +95,10 @@
     prepareImages(element);
   }
   function prepareImages(root) {
-    var images = root.getElementsByTagName("img"), i;
+    var images = root.getElementsByTagName("img"), i, filename;
     for (i = 0; i < images.length; ++i) {
+      filename = images[i].getAttribute("data-ankink-media");
+      if (filename) loadMediaImage(images[i], filename);
       images[i].onclick = function () {
         if (this.className.indexOf("image-expanded") >= 0)
           this.className = this.className.replace(/(^|\s)image-expanded(?=\s|$)/g, "");
@@ -92,6 +108,15 @@
         }
       };
     }
+  }
+  function loadMediaImage(image, filename) {
+    request("GET", "/api/media-data/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION,
+      null, function (error, data) {
+        if (!error && data && typeof data.data === "string" && data.data.indexOf("data:image/") === 0)
+          image.setAttribute("src", data.data);
+        else
+          image.setAttribute("src", API + "/api/media/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION);
+      }, 0);
   }
   function answerOnly(html) {
     var source = html || "";
