@@ -9,8 +9,9 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .app-header { display: table; width: 100%; min-height: 125px; border-bottom: 4px solid #111; }
 .brand { display: table-cell; vertical-align: middle; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
-.header-actions { display: table-cell; width: 450px; vertical-align: middle; text-align: right; white-space: nowrap; }
+.header-actions { display: table-cell; width: 520px; vertical-align: middle; text-align: right; white-space: nowrap; }
 .header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
+.mode-button { display: inline-block; width: 54px; height: 72px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 30px/1 "Amazon Ember", Arial, sans-serif; }
 .font-controls { display: inline-block; width: 54px; height: 72px; vertical-align: middle; }
 .font-controls button { display: block; width: 54px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
 .font-controls button + button { border-top: 0; }
@@ -37,9 +38,10 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .review-toolbar > * { display: table-cell; vertical-align: middle; }
 .text-button { width: 150px; height: 72px; border: 2px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .review-title { padding-left: 22px; }
-.session-count { width: 150px; color: #444; text-align: right; font: 17px "Amazon Ember", Arial, sans-serif; }
+.session-count { width: 285px; color: #444; text-align: right; white-space: nowrap; font: 17px "Amazon Ember", Arial, sans-serif; }
 .card { min-height: 500px; padding: 55px 4% 35px; text-align: center; font-size: 32px; line-height: 1.45; word-wrap: break-word; }
 .card img { max-width: 100%; max-height: 330px; }
+.card img.image-expanded { display: block; width: 100%; height: auto; max-height: none; margin: 15px auto; }
 .card audio, .card video { display: none; }
 .answer-divider { margin: 48px 0 35px; padding: 12px 0; border-top: 2px solid #aaa; border-bottom: 2px solid #aaa; color: #444; font: bold 14px "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .answer { font-size: 26px; }
@@ -53,3 +55,14 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .ratings strong, .ratings small { display: block; }
 .ratings strong { font-size: 17px; } .ratings small { margin-top: 6px; font-size: 14px; }
 .hidden { display: none; }
+.night-mode, .night-mode body { background: #111; color: #eee; }
+.night-mode button, .night-mode .header-button, .night-mode .mode-button,
+.night-mode .font-controls button, .night-mode .deck, .night-mode .text-button,
+.night-mode .controls, .night-mode .controls button, .night-mode .auth-panel,
+.night-mode .auth-panel input, .night-mode .auth-actions button { background: #111; color: #eee; border-color: #eee; }
+.night-mode .controls .primary, .night-mode .auth-actions .dark-button { background: #eee; color: #111; }
+.night-mode .app-header, .night-mode .deck-list { border-color: #eee; }
+.night-mode #status, .night-mode .eyebrow, .night-mode .path,
+.night-mode .deck-count, .night-mode .session-count, .night-mode .answer-divider,
+.night-mode .empty-state { color: #bbb; }
+.night-mode .warning { background: #333; color: #eee; border-color: #eee; }

@@ -113,9 +113,15 @@ impl AnkinkAnkiBackend {
             .set_current_deck(DeckId(deck_id))
             .map_err(|error| error.to_string())?;
 
-        let Some(queued) = collection
-            .get_next_card()
-            .map_err(|error| error.to_string())?
+        let queued_cards = collection
+            .get_queued_cards(1, false)
+            .map_err(|error| error.to_string())?;
+        let counts = json!({
+            "new": queued_cards.new_count,
+            "learning": queued_cards.learning_count,
+            "review": queued_cards.review_count,
+        });
+        let Some(queued) = queued_cards.cards.first().cloned()
         else {
             return Ok(json!({"type": "complete", "deckId": deck_id}));
         };
@@ -139,6 +145,7 @@ impl AnkinkAnkiBackend {
             "front": rendered.question(),
             "back": rendered.answer(),
             "css": rendered.css,
+            "counts": counts,
             "buttons": [
                 {"rating": 1, "label": "Again", "interval": intervals[0]},
                 {"rating": 2, "label": "Hard", "interval": intervals[1]},
@@ -177,6 +184,14 @@ impl AnkinkAnkiBackend {
             })
             .map_err(|error| error.to_string())?;
         Ok(json!({"type": "answered", "id": card_id, "rating": rating_number}))
+    }
+
+    fn undo(&mut self) -> Result<Value, String> {
+        self.pending = None;
+        self.collection()?
+            .undo()
+            .map_err(|error| error.to_string())?;
+        Ok(json!({"type": "undone"}))
     }
 
     fn login(&mut self, username: &str, password: &str) -> Result<Value, String> {
@@ -380,6 +395,11 @@ pub extern "C" fn ankink_anki_answer(
     rating: i32,
 ) -> *mut c_char {
     ffi_json(backend, |backend| backend.answer(card_id, rating))
+}
+
+#[no_mangle]
+pub extern "C" fn ankink_anki_undo(backend: *mut AnkinkAnkiBackend) -> *mut c_char {
+    ffi_json(backend, AnkinkAnkiBackend::undo)
 }
 
 #[no_mangle]

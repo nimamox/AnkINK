@@ -1,8 +1,9 @@
 (function () {
   "use strict";
   var API = "http://127.0.0.1:8765";
-  var state = { deck: null, card: null, reviewed: 0 };
+  var state = { deck: null, card: null, reviewed: 0, answerShown: false, inputBusy: false };
   var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
+  var nightMode = window.localStorage.getItem("ankink_night_mode") === "1";
   function byId(id) { return document.getElementById(id); }
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
@@ -68,6 +69,20 @@
     container.innerHTML = html || ("<em>" + fallback + "</em>"); clean(container);
     clear(element); while (container.firstChild) element.appendChild(container.firstChild);
     renderMath(element);
+    prepareImages(element);
+  }
+  function prepareImages(root) {
+    var images = root.getElementsByTagName("img"), i;
+    for (i = 0; i < images.length; ++i) {
+      images[i].onclick = function () {
+        if (this.className.indexOf("image-expanded") >= 0)
+          this.className = this.className.replace(/(^|\s)image-expanded(?=\s|$)/g, "");
+        else {
+          this.className += " image-expanded";
+          if (this.scrollIntoView) this.scrollIntoView(true);
+        }
+      };
+    }
   }
   function answerOnly(html) {
     var source = html || "";
@@ -175,10 +190,28 @@
     byId("back-face").style.fontSize = Math.round(26 * fontScale) + "px";
     window.localStorage.setItem("ankink_font_scale", String(fontScale));
   }
+  function applyNightMode() {
+    var html = document.documentElement;
+    if (nightMode) {
+      if (html.className.indexOf("night-mode") < 0) html.className += " night-mode";
+      byId("night-mode").innerHTML = "&#9788;";
+      byId("night-mode").title = "Day mode";
+    } else {
+      html.className = html.className.replace(/(^|\s)night-mode(?=\s|$)/g, "");
+      byId("night-mode").innerHTML = "&#9789;";
+      byId("night-mode").title = "Night mode";
+    }
+    window.localStorage.setItem("ankink_night_mode", nightMode ? "1" : "0");
+  }
+  function updateCounts(counts) {
+    counts = counts || { "new": 0, learning: 0, review: 0 };
+    byId("session-count").innerHTML = counts["new"] + " new &middot; " +
+      counts.learning + " learn &middot; " + counts.review + " review";
+  }
   function openDeck(deck) {
     state.deck = deck; state.reviewed = 0; byId("review-title").innerHTML = "";
     byId("review-title").appendChild(document.createTextNode(deckName(deck.name)));
-    byId("session-count").innerHTML = "0 reviewed"; hide(byId("decks-view")); show(byId("review-view")); nextCard();
+    updateCounts(deck); hide(byId("decks-view")); show(byId("review-view")); nextCard();
   }
   function showLogin() {
     warning(""); show(byId("auth-panel")); hide(byId("full-sync-panel"));
@@ -207,6 +240,7 @@
     }, 0);
   }
   function nextCard() {
+    state.answerShown = false;
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
     hide(byId("rating-controls")); show(byId("show-controls"));
     request("GET", "/api/decks/" + state.deck.id + "/next", null, function (error, card) {
@@ -218,6 +252,7 @@
       }
       state.card = card; safeHtml(byId("front"), card.front, "Empty front field");
       safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); window.scrollTo(0, 0);
+      updateCounts(card.counts);
       if (card.buttons && card.buttons.length === 4) {
         for (var i = 0; i < 4; ++i) {
           byId("rating-" + (i + 1)).getElementsByTagName("small")[0].innerHTML = card.buttons[i].interval;
@@ -228,16 +263,41 @@
   function answer(rating) {
     if (!state.card) return;
     request("POST", "/api/answer", "card=" + encodeURIComponent(state.card.id) + "&rating=" + rating,
-      function (error, result) { if (error || (result && result.type === "error")) warning(error || result.message); else { state.reviewed += 1; byId("session-count").innerHTML = state.reviewed + " reviewed"; nextCard(); } }, 0);
+      function (error, result) { if (error || (result && result.type === "error")) warning(error || result.message); else { state.reviewed += 1; nextCard(); } }, 0);
   }
-  byId("show-answer").onclick = function () { if (state.card) { show(byId("back-face")); show(byId("answer-divider")); hide(byId("show-controls")); show(byId("rating-controls")); } };
+  function showAnswer() {
+    if (state.card) { state.answerShown = true; show(byId("back-face")); show(byId("answer-divider")); hide(byId("show-controls")); show(byId("rating-controls")); }
+  }
+  function undoAnswer() {
+    request("POST", "/api/undo", "", function (error, result) {
+      if (error || (result && result.type === "error")) warning(error || result.message);
+      else { if (state.reviewed > 0) state.reviewed -= 1; warning(""); nextCard(); }
+    }, 0);
+  }
+  function pollPageButtons() {
+    if (state.inputBusy) return;
+    state.inputBusy = true;
+    request("GET", "/api/input", null, function (error, input) {
+      state.inputBusy = false;
+      if (error || !input || !state.deck || !state.card || !input.action) return;
+      if (input.action === "forward") {
+        if (state.answerShown) answer(3); else showAnswer();
+      } else if (input.action === "backward") {
+        if (state.answerShown) answer(1); else undoAnswer();
+      }
+    }, 0);
+  }
+  byId("show-answer").onclick = showAnswer;
   byId("rating-1").onclick = function () { answer(1); }; byId("rating-2").onclick = function () { answer(2); };
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
   byId("back").onclick = function () { hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null; window.scrollTo(0, 0); };
-  byId("refresh").onclick = loadDecks;
+  byId("refresh").onclick = function () {
+    request("POST", "/api/refresh", "", function (error) { if (error) warning(error); }, 0);
+  };
   byId("sync").onclick = syncNow;
   byId("font-plus").onclick = function () { fontScale = Math.min(1.6, fontScale + 0.1); applyFontScale(); };
   byId("font-minus").onclick = function () { fontScale = Math.max(0.7, fontScale - 0.1); applyFontScale(); };
+  byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
   byId("auth-cancel").onclick = function () { hide(byId("auth-panel")); };
   byId("auth-submit").onclick = function () {
     var username = byId("ankiweb-username").value;
@@ -261,5 +321,5 @@
   }
   byId("full-download").onclick = downloadFromAnkiWeb;
   byId("close").onclick = closeApplication;
-  applyFontScale(); loadDecks();
+  applyFontScale(); applyNightMode(); loadDecks(); window.setInterval(pollPageButtons, 250);
 }());

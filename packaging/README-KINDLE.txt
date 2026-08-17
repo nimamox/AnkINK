@@ -15,3 +15,8 @@ TeX equations locally using the bundled KaTeX fonts and JavaScript.
 Reviews use Anki 26.08's official scheduler and are written to the collection.
 Normal collection/media sync and guarded full download are supported. Full
 upload is not included in this release.
+
+Tap a card image to toggle its full-width view. The moon/sun button toggles
+night mode. Oasis page buttons map Forward to Show Answer/Good and Backward to
+Undo/Again. Refresh performs a full flashing e-ink refresh when FBInk is
+available at /usr/bin/fbink or in MRInstaller's PW2 directory.

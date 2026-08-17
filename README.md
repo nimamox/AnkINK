@@ -27,6 +27,14 @@ normal collection sync, and a guarded full download. It does not edit notes,
 decks, templates, or deck options. Collection sync also downloads AnkiWeb
 media into the private `/var/local/ankink/collection.media` directory.
 
+The review toolbar shows Anki's live new/learning/review queue counts. Images
+can be tapped to toggle a full-width view, and the header provides persistent
+font-size and day/night controls. On an Oasis, Forward shows the answer and
+then selects Good; Backward undoes the previous answer before reveal and
+selects Again after reveal. Refresh requests a full flashing update through an
+existing FBInk command (including MRInstaller's PW2 build) without using FBInk
+as AnkINK's rendering path.
+
 The AnkiWeb password is exchanged for a host key and then discarded. The host
 key is stored at `/var/local/ankink/host-key` with mode 0600, outside the
 USB-visible `/mnt/us` filesystem. Full upload is deliberately not exposed.

@@ -1,8 +1,10 @@
 #include "ankink/http_server.hpp"
 
 #include <arpa/inet.h>
+#include <algorithm>
 #include <cerrno>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -13,6 +15,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <utility>
+#ifdef __linux__
+#include <fcntl.h>
+#include <linux/input.h>
+#endif
 
 namespace ankink {
 namespace {
@@ -142,6 +148,17 @@ std::int64_t integer(const std::string &value, const char *name) {
   if (used != value.size()) throw std::runtime_error(std::string("invalid ") + name);
   return result;
 }
+#ifdef __linux__
+int open_page_keys() {
+  for (int index = 0; index < 16; ++index) {
+    const std::string event = "event" + std::to_string(index);
+    if (trim(read_file("/sys/class/input/" + event + "/device/name")) ==
+        "gpiokey")
+      return ::open(("/dev/input/" + event).c_str(), O_RDONLY | O_NONBLOCK);
+  }
+  return -1;
+}
+#endif
 } // namespace
 
 HttpServer::HttpServer(ServerOptions options) : options_(std::move(options)) {
@@ -162,11 +179,31 @@ int HttpServer::run() {
   if (::listen(listener, 8) != 0) { ::close(listener); throw std::runtime_error("listen failed"); }
   std::cout << "AnkINK daemon listening at http://127.0.0.1:" << options_.port << "/\n";
   if (!collection_.is_open()) std::cerr << "AnkINK collection: " << collection_error_ << '\n';
+  int page_keys = -1;
+  std::string page_action;
+#ifdef __linux__
+  page_keys = open_page_keys();
+  if (page_keys >= 0) std::cout << "AnkINK input: physical page buttons enabled\n";
+#endif
   while (!stop_requested) {
     fd_set set; FD_ZERO(&set); FD_SET(listener, &set); timeval timeout{1, 0};
-    const int ready = select(listener + 1, &set, nullptr, nullptr, &timeout);
+    int highest = listener;
+    if (page_keys >= 0) { FD_SET(page_keys, &set); highest = std::max(highest, page_keys); }
+    const int ready = select(highest + 1, &set, nullptr, nullptr, &timeout);
     if (ready < 0 && errno == EINTR) continue;
     if (ready <= 0) continue;
+#ifdef __linux__
+    if (page_keys >= 0 && FD_ISSET(page_keys, &set)) {
+      input_event event{};
+      while (::read(page_keys, &event, sizeof(event)) == sizeof(event)) {
+        if (event.type == EV_KEY && event.value == 1) {
+          if (event.code == KEY_PAGEUP) page_action = "forward";
+          else if (event.code == KEY_PAGEDOWN) page_action = "backward";
+        }
+      }
+    }
+#endif
+    if (!FD_ISSET(listener, &set)) continue;
     const int client = ::accept(listener, nullptr, nullptr);
     if (client < 0) continue;
     timeval io_timeout{5, 0};
@@ -184,6 +221,12 @@ int HttpServer::run() {
           R"(,"collection":)" + json_string(options_.collection_path) +
           R"(,"error":)" + json_string(collection_error_) + "}";
         respond(client, 200, "OK", "application/json; charset=utf-8", body);
+      } else if (request.method == "GET" && request.target == "/api/input") {
+        const std::string action = page_action;
+        page_action.clear();
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                std::string(R"({"type":"input","action":)") +
+                    json_string(action) + "}");
       } else if (request.method == "GET" && request.target == "/api/decks") {
         const std::string body = collection_.is_open() ? collection_.decks_json() :
           std::string(R"({"type":"decks","path":)") + json_string(options_.collection_path) +
@@ -200,6 +243,19 @@ int HttpServer::run() {
         const auto rating = integer(form_value(request.body, "rating"), "rating");
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 collection_.answer_json(card, static_cast<int>(rating)));
+      } else if (request.method == "POST" && request.target == "/api/undo") {
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                collection_.undo_json());
+      } else if (request.method == "POST" && request.target == "/api/refresh") {
+        const int result = std::system(
+            "if [ -x /usr/bin/fbink ]; then /usr/bin/fbink -q -f -s; "
+            "elif [ -x /mnt/us/extensions/MRInstaller/bin/PW2/fbink ]; then "
+            "/mnt/us/extensions/MRInstaller/bin/PW2/fbink -q -f -s; "
+            "else exit 1; fi >/dev/null 2>&1");
+        if (result != 0)
+          throw std::runtime_error("Full refresh requires a working /usr/bin/fbink command");
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                R"({"type":"refreshed"})");
       } else if (request.method == "POST" && request.target == "/api/auth/login") {
         const std::string username = form_value(request.body, "username");
         const std::string password = form_value(request.body, "password");
@@ -242,6 +298,7 @@ int HttpServer::run() {
     }
     ::close(client);
   }
+  if (page_keys >= 0) ::close(page_keys);
   ::close(listener); return 0;
 }
 } // namespace ankink

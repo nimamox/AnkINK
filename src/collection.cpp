@@ -250,6 +250,10 @@ std::string Collection::next_card_json(std::int64_t deck_id) {
 std::string Collection::answer_json(std::int64_t card_id, int rating) {
   return impl_->answer_json(card_id, rating);
 }
+
+std::string Collection::undo_json() {
+  return R"({"type":"error","message":"Undo requires the Anki backend"})";
+}
 std::string Collection::login_json(const std::string &, const std::string &) {
   return R"({"type":"error","message":"This build does not include AnkiWeb sync"})";
 }
