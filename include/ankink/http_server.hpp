@@ -6,7 +6,9 @@ namespace ankink {
 struct ServerOptions {
   std::string collection_path{"/var/local/ankink/collection.anki2"};
   std::string asset_dir{"assets"};
+  std::string simulator_asset_dir{"simulator"};
   std::uint16_t port{8765};
+  bool simulator{};
 };
 class HttpServer {
 public:

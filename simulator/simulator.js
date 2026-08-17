@@ -1,0 +1,76 @@
+(function () {
+  "use strict";
+  var DEFAULT_DEVICE = "kindle-oasis-8";
+  var devices = window.ANKINK_KINDLE_DEVICES || [];
+  var selector = document.getElementById("device");
+  var frame = document.getElementById("device-frame");
+  var screen = document.getElementById("device-screen");
+  var iframe = document.getElementById("ankink");
+  var details = document.getElementById("details");
+  var fit = true;
+  var current;
+
+  function findDevice(id) {
+    var i;
+    for (i = 0; i < devices.length; ++i) if (devices[i].id === id) return devices[i];
+    for (i = 0; i < devices.length; ++i) if (devices[i].id === DEFAULT_DEVICE) return devices[i];
+    return devices[0];
+  }
+  function scaleFor(device) {
+    if (!fit) return 1;
+    return Math.min(1,
+      (window.innerWidth - 250) / device.width,
+      (window.innerHeight - 118) / device.height);
+  }
+  function layout() {
+    if (!current) return;
+    var scale = Math.max(0.1, scaleFor(current));
+    iframe.style.width = current.width + "px";
+    iframe.style.height = current.height + "px";
+    screen.style.width = current.width + "px";
+    screen.style.height = current.height + "px";
+    screen.style.transform = "scale(" + scale + ")";
+    frame.style.width = Math.round(current.width * scale) + 18 + "px";
+    frame.style.height = Math.round(current.height * scale) + 18 + "px";
+    details.innerHTML = current.width + " &times; " + current.height +
+      " &middot; " + current.family + " &middot; " + Math.round(scale * 100) + "%";
+    document.getElementById("fit").innerHTML = fit ? "100%" : "Fit window";
+  }
+  function selectDevice(id) {
+    current = findDevice(id);
+    selector.value = current.id;
+    window.localStorage.setItem("ankink_simulator_device", current.id);
+    layout();
+  }
+  function sendInput(action) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/simulator/input", true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.send("action=" + encodeURIComponent(action));
+  }
+  function reload() { iframe.src = "/?simulator=" + new Date().getTime(); }
+
+  devices.forEach(function (device) {
+    var option = document.createElement("option");
+    option.value = device.id;
+    option.appendChild(document.createTextNode(device.label));
+    selector.appendChild(option);
+  });
+  selector.onchange = function () { selectDevice(selector.value); };
+  document.getElementById("backward").onclick = function () { sendInput("backward"); };
+  document.getElementById("forward").onclick = function () { sendInput("forward"); };
+  document.getElementById("reload").onclick = reload;
+  document.getElementById("fit").onclick = function () { fit = !fit; layout(); };
+  window.onresize = layout;
+  document.onkeydown = function (event) {
+    event = event || window.event;
+    if (event.target && /input|select|textarea/i.test(event.target.tagName)) return;
+    if (event.key === "ArrowLeft" || event.key === "PageUp" || event.keyCode === 37 || event.keyCode === 33) {
+      sendInput("backward"); event.preventDefault();
+    } else if (event.key === "ArrowRight" || event.key === "PageDown" || event.keyCode === 39 || event.keyCode === 34) {
+      sendInput("forward"); event.preventDefault();
+    }
+  };
+  selectDevice(window.localStorage.getItem("ankink_simulator_device") || DEFAULT_DEVICE);
+  reload();
+}());

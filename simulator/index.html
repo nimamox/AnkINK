@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AnkINK Kindle Simulator</title>
+  <link rel="stylesheet" href="/simulator/simulator.css">
+</head>
+<body>
+  <header class="toolbar">
+    <strong>AnkINK Kindle Simulator</strong>
+    <label for="device">Device</label>
+    <select id="device"></select>
+    <span id="details"></span>
+    <button id="fit" type="button">100%</button>
+    <button id="reload" type="button">Reload UI</button>
+  </header>
+  <main id="workspace">
+    <button class="page-key backward" id="backward" type="button">
+      <span>&#9664;</span><small>Backward</small>
+    </button>
+    <div id="device-frame">
+      <div id="device-screen">
+        <iframe id="ankink" title="AnkINK application"></iframe>
+      </div>
+    </div>
+    <button class="page-key forward" id="forward" type="button">
+      <span>&#9654;</span><small>Forward</small>
+    </button>
+  </main>
+  <footer>Page Up / Left: backward &middot; Page Down / Right: forward</footer>
+  <script src="/simulator/devices.js"></script>
+  <script src="/simulator/simulator.js"></script>
+</body>
+</html>

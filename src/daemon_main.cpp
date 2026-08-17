@@ -1,5 +1,6 @@
 #include "ankink/http_server.hpp"
 #include <csignal>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <stdexcept>
@@ -10,7 +11,9 @@ namespace {
 void stop_server(int) { ankink::HttpServer::request_stop(); }
 void usage(const char *program) {
   std::cout << "Usage: " << program
-            << " [--collection FILE] [--assets DIRECTORY] [--port PORT]\n";
+            << " [--collection FILE] [--assets DIRECTORY] [--port PORT]\n"
+               "       [--simulator] [--simulator-assets DIRECTORY]"
+               " [--data-dir DIRECTORY]\n";
 }
 } // namespace
 
@@ -20,10 +23,19 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
       const std::string argument = argv[i];
       if (argument == "--help" || argument == "-h") { usage(argv[0]); return 0; }
+      if (argument == "--simulator") {
+        options.simulator = true;
+        continue;
+      }
       if (i + 1 >= argc) throw std::runtime_error("missing value for " + argument);
       const std::string value = argv[++i];
       if (argument == "--collection") options.collection_path = value;
       else if (argument == "--assets") options.asset_dir = value;
+      else if (argument == "--simulator-assets") options.simulator_asset_dir = value;
+      else if (argument == "--data-dir") {
+        if (::setenv("ANKINK_DATA_DIR", value.c_str(), 1) != 0)
+          throw std::runtime_error("could not set AnkINK data directory");
+      }
       else if (argument == "--port") {
         const long port = std::stol(value);
         if (port < 1 || port > 65535) throw std::runtime_error("invalid port");

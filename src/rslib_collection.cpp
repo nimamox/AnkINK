@@ -3,6 +3,7 @@
 #include "ankink/anki_backend.h"
 
 #include <cerrno>
+#include <cstdlib>
 #include <cstdio>
 #include <sstream>
 #include <fstream>
@@ -21,20 +22,26 @@ std::string take_json(char *value) {
   return result;
 }
 
-constexpr const char *host_key_directory = "/var/local/ankink";
-constexpr const char *host_key_path = "/var/local/ankink/host-key";
+std::string data_directory() {
+  const char *configured = std::getenv("ANKINK_DATA_DIR");
+  return configured && *configured ? configured : "/var/local/ankink";
+}
+
+std::string host_key_path() { return data_directory() + "/host-key"; }
 
 std::string read_host_key() {
-  std::ifstream input(host_key_path, std::ios::binary);
+  std::ifstream input(host_key_path(), std::ios::binary);
   std::string key;
   std::getline(input, key);
   return key;
 }
 
 bool write_host_key(const std::string &key) {
-  if (::mkdir(host_key_directory, 0700) != 0 && errno != EEXIST)
+  const std::string directory = data_directory();
+  if (::mkdir(directory.c_str(), 0700) != 0 && errno != EEXIST)
     return false;
-  const std::string temporary = std::string(host_key_path) + ".tmp";
+  const std::string path = host_key_path();
+  const std::string temporary = path + ".tmp";
   {
     std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
     if (!output)
@@ -44,7 +51,7 @@ bool write_host_key(const std::string &key) {
       return false;
   }
   ::chmod(temporary.c_str(), 0600);
-  return ::rename(temporary.c_str(), host_key_path) == 0;
+  return ::rename(temporary.c_str(), path.c_str()) == 0;
 }
 
 } // namespace
@@ -167,7 +174,8 @@ std::string Collection::login_json(const std::string &username,
 }
 
 std::string Collection::logout_json() {
-  ::unlink(host_key_path);
+  const std::string path = host_key_path();
+  ::unlink(path.c_str());
   return take_json(ankink_anki_logout(impl_->backend_));
 }
 

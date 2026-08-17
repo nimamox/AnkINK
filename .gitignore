@@ -2,6 +2,8 @@
 /build*/
 /cmake-build-*/
 /dist/
+/.ankink-simulator/
+/third_party/anki/
 
 # Credentials and device-local collections
 config.json

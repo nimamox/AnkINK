@@ -1,0 +1,78 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #26282b;
+  color: #f4f4f4;
+  font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.toolbar {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #17191b;
+  border-bottom: 1px solid #414449;
+}
+.toolbar strong { font-size: 16px; margin-right: 8px; }
+.toolbar select { min-width: 340px; max-width: 42vw; }
+.toolbar select, .toolbar button {
+  height: 34px;
+  border: 1px solid #666b72;
+  border-radius: 5px;
+  background: #30343a;
+  color: #fff;
+  padding: 0 10px;
+}
+#details { color: #b9bec5; white-space: nowrap; }
+#fit { margin-left: auto; }
+#workspace {
+  height: calc(100% - 82px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  overflow: auto;
+  padding: 14px;
+}
+#device-frame {
+  position: relative;
+  flex: 0 0 auto;
+  background: #070707;
+  border: 9px solid #111;
+  border-radius: 8px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, .55);
+  overflow: hidden;
+}
+#device-screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+#ankink { display: block; border: 0; background: #fff; }
+.page-key {
+  flex: 0 0 84px;
+  width: 84px;
+  height: 110px;
+  border: 1px solid #656a70;
+  border-radius: 9px;
+  background: #181a1d;
+  color: #eee;
+  cursor: pointer;
+}
+.page-key:hover { background: #35393e; }
+.page-key:active { transform: translateY(2px); background: #555b62; }
+.page-key span { display: block; font-size: 30px; margin-bottom: 10px; }
+.page-key small { display: block; }
+footer {
+  height: 28px;
+  padding-top: 4px;
+  text-align: center;
+  color: #9ca1a8;
+  background: #17191b;
+}
+@media (max-width: 850px) {
+  .toolbar strong, .toolbar label, #details { display: none; }
+  .toolbar select { min-width: 0; max-width: none; flex: 1; }
+  #workspace { gap: 7px; padding: 7px; }
+  .page-key { width: 48px; flex-basis: 48px; }
+  .page-key small { display: none; }
+}

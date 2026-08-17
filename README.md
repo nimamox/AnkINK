@@ -41,18 +41,46 @@ USB-visible `/mnt/us` filesystem. Full upload is deliberately not exposed.
 
 ## Host development
 
+The host simulator runs the same HTML/CSS/JavaScript UI and official Anki Rust
+backend as the Kindle build. It stores its private, persistent collection,
+media, host key, and log under `.ankink-simulator/`. That directory and the
+downloaded pinned Anki source under `third_party/anki/` are gitignored. After
+the first AnkiWeb login and download, stopping and starting the simulator does
+not require another login.
+
+On macOS, install the native build prerequisites once:
+
 ```sh
-cmake -S . -B build-host -DANKINK_BUILD_APP=ON -DANKINK_BUILD_TESTS=ON
-cmake --build build-host --parallel
-ctest --test-dir build-host --output-on-failure
-./build-host/ankinkd --collection \
-  "$HOME/Library/Application Support/Anki2/main_account/collection.anki2" \
-  --assets ./assets
+brew install rust protobuf
 ```
 
-Open `http://127.0.0.1:8765/`. Host builds use the small SQLite fallback for UI
-development and unit tests; scheduling and sync behavior must be tested with an
-rslib build.
+Configure and run from a terminal with:
+
+```sh
+cmake -S . -B cmake-build-simulator \
+  -DANKINK_BUILD_SIMULATOR=ON \
+  -DANKINK_BUILD_TESTS=OFF
+cmake --build cmake-build-simulator --target ankink_simulator
+```
+
+The first build downloads the pinned Anki source and Rust crates. The target
+starts `ankinkd`, opens `http://127.0.0.1:8765/simulator/` in the default
+browser, and stops the daemon when the target is stopped. The wrapper defaults
+to the Kindle Oasis 8th generation and can switch among the supported Kindle
+profiles. Its Backward/Forward buttons and Page Up/Page Down or arrow keys feed
+the same input queue as the Oasis physical buttons.
+
+For CLion, create a CMake profile named `Host Simulator` using the local Apple
+Clang toolchain and `cmake-build-simulator` build directory. Add these CMake
+options:
+
+```text
+-DANKINK_BUILD_SIMULATOR=ON -DANKINK_BUILD_TESTS=OFF
+```
+
+Reload CMake, then build/run the `ankink_simulator` target. Stop that target in
+CLion to stop the local daemon. Normal non-simulator host builds can still use
+the lightweight SQLite fallback for unit tests.
 
 ## Official Anki backend build
 

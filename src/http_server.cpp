@@ -227,6 +227,17 @@ int HttpServer::run() {
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 std::string(R"({"type":"input","action":)") +
                     json_string(action) + "}");
+      } else if (request.method == "POST" &&
+                 request.target == "/api/simulator/input") {
+        if (!options_.simulator)
+          throw std::runtime_error("simulator input is disabled");
+        const std::string action = form_value(request.body, "action");
+        if (action != "forward" && action != "backward")
+          throw std::runtime_error("action must be forward or backward");
+        page_action = action;
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                std::string(R"({"type":"input","action":)") +
+                    json_string(action) + "}");
       } else if (request.method == "GET" && request.target == "/api/decks") {
         const std::string body = collection_.is_open() ? collection_.decks_json() :
           std::string(R"({"type":"decks","path":)") + json_string(options_.collection_path) +
@@ -247,6 +258,12 @@ int HttpServer::run() {
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 collection_.undo_json());
       } else if (request.method == "POST" && request.target == "/api/refresh") {
+        if (options_.simulator) {
+          respond(client, 200, "OK", "application/json; charset=utf-8",
+                  R"({"type":"refreshed","simulated":true})");
+          ::close(client);
+          continue;
+        }
         const int result = std::system(
             "if [ -x /usr/bin/fbink ]; then /usr/bin/fbink -q -f -s; "
             "elif [ -x /mnt/us/extensions/MRInstaller/bin/PW2/fbink ]; then "
@@ -286,6 +303,21 @@ int HttpServer::run() {
         const std::string body = read_file(media_dir + name);
         if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
         else respond(client, 200, "OK", mime_type(name), body);
+      } else if (request.method == "GET" && options_.simulator &&
+                 (request.target == "/simulator" ||
+                  request.target.compare(0, 11, "/simulator/") == 0)) {
+        const std::string relative =
+            request.target == "/simulator" || request.target == "/simulator/"
+                ? "index.html"
+                : request.target.substr(11);
+        if (relative.find("..") != std::string::npos)
+          throw std::runtime_error("invalid simulator asset path");
+        const std::string body =
+            read_file(options_.simulator_asset_dir + "/" + relative);
+        if (body.empty())
+          respond(client, 404, "Not Found", "text/plain", "Not found\n");
+        else
+          respond(client, 200, "OK", mime_type(relative), body);
       } else if (request.method == "GET" && request.target.find("..") == std::string::npos) {
         const std::string relative = request.target == "/" ? "index.html" : request.target.substr(1);
         const std::string body = read_file(options_.asset_dir + "/" + relative);
