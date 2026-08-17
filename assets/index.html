@@ -7,61 +7,41 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <header class="app-header">
-    <div>
-      <h1>Ank<span>INK</span></h1>
-      <p id="status">Starting WPE WebKit…</p>
+  <div class="app-header">
+    <div class="brand"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></div>
+    <button id="refresh" class="header-button" type="button">Refresh</button>
+  </div>
+  <div id="warning" class="warning hidden"></div>
+
+  <div id="decks-view">
+    <div class="section-heading">
+      <p class="eyebrow">COLLECTION</p><h2>Choose a deck</h2>
+      <p id="collection-path" class="path"></p>
     </div>
-    <div class="header-actions">
-      <button id="refresh" class="icon-button" type="button" aria-label="Full screen refresh">↻</button>
-      <button id="quit" class="icon-button" type="button" aria-label="Exit AnkINK">×</button>
+    <div id="decks" class="deck-list"><div class="empty-state">Loading decks...</div></div>
+  </div>
+
+  <div id="review-view" class="hidden">
+    <div class="review-toolbar">
+      <button id="back" class="text-button" type="button">&lsaquo; Decks</button>
+      <div class="review-title"><p class="eyebrow">REVIEWING</p><h2 id="review-title">Deck</h2></div>
+      <div id="session-count" class="session-count">0 reviewed</div>
     </div>
-  </header>
-
-  <aside id="warning" class="warning hidden" role="status"></aside>
-
-  <main>
-    <section id="decks-view" aria-labelledby="decks-title">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">COLLECTION</p>
-          <h2 id="decks-title">Choose a deck</h2>
-        </div>
-        <p id="collection-path" class="path"></p>
-      </div>
-      <div id="decks" class="deck-list" aria-live="polite">
-        <div class="empty-state">Loading decks…</div>
-      </div>
-    </section>
-
-    <section id="review-view" class="hidden" aria-labelledby="review-title">
-      <div class="review-toolbar">
-        <button id="back" class="text-button" type="button">‹ Decks</button>
-        <div>
-          <p class="eyebrow">REVIEWING</p>
-          <h2 id="review-title">Deck</h2>
-        </div>
-        <div id="session-count" class="session-count">0 reviewed</div>
-      </div>
-
-      <article id="card" class="card">
-        <div id="front" class="card-face"></div>
-        <div id="answer-divider" class="answer-divider hidden"><span>ANSWER</span></div>
-        <div id="back-face" class="card-face answer hidden"></div>
-      </article>
-
-      <div id="show-controls" class="controls single">
-        <button id="show-answer" class="primary" type="button">Show answer</button>
-      </div>
-      <div id="rating-controls" class="controls ratings hidden" aria-label="Rate answer">
-        <button type="button" data-rating="1"><strong>Again</strong><small>1</small></button>
-        <button type="button" data-rating="2"><strong>Hard</strong><small>2</small></button>
-        <button type="button" data-rating="3"><strong>Good</strong><small>3</small></button>
-        <button type="button" data-rating="4"><strong>Easy</strong><small>4</small></button>
-      </div>
-    </section>
-  </main>
-
+    <div id="card" class="card">
+      <div id="front" class="card-face">Loading...</div>
+      <div id="answer-divider" class="answer-divider hidden">ANSWER</div>
+      <div id="back-face" class="card-face answer hidden"></div>
+    </div>
+    <div id="show-controls" class="controls">
+      <button id="show-answer" class="primary" type="button">Show answer</button>
+    </div>
+    <div id="rating-controls" class="controls ratings hidden">
+      <button id="rating-1" type="button"><strong>Again</strong><small>1</small></button>
+      <button id="rating-2" type="button"><strong>Hard</strong><small>2</small></button>
+      <button id="rating-3" type="button"><strong>Good</strong><small>3</small></button>
+      <button id="rating-4" type="button"><strong>Easy</strong><small>4</small></button>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

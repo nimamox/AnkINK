@@ -218,6 +218,8 @@ public:
   }
 
   std::string answer_json(std::int64_t card_id, int rating) {
+    if (!database_)
+      return R"({"type":"error","message":"No collection is open"})";
     if (rating < 1 || rating > 4)
       return R"({"type":"error","message":"Rating must be between 1 and 4"})";
     reviewed_.insert(card_id);

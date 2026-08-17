@@ -11,6 +11,14 @@
           "params": "",
           "status": false,
           "internal": "status Start AnkINK"
+        },
+        {
+          "name": "Stop AnkINK backend",
+          "priority": 2,
+          "action": "/mnt/us/ankink/stop-ankink.sh",
+          "params": "",
+          "status": false,
+          "internal": "status Stop AnkINK backend"
         }
       ]
     }

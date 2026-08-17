@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<widget id="org.ankink.app" version="0.2.0" viewmodes="application"
+  xmlns="http://www.w3.org/ns/widgets"
+  xmlns:kindle="http://kindle.amazon.com/ns/widget-extensions">
+  <name xml:lang="en">AnkINK</name>
+  <description xml:lang="en">Anki study client for Kindle</description>
+  <content src="index.html" />
+  <kindle:permissions>
+    <kindle:permission name="local-port-access" />
+  </kindle:permissions>
+  <kindle:network>
+    <kindle:asset key="initialDNS" value="false" />
+    <kindle:asset key="maxConnections" value="2" />
+    <kindle:asset key="maxConnectionsPerHost" value="2" />
+    <kindle:asset key="overrideProxy" value="none" />
+    <kindle:asset key="enableCaching" value="false" />
+  </kindle:network>
+  <kindle:chrome>
+    <kindle:asset key="configureSearchBar" value="system" />
+  </kindle:chrome>
+  <kindle:gestures>
+    <kindle:param name="tap" value="yes" properties="fire_on_tap:1 max_updown_delta:0" />
+    <kindle:param name="swipe" value="yes" />
+  </kindle:gestures>
+  <feature name="http://kindle.amazon.com/apis" required="true">
+    <param name="appmgr" value="yes" />
+    <param name="gestures" value="yes" />
+    <param name="chrome" value="yes" />
+    <param name="device" value="yes" />
+    <param name="winmgrUtils" value="yes" />
+  </feature>
+  <kindle:settings>
+    <kindle:setting name="internetRequired" value="yes" />
+    <kindle:setting name="saveContext" value="no" />
+    <kindle:setting name="disable-wua-features" value="yes" />
+  </kindle:settings>
+</widget>

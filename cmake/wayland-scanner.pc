@@ -1,8 +1,0 @@
-prefix=/home/nima/ankink-sdk/tools/host-tools/root/usr
-bindir=${prefix}/bin
-
-wayland_scanner=${bindir}/wayland-scanner
-
-Name: Wayland Scanner
-Description: User-local Wayland protocol scanner for the Mesa cross-build
-Version: 1.20.0
