@@ -41,8 +41,8 @@ std::vector<unsigned long> event_bits(int fd, int type, unsigned int maximum) {
 }
 
 std::uint32_t event_time_ms(const input_event &event) {
-  return static_cast<std::uint32_t>(event.time.tv_sec * 1000ULL +
-                                    event.time.tv_usec / 1000ULL);
+  return static_cast<std::uint32_t>(event.input_event_sec * 1000ULL +
+                                    event.input_event_usec / 1000ULL);
 }
 
 } // namespace

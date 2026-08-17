@@ -10,6 +10,7 @@ struct Options {
   std::string collection_path{"/mnt/us/ankink/collection.anki2"};
   std::string assets_path;
   std::uint32_t full_refresh_every{20};
+  std::uint32_t render_scale{1};
   bool input_enabled{true};
 };
 

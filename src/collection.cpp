@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
+#include <cstring>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -48,6 +50,28 @@ std::vector<std::string> split_fields(const std::string &fields) {
     start = separator + 1;
   }
   return result;
+}
+
+int compare_unicase(void *, int left_size, const void *left_value,
+                    int right_size, const void *right_value) {
+  const auto *left = static_cast<const unsigned char *>(left_value);
+  const auto *right = static_cast<const unsigned char *>(right_value);
+  const int common = std::min(left_size, right_size);
+  for (int index = 0; index < common; ++index) {
+    // Anki requires this collation to parse its schema. AnkINK's current
+    // read-only queries do not use the associated note-field indexes, but an
+    // ASCII case fold preserves their expected behavior for common content.
+    const unsigned char left_folded =
+        left[index] < 0x80 ? static_cast<unsigned char>(std::tolower(left[index]))
+                           : left[index];
+    const unsigned char right_folded =
+        right[index] < 0x80
+            ? static_cast<unsigned char>(std::tolower(right[index]))
+            : right[index];
+    if (left_folded != right_folded)
+      return left_folded < right_folded ? -1 : 1;
+  }
+  return (left_size > right_size) - (left_size < right_size);
 }
 
 } // namespace
@@ -113,6 +137,15 @@ public:
         sqlite3_close(database_);
         database_ = nullptr;
       }
+      return false;
+    }
+
+    const int collation_result = sqlite3_create_collation_v2(
+        database_, "unicase", SQLITE_UTF8, nullptr, &compare_unicase, nullptr);
+    if (collation_result != SQLITE_OK) {
+      error = sqlite3_errmsg(database_);
+      sqlite3_close(database_);
+      database_ = nullptr;
       return false;
     }
 

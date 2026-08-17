@@ -81,6 +81,12 @@ Options parse_options(int argc, char **argv) {
         throw std::invalid_argument(
             "--full-refresh-every must be between 1 and 1000");
       options.full_refresh_every = static_cast<std::uint32_t>(parsed);
+    } else if (argument == "--render-scale") {
+      const auto value = require_value(index, argc, argv, "--render-scale");
+      const auto parsed = std::stoul(value);
+      if (parsed == 0 || parsed > 4)
+        throw std::invalid_argument("--render-scale must be between 1 and 4");
+      options.render_scale = static_cast<std::uint32_t>(parsed);
     } else if (argument == "--no-input")
       options.input_enabled = false;
     else if (argument == "--help" || argument == "-h")
@@ -96,6 +102,7 @@ std::string usage(const char *executable) {
   --collection PATH         Read cards from this Anki collection
   --assets PATH             Serve the AnkINK web UI from this directory
   --full-refresh-every N    Flash after N partial updates (default: 20)
+  --render-scale N          Render at 1/N resolution and scale to e-ink (1-4)
   --no-input                Do not open /dev/input touch devices
   -h, --help                Show this help
 )";
@@ -105,15 +112,19 @@ class Application::Impl {
 public:
   explicit Impl(Options options) : options_(std::move(options)) {
     resolve_assets();
+    presenter_ = std::make_unique<FBInkPresenter>(options_.full_refresh_every);
+
     std::string collection_error;
     if (!collection_.open(options_.collection_path, collection_error))
       startup_error_ = "Could not open " + options_.collection_path + ": " +
                        collection_error;
 
-    presenter_ = std::make_unique<FBInkPresenter>(options_.full_refresh_every);
     const auto &display = presenter_->display_info();
-    wpe_ =
-        std::make_unique<WPEView>(*presenter_, display.width, display.height);
+    const auto render_width =
+        std::max(1U, display.width / options_.render_scale);
+    const auto render_height =
+        std::max(1U, display.height / options_.render_scale);
+    wpe_ = std::make_unique<WPEView>(*presenter_, render_width, render_height);
 
     loop_ = g_main_loop_new(nullptr, FALSE);
     context_ = webkit_web_context_new();
@@ -128,7 +139,7 @@ public:
     webkit_settings_set_enable_write_console_messages_to_stdout(settings_,
                                                                 TRUE);
     webkit_settings_set_default_font_size(settings_, 24);
-    webkit_settings_set_monospace_font_size(settings_, 22);
+    webkit_settings_set_default_monospace_font_size(settings_, 22);
 
     webkit_web_context_register_uri_scheme(
         context_, "ankink", &Impl::on_uri_request, this, nullptr);
@@ -138,8 +149,12 @@ public:
     webkit_security_manager_register_uri_scheme_as_cors_enabled(security,
                                                                 "ankink");
 
-    if (!webkit_user_content_manager_register_script_message_handler(manager_,
-                                                                     "ankink"))
+    if (!webkit_user_content_manager_register_script_message_handler(
+            manager_, "ankink"
+#ifdef ANKINK_WPE_API_2
+            , nullptr
+#endif
+            ))
       throw std::runtime_error(
           "registering the AnkINK JavaScript bridge failed");
     g_signal_connect(manager_, "script-message-received::ankink",
@@ -153,12 +168,18 @@ public:
     if (!view_)
       throw std::runtime_error("creating the WPE WebView failed");
 
-    const float scale =
-        std::clamp(static_cast<float>(display.dpi) / 160.0F, 1.0F, 2.0F);
+    const float scale = std::clamp(
+        static_cast<float>(display.dpi) /
+            (160.0F * static_cast<float>(options_.render_scale)),
+        1.0F, 2.0F);
     wpe_->activate(scale);
 
     if (options_.input_enabled)
-      input_ = std::make_unique<InputManager>(wpe_->backend(), display);
+      input_ = std::make_unique<InputManager>(
+          wpe_->backend(),
+          DisplayInfo{render_width, render_height, display.dpi,
+                      display.touch_swap_axes, display.touch_mirror_x,
+                      display.touch_mirror_y});
     webkit_web_view_load_uri(view_, "ankink://app/index.html");
     signal_sources_.push_back(
         g_unix_signal_add(SIGINT, &Impl::on_signal, this));
@@ -175,8 +196,12 @@ public:
     if (view_)
       g_object_unref(view_);
     if (manager_) {
-      webkit_user_content_manager_unregister_script_message_handler(manager_,
-                                                                    "ankink");
+      webkit_user_content_manager_unregister_script_message_handler(
+          manager_, "ankink"
+#ifdef ANKINK_WPE_API_2
+          , nullptr
+#endif
+          );
       g_object_unref(manager_);
     }
     if (settings_)
@@ -209,8 +234,16 @@ public:
       return;
     const std::string script =
         "window.AnkINK&&window.AnkINK.receive(" + json + ");";
-    webkit_web_view_run_javascript(view_, script.c_str(), nullptr, nullptr,
-                                   nullptr);
+    evaluate_javascript(script.c_str());
+  }
+
+  void evaluate_javascript(const char *script) {
+#ifdef ANKINK_WPE_API_2
+    webkit_web_view_evaluate_javascript(view_, script, -1, nullptr, nullptr,
+                                        nullptr, nullptr, nullptr);
+#else
+    webkit_web_view_run_javascript(view_, script, nullptr, nullptr, nullptr);
+#endif
   }
 
   void handle_message(const std::string &message) {
@@ -237,9 +270,10 @@ public:
                                      std::stoi(fields[2])));
       } else if (fields[0] == "refresh") {
         presenter_->force_full_refresh();
-        webkit_web_view_run_javascript(
-            view_, "document.documentElement.dataset.refresh=Date.now()",
-            nullptr, nullptr, nullptr);
+        evaluate_javascript(
+            "document.documentElement.dataset.refresh=Date.now()");
+      } else if (fields[0] == "quit") {
+        std::_Exit(EXIT_SUCCESS);
       } else {
         send(R"({"type":"error","message":"Unknown native request"})");
       }
@@ -250,9 +284,16 @@ public:
   }
 
   static void on_script_message(WebKitUserContentManager *,
-                                WebKitJavascriptResult *result, gpointer data) {
+#ifdef ANKINK_WPE_API_2
+                                JSCValue *value,
+#else
+                                WebKitJavascriptResult *result,
+#endif
+                                gpointer data) {
     auto &self = *static_cast<Impl *>(data);
+#ifndef ANKINK_WPE_API_2
     JSCValue *value = webkit_javascript_result_get_js_value(result);
+#endif
     if (!jsc_value_is_string(value)) {
       self.send(
           R"({"type":"error","message":"Native messages must be strings"})");
@@ -290,7 +331,7 @@ public:
       return;
     }
     std::string contents{std::istreambuf_iterator<char>(stream), {}};
-    void *copy = g_memdup(contents.data(), contents.size());
+    void *copy = g_memdup2(contents.data(), contents.size());
     GInputStream *input =
         g_memory_input_stream_new_from_data(copy, contents.size(), g_free);
     const auto mime = mime_type(file);
@@ -300,9 +341,11 @@ public:
   }
 
   static gboolean on_signal(gpointer data) {
-    auto &self = *static_cast<Impl *>(data);
-    g_main_loop_quit(self.loop_);
-    return G_SOURCE_REMOVE;
+    (void)data;
+    // WPE WebKit 2.48's process-wide teardown is not safe on the Kindle's
+    // Linux 3.0 userspace combination. At this point the OS can reclaim every
+    // descriptor and subprocess; avoid unloading WebKit/backend DSOs.
+    std::_Exit(EXIT_SUCCESS);
   }
 
   int run() {

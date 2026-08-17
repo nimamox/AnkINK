@@ -3,6 +3,7 @@
 #include "ankink/frame.hpp"
 
 #include <wpe/fdo.h>
+#include <wpe/unstable/fdo-shm.h>
 #include <wpe/wpe.h>
 
 #include <drm_fourcc.h>
@@ -15,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -23,6 +25,36 @@
 namespace ankink {
 
 namespace {
+
+void initialize_wpe_backend() {
+  static const bool initialized = [] {
+    const char *backend_library = std::getenv("WPE_BACKEND_LIBRARY");
+    if (!backend_library || backend_library[0] != '/')
+      throw std::runtime_error(
+          "WPE_BACKEND_LIBRARY must name the absolute path to "
+          "libWPEBackend-fdo");
+
+    // libwpe only consults WPE_BACKEND_LIBRARY in debug builds. Initialize
+    // its loader explicitly so release builds cannot silently select the
+    // incompatible default backend.
+    if (!wpe_loader_init(backend_library))
+      throw std::runtime_error(std::string("failed to load WPE backend: ") +
+                               backend_library);
+
+    const char *loaded = wpe_loader_get_loaded_implementation_library_name();
+    if (!loaded || !*loaded)
+      throw std::runtime_error("libwpe did not report a loaded backend");
+
+    // Export CPU-readable wl_shm buffers. WPEBackend-fdo requires exactly one
+    // of its EGL or SHM initializers before an exportable backend is created.
+    if (!wpe_fdo_initialize_shm())
+      throw std::runtime_error("WPEBackend-fdo SHM initialization failed");
+
+    std::cerr << "AnkINK WPE: loaded " << loaded << " (SHM export)\n";
+    return true;
+  }();
+  (void)initialized;
+}
 
 PixelFormat wayland_format(std::uint32_t format) {
   switch (format) {
@@ -62,6 +94,7 @@ class WPEView::Impl {
 public:
   Impl(FBInkPresenter &presenter, std::uint32_t width, std::uint32_t height)
       : presenter_(presenter) {
+    initialize_wpe_backend();
     static const wpe_view_backend_exportable_fdo_client client{
         &Impl::export_buffer_resource,
         &Impl::export_dmabuf_resource,

@@ -40,12 +40,24 @@ void changes_are_merged_and_cropped() {
           "identical frames should not refresh");
 }
 
+void nearest_resize_preserves_pixel_blocks() {
+  const ankink::GrayFrame source{2, 2, {0, 64, 128, 255}};
+  const auto scaled = ankink::resize_nearest(source, 4, 4);
+  require(scaled.width == 4 && scaled.height == 4,
+          "scaled dimensions are wrong");
+  require(scaled.pixels == std::vector<std::uint8_t>({
+                               0, 0, 64, 64, 0, 0, 64, 64,
+                               128, 128, 255, 255, 128, 128, 255, 255}),
+          "nearest-neighbour pixels are wrong");
+}
+
 } // namespace
 
 int main() {
   try {
     conversion_honors_stride_and_channel_order();
     changes_are_merged_and_cropped();
+    nearest_resize_preserves_pixel_blocks();
     std::cout << "AnkINK core tests passed\n";
     return EXIT_SUCCESS;
   } catch (const std::exception &error) {

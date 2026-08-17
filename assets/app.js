@@ -160,6 +160,7 @@
     window.scrollTo(0, 0);
   });
   $("refresh").addEventListener("click", () => native("refresh"));
+  $("quit").addEventListener("click", () => native("quit"));
 
   document.addEventListener("keydown", (event) => {
     const forward = ["PageDown", "ArrowDown", "ArrowRight"].includes(event.key);

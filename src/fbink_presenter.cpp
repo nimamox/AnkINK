@@ -55,10 +55,10 @@ public:
   }
 
   void present(GrayFrame frame) {
-    if (!frame.valid() || frame.width != info_.width ||
-        frame.height != info_.height)
-      throw std::invalid_argument(
-          "WebKit frame size does not match the FBInk viewport");
+    if (!frame.valid())
+      throw std::invalid_argument("WebKit exported an invalid frame");
+    if (frame.width != info_.width || frame.height != info_.height)
+      frame = resize_nearest(frame, info_.width, info_.height);
 
     auto changed = changed_bounds(previous_, frame);
     if (!changed)

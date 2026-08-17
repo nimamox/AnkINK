@@ -1,0 +1,8 @@
+prefix=/usr
+libdir=${prefix}/lib/arm-linux-gnueabi
+
+Name: Wayland EGL backend
+Description: Wayland EGL platform support from the ARMEL sysroot
+Version: 3
+Libs: -L${libdir} -lwayland-egl
+Cflags: -I${prefix}/include

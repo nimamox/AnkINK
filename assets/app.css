@@ -32,6 +32,7 @@ button:focus-visible { outline: 5px double var(--black); outline-offset: 3px; }
   justify-content: space-between;
   border-bottom: 4px solid var(--black);
 }
+.header-actions { display: flex; gap: .45rem; }
 
 h1, h2, p { margin: 0; }
 h1 { font: 800 2.1rem/1 "Amazon Ember", sans-serif; letter-spacing: -.08em; }
@@ -137,4 +138,3 @@ h2 { font: 700 1.65rem/1.15 "Amazon Ember", sans-serif; }
   .path { display: none; }
   .card { padding-left: 2vw; padding-right: 2vw; }
 }
-

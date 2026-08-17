@@ -104,7 +104,7 @@ uses an application-local library path so removal is recoverable.
 If the screen stays unchanged, run from SSH and check stderr in this order:
 
 1. FBInk recognizes the device and reports the expected viewport.
-2. `libWPEBackend-fdo-1.0.so` loads from the bundle.
+2. `libWPEBackend-fdo-1.0.so.1` loads from the bundle.
 3. Mesa creates a software EGL context for WPEBackend-fdo's private Wayland
    display.
 4. `WPEWebProcess` and `WPENetworkProcess` are found below `libexec`.

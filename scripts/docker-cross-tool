@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -eu
+
+tool=$(basename "$0")
+case "$tool" in
+  arm-linux-gnueabi-*) container=ankink-sdk-armel ;;
+  arm-linux-gnueabihf-*) container=ankink-sdk-armhf ;;
+  *)
+    echo "Unsupported cross-tool wrapper name: $tool" >&2
+    exit 64
+    ;;
+esac
+
+case "$PWD" in
+  /home/nima|/home/nima/*) ;;
+  *)
+    echo "The Docker cross-tool wrappers require a working directory below /home/nima" >&2
+    exit 64
+    ;;
+esac
+
+exec docker exec \
+  --user "$(id -u):$(id -g)" \
+  --workdir "$PWD" \
+  "$container" "$tool" "$@"

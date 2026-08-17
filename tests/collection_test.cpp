@@ -4,6 +4,8 @@
 #include <unistd.h>
 
 #include <cstdlib>
+#include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -35,8 +37,20 @@ int main() {
     sqlite3 *database = nullptr;
     require(sqlite3_open(path.c_str(), &database) == SQLITE_OK,
             "could not create test collection");
+    require(sqlite3_create_collation(
+                database, "unicase", SQLITE_UTF8, nullptr,
+                [](void *, int left_size, const void *left, int right_size,
+                   const void *right) {
+                  const int common = std::min(left_size, right_size);
+                  const int compared = std::memcmp(left, right, common);
+                  return compared ? compared
+                                  : (left_size > right_size) -
+                                        (left_size < right_size);
+                }) == SQLITE_OK,
+            "could not register test unicase collation");
     execute(database,
-            "CREATE TABLE decks(id INTEGER PRIMARY KEY, name TEXT NOT NULL)");
+            "CREATE TABLE decks(id INTEGER PRIMARY KEY, "
+            "name TEXT NOT NULL COLLATE unicase)");
     execute(database,
             "CREATE TABLE notes(id INTEGER PRIMARY KEY, flds TEXT NOT NULL)");
     execute(database, "CREATE TABLE cards(id INTEGER PRIMARY KEY, nid INTEGER, "

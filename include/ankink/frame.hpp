@@ -43,6 +43,12 @@ GrayFrame to_grayscale(const std::uint8_t *data, std::uint32_t width,
                        std::uint32_t height, std::size_t stride,
                        PixelFormat format);
 
+// Scales a grayscale frame without introducing intermediate gray levels. This
+// is intentionally nearest-neighbour: it is cheap on the Kindle and keeps text
+// edges crisp for the e-ink waveform.
+GrayFrame resize_nearest(const GrayFrame &frame, std::uint32_t width,
+                         std::uint32_t height);
+
 // Finds one conservative rectangle containing all changed pixels. E-ink
 // benefits more from one merged update than from a large number of tiny refresh
 // ioctls.

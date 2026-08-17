@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "name": "AnkINK",
+      "priority": 0,
+      "items": [
+        {
+          "name": "Start AnkINK",
+          "priority": 1,
+          "action": "/mnt/us/ankink/ankink.sh",
+          "params": "",
+          "status": false,
+          "internal": "status Start AnkINK"
+        }
+      ]
+    }
+  ]
+}
