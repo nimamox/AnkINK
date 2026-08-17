@@ -11,11 +11,36 @@
   <div class="app-header">
     <div class="brand"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></div>
     <div class="header-actions">
+      <span class="font-controls"><button id="font-plus" type="button">+</button><button id="font-minus" type="button">&minus;</button></span>
+      <button id="sync" class="header-button" type="button">Sync</button>
       <button id="refresh" class="header-button" type="button">Refresh</button>
       <button id="close" class="header-button" type="button">Close</button>
     </div>
   </div>
   <div id="warning" class="warning hidden"></div>
+
+  <div id="auth-panel" class="auth-panel hidden">
+    <p class="eyebrow">ANKIWEB</p>
+    <h2>Sign in</h2>
+    <label for="ankiweb-username">Email</label>
+    <input id="ankiweb-username" type="text" autocomplete="username">
+    <label for="ankiweb-password">Password</label>
+    <input id="ankiweb-password" type="password" autocomplete="current-password">
+    <div class="auth-actions">
+      <button id="auth-cancel" type="button">Cancel</button>
+      <button id="auth-submit" class="dark-button" type="button">Sign in</button>
+    </div>
+  </div>
+
+  <div id="full-sync-panel" class="auth-panel hidden">
+    <p class="eyebrow">FULL SYNC REQUIRED</p>
+    <h2>Replace the Kindle collection?</h2>
+    <p>AnkiWeb will replace the local Kindle collection. Local reviews not yet on AnkiWeb will be lost.</p>
+    <div class="auth-actions">
+      <button id="full-sync-cancel" type="button">Cancel</button>
+      <button id="full-download" class="dark-button" type="button">Download AnkiWeb</button>
+    </div>
+  </div>
 
   <div id="decks-view">
     <div class="section-heading">

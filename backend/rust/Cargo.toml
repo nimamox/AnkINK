@@ -1,0 +1,22 @@
+[package]
+name = "ankink_anki_backend"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+anki = { path = "../../third_party/anki/rslib", features = ["rustls"] }
+anki_proto = { path = "../../third_party/anki/rslib/proto" }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "net", "time"] }
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -24,6 +24,7 @@ cp -R assets/vendor "$ANKINK_OUTPUT/share/ankink/"
 cp scripts/run-kindle.sh "$ANKINK_OUTPUT/ankink.sh"
 cp scripts/stop-kindle.sh "$ANKINK_OUTPUT/stop-ankink.sh"
 cp packaging/README-KINDLE.txt "$ANKINK_OUTPUT/README.txt"
+cp LICENSE "$ANKINK_OUTPUT/LICENSE"
 cp assets/kual/config.xml assets/kual/menu.json "$ANKINK_OUTPUT/kual-extension/AnkINK/"
 chmod 755 "$ANKINK_OUTPUT/bin/ankinkd" "$ANKINK_OUTPUT/ankink.sh" "$ANKINK_OUTPUT/stop-ankink.sh"
 

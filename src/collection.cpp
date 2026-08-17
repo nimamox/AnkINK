@@ -241,6 +241,7 @@ bool Collection::open(const std::string &path, std::string &error) {
 bool Collection::is_open() const noexcept {
   return impl_->database_ != nullptr;
 }
+bool Collection::is_authenticated() const noexcept { return false; }
 std::string Collection::path() const { return impl_->path_; }
 std::string Collection::decks_json() const { return impl_->decks_json(); }
 std::string Collection::next_card_json(std::int64_t deck_id) {
@@ -248,6 +249,18 @@ std::string Collection::next_card_json(std::int64_t deck_id) {
 }
 std::string Collection::answer_json(std::int64_t card_id, int rating) {
   return impl_->answer_json(card_id, rating);
+}
+std::string Collection::login_json(const std::string &, const std::string &) {
+  return R"({"type":"error","message":"This build does not include AnkiWeb sync"})";
+}
+std::string Collection::logout_json() {
+  return R"({"type":"error","message":"This build does not include AnkiWeb sync"})";
+}
+std::string Collection::sync_json() {
+  return R"({"type":"error","message":"This build does not include AnkiWeb sync"})";
+}
+std::string Collection::full_download_json() {
+  return R"({"type":"error","message":"This build does not include AnkiWeb sync"})";
 }
 
 } // namespace ankink

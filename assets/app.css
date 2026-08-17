@@ -9,9 +9,20 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .app-header { display: table; width: 100%; min-height: 125px; border-bottom: 4px solid #111; }
 .brand { display: table-cell; vertical-align: middle; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
-.header-actions { display: table-cell; width: 300px; vertical-align: middle; text-align: right; white-space: nowrap; }
+.header-actions { display: table-cell; width: 450px; vertical-align: middle; text-align: right; white-space: nowrap; }
 .header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
+.font-controls { display: inline-block; width: 54px; height: 72px; vertical-align: middle; }
+.font-controls button { display: block; width: 54px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
+.font-controls button + button { border-top: 0; }
 .warning { margin-top: 22px; border: 3px solid #111; padding: 18px 22px; background: #e8e8e8; font: bold 19px/1.35 "Amazon Ember", Arial, sans-serif; }
+.auth-panel { margin: 28px auto; max-width: 720px; padding: 34px; border: 4px solid #111; background: #fff; }
+.auth-panel h2 { margin-bottom: 28px; }
+.auth-panel label { display: block; margin: 22px 0 8px; font: bold 18px "Amazon Ember", Arial, sans-serif; }
+.auth-panel input { display: block; width: 100%; height: 72px; padding: 10px 14px; border: 3px solid #111; background: #fff; font: 22px "Amazon Ember", Arial, sans-serif; }
+.auth-panel > p { margin: 18px 0; }
+.auth-actions { display: table; width: 100%; margin-top: 30px; border-spacing: 8px 0; }
+.auth-actions button { display: table-cell; width: 50%; min-height: 76px; border: 3px solid #111; background: #fff; font: bold 19px "Amazon Ember", Arial, sans-serif; }
+.auth-actions .dark-button { background: #111; color: #fff; }
 .section-heading { padding: 48px 0 25px; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }

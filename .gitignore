@@ -4,6 +4,8 @@
 
 # Credentials and device-local collections
 config.json
+host-key
+auth.json
 *.anki2
 *.anki21
 *.apkg
@@ -11,4 +13,3 @@ config.json
 # macOS
 .DS_Store
 .idea
-

@@ -128,6 +128,12 @@ std::string mime_type(const std::string &path) {
   if (path.size() >= 5 && path.substr(path.size() - 5) == ".html") return "text/html; charset=utf-8";
   if (path.size() >= 4 && path.substr(path.size() - 4) == ".css") return "text/css; charset=utf-8";
   if (path.size() >= 3 && path.substr(path.size() - 3) == ".js") return "application/javascript; charset=utf-8";
+  if (path.size() >= 4 && path.substr(path.size() - 4) == ".png") return "image/png";
+  if (path.size() >= 4 && path.substr(path.size() - 4) == ".jpg") return "image/jpeg";
+  if (path.size() >= 5 && path.substr(path.size() - 5) == ".jpeg") return "image/jpeg";
+  if (path.size() >= 4 && path.substr(path.size() - 4) == ".gif") return "image/gif";
+  if (path.size() >= 5 && path.substr(path.size() - 5) == ".webp") return "image/webp";
+  if (path.size() >= 4 && path.substr(path.size() - 4) == ".svg") return "image/svg+xml";
   return "application/octet-stream";
 }
 std::int64_t integer(const std::string &value, const char *name) {
@@ -174,6 +180,7 @@ int HttpServer::run() {
       else if (request.method == "GET" && (request.target == "/api/status" || request.target == "/health")) {
         const std::string body = std::string(R"({"type":"status","version":")") + ANKINK_VERSION +
           R"(","collectionOpen":)" + (collection_.is_open() ? "true" : "false") +
+          R"(,"authenticated":)" + (collection_.is_authenticated() ? "true" : "false") +
           R"(,"collection":)" + json_string(options_.collection_path) +
           R"(,"error":)" + json_string(collection_error_) + "}";
         respond(client, 200, "OK", "application/json; charset=utf-8", body);
@@ -193,6 +200,36 @@ int HttpServer::run() {
         const auto rating = integer(form_value(request.body, "rating"), "rating");
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 collection_.answer_json(card, static_cast<int>(rating)));
+      } else if (request.method == "POST" && request.target == "/api/auth/login") {
+        const std::string username = form_value(request.body, "username");
+        const std::string password = form_value(request.body, "password");
+        if (username.empty() || password.empty())
+          throw std::runtime_error("username and password are required");
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                collection_.login_json(username, password));
+      } else if (request.method == "POST" && request.target == "/api/auth/logout") {
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                collection_.logout_json());
+      } else if (request.method == "POST" && request.target == "/api/sync") {
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                collection_.sync_json());
+      } else if (request.method == "POST" &&
+                 request.target == "/api/sync/full-download") {
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                collection_.full_download_json());
+      } else if (request.method == "GET" &&
+                 request.target.compare(0, 11, "/api/media/") == 0) {
+        const std::string name = url_decode(request.target.substr(11));
+        if (name.empty() || name.find("..") != std::string::npos ||
+            name.find('/') != std::string::npos || name.find('\\') != std::string::npos)
+          throw std::runtime_error("invalid media filename");
+        std::string media_dir = options_.collection_path;
+        const auto dot = media_dir.rfind('.');
+        if (dot != std::string::npos) media_dir.resize(dot);
+        media_dir += ".media/";
+        const std::string body = read_file(media_dir + name);
+        if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
+        else respond(client, 200, "OK", mime_type(name), body);
       } else if (request.method == "GET" && request.target.find("..") == std::string::npos) {
         const std::string relative = request.target == "/" ? "index.html" : request.target.substr(1);
         const std::string body = read_file(options_.asset_dir + "/" + relative);

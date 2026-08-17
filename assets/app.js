@@ -2,6 +2,7 @@
   "use strict";
   var API = "http://127.0.0.1:8765";
   var state = { deck: null, card: null, reviewed: 0 };
+  var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
   function byId(id) { return document.getElementById(id); }
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
@@ -49,6 +50,11 @@
             for (i = child.attributes.length - 1; i >= 0; --i) {
               attribute = child.attributes[i]; name = attribute.name.toLowerCase();
               value = attribute.value.toLowerCase();
+              if (name === "src" && child.tagName === "IMG" && value.indexOf("data:image/") !== 0 && value.indexOf("http://127.0.0.1:8765/api/media/") !== 0) {
+                if (value.indexOf("..") < 0 && value.indexOf(":") < 0 && value.indexOf("/") < 0)
+                  child.setAttribute("src", API + "/api/media/" + encodeURIComponent(attribute.value));
+                value = child.getAttribute("src").toLowerCase();
+              }
               if (name.indexOf("on") === 0 || name === "style" || name === "srcset" ||
                   ((name === "src" || name === "href") && value.indexOf("data:image/") !== 0 && value.indexOf("#") !== 0))
                 child.removeAttribute(attribute.name);
@@ -62,6 +68,19 @@
     container.innerHTML = html || ("<em>" + fallback + "</em>"); clean(container);
     clear(element); while (container.firstChild) element.appendChild(container.firstChild);
     renderMath(element);
+  }
+  function answerOnly(html) {
+    var source = html || "";
+    var lower = source.toLowerCase();
+    var marker = lower.indexOf("<hr id=answer");
+    var end;
+    if (marker < 0) marker = lower.indexOf("<hr id=\"answer\"");
+    if (marker < 0) marker = lower.indexOf("<hr id='answer'");
+    if (marker >= 0) {
+      end = lower.indexOf(">", marker);
+      if (end >= 0) return source.substring(end + 1);
+    }
+    return source;
   }
   function renderMath(root) {
     var delimiters = [
@@ -127,6 +146,9 @@
     warning(""); byId("status").innerHTML = "Connecting to AnkINK engine...";
     request("GET", "/api/status", null, function (error, status) {
       if (error) { warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
+      if (!status.authenticated) {
+        byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
+      }
       byId("status").innerHTML = "Engine v" + status.version + (status.collectionOpen ? " ready" : " - collection error");
       request("GET", "/api/decks", null, function (deckError, message) {
         var list = byId("decks"), i, button, name, count, arrow, deck;
@@ -140,7 +162,7 @@
         for (i = 0; i < message.decks.length; ++i) {
           deck = message.decks[i]; button = document.createElement("button"); button.className = "deck"; button.type = "button";
           name = document.createElement("span"); name.className = "deck-name"; name.appendChild(document.createTextNode(deckName(deck.name)));
-          count = document.createElement("span"); count.className = "deck-count"; count.appendChild(document.createTextNode(deck.cards + " cards"));
+          count = document.createElement("span"); count.className = "deck-count"; count.appendChild(document.createTextNode(deck.cards + " due"));
           arrow = document.createElement("span"); arrow.className = "deck-arrow"; arrow.innerHTML = "&rsaquo;";
           button.appendChild(name); button.appendChild(count); button.appendChild(arrow);
           button.onclick = (function (selected) { return function () { openDeck(selected); }; }(deck)); list.appendChild(button);
@@ -148,10 +170,41 @@
       }, 0);
     }, 12);
   }
+  function applyFontScale() {
+    byId("front").style.fontSize = Math.round(32 * fontScale) + "px";
+    byId("back-face").style.fontSize = Math.round(26 * fontScale) + "px";
+    window.localStorage.setItem("ankink_font_scale", String(fontScale));
+  }
   function openDeck(deck) {
     state.deck = deck; state.reviewed = 0; byId("review-title").innerHTML = "";
     byId("review-title").appendChild(document.createTextNode(deckName(deck.name)));
     byId("session-count").innerHTML = "0 reviewed"; hide(byId("decks-view")); show(byId("review-view")); nextCard();
+  }
+  function showLogin() {
+    warning(""); show(byId("auth-panel")); hide(byId("full-sync-panel"));
+    byId("ankiweb-password").value = ""; window.scrollTo(0, 0);
+  }
+  function syncNow() {
+    warning(""); byId("status").innerHTML = "Synchronizing with AnkiWeb...";
+    request("POST", "/api/sync", "", function (error, result) {
+      if (error || !result || result.type === "error") {
+        var message = error || (result && result.message) || "Sync failed.";
+        byId("status").innerHTML = "Sync unavailable";
+        if (message.indexOf("Sign in") >= 0) showLogin(); else warning(message);
+        return;
+      }
+      if (result.required === "full") {
+        byId("status").innerHTML = "Full sync required";
+        if (result.downloadAllowed && !result.uploadAllowed) {
+          downloadFromAnkiWeb(); return;
+        }
+        if (result.downloadAllowed) show(byId("full-sync-panel"));
+        else warning("AnkiWeb requires a full sync, but download is not currently allowed.");
+        window.scrollTo(0, 0); return;
+      }
+      byId("status").innerHTML = "Sync complete";
+      warning(result.message || "AnkiWeb synchronization completed."); loadDecks();
+    }, 0);
   }
   function nextCard() {
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
@@ -164,7 +217,12 @@
         hide(byId("show-controls")); return;
       }
       state.card = card; safeHtml(byId("front"), card.front, "Empty front field");
-      safeHtml(byId("back-face"), card.back, "No additional fields"); window.scrollTo(0, 0);
+      safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); window.scrollTo(0, 0);
+      if (card.buttons && card.buttons.length === 4) {
+        for (var i = 0; i < 4; ++i) {
+          byId("rating-" + (i + 1)).getElementsByTagName("small")[0].innerHTML = card.buttons[i].interval;
+        }
+      }
     }, 1);
   }
   function answer(rating) {
@@ -177,6 +235,31 @@
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
   byId("back").onclick = function () { hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null; window.scrollTo(0, 0); };
   byId("refresh").onclick = loadDecks;
+  byId("sync").onclick = syncNow;
+  byId("font-plus").onclick = function () { fontScale = Math.min(1.6, fontScale + 0.1); applyFontScale(); };
+  byId("font-minus").onclick = function () { fontScale = Math.max(0.7, fontScale - 0.1); applyFontScale(); };
+  byId("auth-cancel").onclick = function () { hide(byId("auth-panel")); };
+  byId("auth-submit").onclick = function () {
+    var username = byId("ankiweb-username").value;
+    var password = byId("ankiweb-password").value;
+    if (!username || !password) { warning("Enter your AnkiWeb email and password."); return; }
+    byId("status").innerHTML = "Signing into AnkiWeb...";
+    request("POST", "/api/auth/login", "username=" + encodeURIComponent(username) + "&password=" + encodeURIComponent(password),
+      function (error, result) {
+        byId("ankiweb-password").value = "";
+        if (error || !result || result.type === "error") { warning(error || (result && result.message) || "Sign-in failed."); return; }
+        hide(byId("auth-panel")); syncNow();
+      }, 0);
+  };
+  byId("full-sync-cancel").onclick = function () { hide(byId("full-sync-panel")); };
+  function downloadFromAnkiWeb() {
+    hide(byId("full-sync-panel")); byId("status").innerHTML = "Downloading collection from AnkiWeb...";
+    request("POST", "/api/sync/full-download", "", function (error, result) {
+      if (error || !result || result.type === "error") { warning(error || (result && result.message) || "Download failed."); return; }
+      byId("status").innerHTML = "AnkiWeb collection downloaded"; loadDecks();
+    }, 0);
+  }
+  byId("full-download").onclick = downloadFromAnkiWeb;
   byId("close").onclick = closeApplication;
-  loadDecks();
+  applyFontScale(); loadDecks();
 }());

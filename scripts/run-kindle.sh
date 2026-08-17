@@ -7,6 +7,7 @@ ANKINK_MESQUITE_DIR=/var/local/mesquite/ankink
 ANKINK_APPREG=/var/local/appreg.db
 ANKINK_PID_FILE=/var/tmp/ankinkd.pid
 ANKINK_LOG="$ANKINK_ROOT/ankinkd.log"
+ANKINK_DATA_DIR=/var/local/ankink
 
 # KUAL may terminate the action's process group. Registration and daemon
 # startup therefore run in a detached session.
@@ -27,6 +28,8 @@ if [ -f "$ANKINK_PID_FILE" ]; then
 fi
 
 if [ "$ANKINK_DAEMON_RUNNING" -eq 0 ]; then
+  mkdir -p "$ANKINK_DATA_DIR"
+  chmod 700 "$ANKINK_DATA_DIR"
   if [ -x "$ANKINK_ROOT/lib/ld-linux-armhf.so.3" ]; then
     ANKINK_LOADER="$ANKINK_ROOT/lib/ld-linux-armhf.so.3"
   elif [ -x "$ANKINK_ROOT/lib/ld-linux.so.3" ]; then
@@ -38,7 +41,7 @@ if [ "$ANKINK_DAEMON_RUNNING" -eq 0 ]; then
   : > "$ANKINK_LOG"
   setsid "$ANKINK_LOADER" --library-path "$ANKINK_ROOT/lib" \
     "$ANKINK_ROOT/bin/ankinkd" \
-    --collection "$ANKINK_ROOT/collection.anki2" \
+    --collection "$ANKINK_DATA_DIR/collection.anki2" \
     --assets "$ANKINK_ROOT/share/ankink" \
     --port 8765 >> "$ANKINK_LOG" 2>&1 </dev/null &
   ANKINK_DAEMON_PID=$!
