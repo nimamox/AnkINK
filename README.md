@@ -10,6 +10,15 @@ Mesquite HTML/CSS/ES5 UI -> XMLHttpRequest -> 127.0.0.1:8765 -> ankinkd -> SQLit
 
 There is no bundled WPE WebKit, Mesa, Wayland, DRM, EGL, or FBInk display path.
 Mesquite owns painting, e-ink updates, touch input, and system integration.
+The manifest suppresses Mesquite's otherwise-empty navigation strip; AnkINK
+provides compact Refresh and Close controls in its own header while retaining
+the Kindle status row.
+
+Card mathematics is rendered locally with the ES5-compatible KaTeX 0.13.24
+distribution. Supported delimiters are `\\(...\\)`, `\\[...\\]`, `$$...$$`,
+`[$]...[/$]`, `[$$]...[/$$]`, and `[latex]...[/latex]`. No network connection
+is required for equations or fonts. KaTeX's MIT license is included beside the
+vendored files under `assets/vendor/katex`.
 
 The current review engine opens a modern `collection.anki2` read-only. Ratings
 retire cards only for the current process and do not yet write scheduler or

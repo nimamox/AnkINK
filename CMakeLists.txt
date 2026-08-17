@@ -37,6 +37,7 @@ if(ANKINK_BUILD_APP)
     install(TARGETS ankinkd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     install(FILES assets/index.html assets/app.css assets/app.js assets/config.xml
         DESTINATION ${CMAKE_INSTALL_DATADIR}/ankink)
+    install(DIRECTORY assets/vendor DESTINATION ${CMAKE_INSTALL_DATADIR}/ankink)
     install(PROGRAMS scripts/run-kindle.sh DESTINATION . RENAME ankink.sh)
 endif()
 

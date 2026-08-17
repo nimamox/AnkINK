@@ -9,3 +9,5 @@ AnkINK for PW2-compatible ARMEL Kindles
 The launcher starts the bundled ankinkd backend on 127.0.0.1:8765, copies the
 HTML application to /var/local/mesquite/ankink, registers org.ankink.app, and
 launches it through Amazon's app manager. It does not stop the Kindle UI.
+The UI removes the otherwise-empty native navigation strip and renders Anki
+TeX equations locally using the bundled KaTeX fonts and JavaScript.

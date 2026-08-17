@@ -16,7 +16,7 @@
     <kindle:asset key="enableCaching" value="false" />
   </kindle:network>
   <kindle:chrome>
-    <kindle:asset key="configureSearchBar" value="system" />
+    <kindle:asset key="configureSearchBar" value="none" />
   </kindle:chrome>
   <kindle:gestures>
     <kindle:param name="tap" value="yes" properties="fire_on_tap:1 max_updown_delta:0" />

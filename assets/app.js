@@ -7,6 +7,10 @@
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
   function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
+  function closeApplication() {
+    if (window.kindle && window.kindle.appmgr && window.kindle.appmgr.back) window.kindle.appmgr.back();
+    else window.close();
+  }
   function warning(message) {
     byId("warning").innerHTML = "";
     byId("warning").appendChild(document.createTextNode(message || ""));
@@ -57,6 +61,67 @@
     }
     container.innerHTML = html || ("<em>" + fallback + "</em>"); clean(container);
     clear(element); while (container.firstChild) element.appendChild(container.firstChild);
+    renderMath(element);
+  }
+  function renderMath(root) {
+    var delimiters = [
+      { left: "\\[", right: "\\]", display: true },
+      { left: "[$$]", right: "[/$$]", display: true },
+      { left: "[latex]", right: "[/latex]", display: true },
+      { left: "$$", right: "$$", display: true },
+      { left: "\\(", right: "\\)", display: false },
+      { left: "[$]", right: "[/$]", display: false }
+    ];
+    var nodes = [];
+    function collect(node) {
+      var child, className;
+      if (node.nodeType === 3) { nodes.push(node); return; }
+      if (node.nodeType !== 1) return;
+      className = typeof node.className === "string" ? node.className : "";
+      if (node.tagName === "SCRIPT" || node.tagName === "STYLE" || node.tagName === "TEXTAREA" ||
+          node.tagName === "PRE" || node.tagName === "CODE" || className.indexOf("katex") >= 0) return;
+      child = node.firstChild;
+      while (child) { collect(child); child = child.nextSibling; }
+    }
+    function findOpening(text, start) {
+      var best = null, i, position;
+      for (i = 0; i < delimiters.length; ++i) {
+        position = text.indexOf(delimiters[i].left, start);
+        if (position >= 0 && (!best || position < best.position))
+          best = { delimiter: delimiters[i], position: position };
+      }
+      return best;
+    }
+    function replace(node) {
+      var text = node.nodeValue, fragment = document.createDocumentFragment();
+      var cursor = 0, opening, contentStart, closing, span, expression;
+      while ((opening = findOpening(text, cursor))) {
+        contentStart = opening.position + opening.delimiter.left.length;
+        closing = text.indexOf(opening.delimiter.right, contentStart);
+        if (closing < 0) break;
+        if (opening.position > cursor) fragment.appendChild(document.createTextNode(text.substring(cursor, opening.position)));
+        expression = text.substring(contentStart, closing);
+        span = document.createElement("span");
+        try {
+          window.katex.render(expression, span, {
+            displayMode: opening.delimiter.display,
+            throwOnError: false,
+            strict: "ignore",
+            trust: false
+          });
+        } catch (error) {
+          span.appendChild(document.createTextNode(opening.delimiter.left + expression + opening.delimiter.right));
+        }
+        fragment.appendChild(span);
+        cursor = closing + opening.delimiter.right.length;
+      }
+      if (cursor === 0) return;
+      if (cursor < text.length) fragment.appendChild(document.createTextNode(text.substring(cursor)));
+      node.parentNode.replaceChild(fragment, node);
+    }
+    if (!window.katex || !window.katex.render) return;
+    collect(root);
+    for (var i = 0; i < nodes.length; ++i) replace(nodes[i]);
   }
   function loadDecks() {
     warning(""); byId("status").innerHTML = "Connecting to AnkINK engine...";
@@ -112,5 +177,6 @@
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
   byId("back").onclick = function () { hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null; window.scrollTo(0, 0); };
   byId("refresh").onclick = loadDecks;
+  byId("close").onclick = closeApplication;
   loadDecks();
 }());

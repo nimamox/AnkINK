@@ -9,7 +9,8 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .app-header { display: table; width: 100%; min-height: 125px; border-bottom: 4px solid #111; }
 .brand { display: table-cell; vertical-align: middle; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
-.header-button { display: table-cell; vertical-align: middle; width: 140px; height: 72px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
+.header-actions { display: table-cell; width: 300px; vertical-align: middle; text-align: right; white-space: nowrap; }
+.header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .warning { margin-top: 22px; border: 3px solid #111; padding: 18px 22px; background: #e8e8e8; font: bold 19px/1.35 "Amazon Ember", Arial, sans-serif; }
 .section-heading { padding: 48px 0 25px; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
@@ -31,6 +32,8 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .card audio, .card video { display: none; }
 .answer-divider { margin: 48px 0 35px; padding: 12px 0; border-top: 2px solid #aaa; border-bottom: 2px solid #aaa; color: #444; font: bold 14px "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .answer { font-size: 26px; }
+.katex { font-size: 1.08em; }
+.katex-display { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; }
 .controls { width: 100%; padding: 18px 0; background: #fff; }
 .controls button { min-height: 88px; border: 3px solid #111; background: #fff; font-family: "Amazon Ember", Arial, sans-serif; }
 .controls .primary { width: 100%; background: #111; color: #fff; font-weight: bold; }

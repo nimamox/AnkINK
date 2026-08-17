@@ -4,12 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AnkINK</title>
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <div class="app-header">
     <div class="brand"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></div>
-    <button id="refresh" class="header-button" type="button">Refresh</button>
+    <div class="header-actions">
+      <button id="refresh" class="header-button" type="button">Refresh</button>
+      <button id="close" class="header-button" type="button">Close</button>
+    </div>
   </div>
   <div id="warning" class="warning hidden"></div>
 
@@ -42,6 +46,7 @@
       <button id="rating-4" type="button"><strong>Easy</strong><small>4</small></button>
     </div>
   </div>
+  <script src="vendor/katex/katex.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
