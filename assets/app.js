@@ -57,7 +57,9 @@
                 value = child.getAttribute("src").toLowerCase();
               }
               if (name.indexOf("on") === 0 || name === "style" || name === "srcset" ||
-                  ((name === "src" || name === "href") && value.indexOf("data:image/") !== 0 && value.indexOf("#") !== 0))
+                  (name === "src" && value.indexOf("data:image/") !== 0 &&
+                    value.indexOf("http://127.0.0.1:8765/api/media/") !== 0) ||
+                  (name === "href" && value.indexOf("#") !== 0))
                 child.removeAttribute(attribute.name);
             }
           }
