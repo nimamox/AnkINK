@@ -25,12 +25,11 @@ cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
   "$ANKINK_OUTPUT/share/ankink/"
 cp -R "$ANKINK_ROOT/assets/vendor" "$ANKINK_OUTPUT/share/ankink/"
 cp "$ANKINK_ROOT/scripts/run-kindle.sh" "$ANKINK_OUTPUT/ankink.sh"
-cp "$ANKINK_ROOT/scripts/stop-kindle.sh" "$ANKINK_OUTPUT/stop-ankink.sh"
 cp "$ANKINK_ROOT/packaging/README-KINDLE.txt" "$ANKINK_OUTPUT/README.txt"
 cp "$ANKINK_ROOT/LICENSE" "$ANKINK_OUTPUT/LICENSE"
 cp "$ANKINK_ROOT/assets/kual/config.xml" "$ANKINK_ROOT/assets/kual/menu.json" \
   "$ANKINK_OUTPUT/kual-extension/AnkINK/"
-chmod 755 "$ANKINK_OUTPUT/bin/ankinkd" "$ANKINK_OUTPUT/ankink.sh" "$ANKINK_OUTPUT/stop-ankink.sh"
+chmod 755 "$ANKINK_OUTPUT/bin/ankinkd" "$ANKINK_OUTPUT/ankink.sh"
 
 ANKINK_QUEUE=$(mktemp "${TMPDIR:-/tmp}/ankink-queue.XXXXXX")
 ANKINK_SEEN=$(mktemp "${TMPDIR:-/tmp}/ankink-seen.XXXXXX")

@@ -257,6 +257,10 @@ int HttpServer::run() {
       } else if (request.method == "POST" && request.target == "/api/undo") {
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 collection_.undo_json());
+      } else if (request.method == "POST" && request.target == "/api/quit") {
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                R"({"type":"quitting"})");
+        stop_requested = 1;
       } else if (request.method == "POST" && request.target == "/api/refresh") {
         if (options_.simulator) {
           respond(client, 200, "OK", "application/json; charset=utf-8",

@@ -143,10 +143,11 @@ to `/mnt/us/ankink` and copy `kual-extension/AnkINK` to
 `/mnt/us/extensions/AnkINK`. On first launch, sign into AnkiWeb; AnkINK creates
 its private collection under `/var/local/ankink` and downloads from AnkiWeb.
 
-The KUAL action starts `ankinkd`, installs the Mesquite assets under
-`/var/local/mesquite/ankink`, registers `org.ankink.app` in
-`/var/local/appreg.db`, and asks `com.lab126.appmgrd` to launch it. It does not
-stop `lab126_gui`.
+The single KUAL action stops any stale AnkINK UI/backend, starts a fresh
+`ankinkd`, installs the Mesquite assets under a content-versioned path in
+`/var/local/mesquite`, registers `org.ankink.app` in `/var/local/appreg.db`, and
+asks `com.lab126.appmgrd` to launch it. The UI Close button stops the backend as
+well as leaving the interface. The launcher does not stop `lab126_gui`.
 
 AnkINK incorporates Anki's AGPL-3.0-or-later backend and is distributed under
 compatible AGPL terms.

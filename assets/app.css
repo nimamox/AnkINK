@@ -1,12 +1,12 @@
 * { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; background: #fff; color: #111; }
-body { padding: 0 4% 50px; font: 24px/1.35 "Bookerly", Georgia, serif; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #fff; color: #111; }
+body { padding: 0 4%; font: 24px/1.35 "Bookerly", Georgia, serif; }
 button { color: #111; font: inherit; }
 h1, h2, p { margin: 0; }
 h1 { font: bold 50px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: -3px; }
 h1 span { font-weight: normal; }
 h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
-.app-header { display: table; width: 100%; min-height: 125px; border-bottom: 4px solid #111; }
+.app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; height: 125px; border-bottom: 4px solid #111; background: #fff; }
 .brand { display: table-cell; vertical-align: middle; white-space: nowrap; }
 .brand-copy { display: inline-block; vertical-align: middle; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
@@ -19,8 +19,8 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .font-controls { display: inline-block; width: 54px; height: 72px; vertical-align: middle; }
 .font-controls button { display: block; width: 54px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
 .font-controls button + button { border-top: 0; }
-.warning { margin-top: 22px; border: 3px solid #111; padding: 18px 22px; background: #e8e8e8; font: bold 19px/1.35 "Amazon Ember", Arial, sans-serif; }
-.auth-panel { margin: 28px auto; max-width: 720px; padding: 34px; border: 4px solid #111; background: #fff; }
+.warning { position: fixed; z-index: 500; top: 137px; right: 4%; left: 4%; border: 3px solid #111; padding: 18px 22px; background: #e8e8e8; font: bold 19px/1.35 "Amazon Ember", Arial, sans-serif; }
+.auth-panel { position: fixed; z-index: 200; top: 153px; right: 17%; bottom: 28px; left: 17%; margin: 0; padding: 34px; overflow-y: auto; border: 4px solid #111; background: #fff; }
 .auth-panel h2 { margin-bottom: 28px; }
 .auth-panel label { display: block; margin: 22px 0 8px; font: bold 18px "Amazon Ember", Arial, sans-serif; }
 .auth-panel input { display: block; width: 100%; height: 72px; padding: 10px 14px; border: 3px solid #111; background: #fff; font: 22px "Amazon Ember", Arial, sans-serif; }
@@ -32,6 +32,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .confirm-dialog { width: 680px; margin: 0 auto; padding: 38px; border: 4px solid #111; background: #fff; }
 .confirm-dialog h2 { margin-bottom: 24px; }
 .section-heading { padding: 48px 0 25px; }
+#decks-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow-y: auto; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }
 .deck-list { border-top: 2px solid #111; }
@@ -41,12 +42,13 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .deck-count { width: 24%; color: #444; text-align: right; font: 17px "Amazon Ember", Arial, sans-serif; }
 .deck-arrow { width: 6%; padding-left: 15px; text-align: right; font: bold 40px "Amazon Ember", Arial, sans-serif; }
 .empty-state { padding: 80px 20px; color: #444; text-align: center; }
-.review-toolbar { display: table; width: 100%; min-height: 115px; border-bottom: 2px solid #aaa; }
+#review-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow: hidden; }
+.review-toolbar { position: absolute; top: 0; right: 0; left: 0; display: table; width: 100%; height: 115px; overflow: hidden; border-bottom: 2px solid #aaa; background: #fff; }
 .review-toolbar > * { display: table-cell; vertical-align: middle; }
 .text-button { width: 150px; height: 72px; border: 2px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .review-title { padding-left: 22px; }
 .session-count { width: 285px; color: #444; text-align: right; white-space: nowrap; font: 17px "Amazon Ember", Arial, sans-serif; }
-.card { min-height: 500px; padding: 55px 4% 35px; text-align: center; font-size: 32px; line-height: 1.45; word-wrap: break-word; }
+.card { position: absolute; top: 115px; right: 0; bottom: 124px; left: 0; padding: 55px 4% 35px; overflow-y: auto; text-align: center; font-size: 32px; line-height: 1.45; word-wrap: break-word; }
 .card img { max-width: 100%; max-height: 330px; }
 .card img.image-expanded { display: block; width: 100%; height: auto; max-height: none; margin: 15px auto; }
 .card audio, .card video { display: none; }
@@ -54,7 +56,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .answer { font-size: 26px; }
 .katex { font-size: 1.08em; }
 .katex-display { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; }
-.controls { width: 100%; padding: 18px 0; background: #fff; }
+.controls { position: absolute; right: 0; bottom: 0; left: 0; width: 100%; height: 124px; padding: 18px 0; background: #fff; }
 .controls button { min-height: 88px; border: 3px solid #111; background: #fff; font-family: "Amazon Ember", Arial, sans-serif; }
 .controls .primary { width: 100%; background: #111; color: #fff; font-weight: bold; }
 .ratings { display: table; table-layout: fixed; border-spacing: 8px 0; }
@@ -74,5 +76,6 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .empty-state { color: #bbb; }
 .night-mode .warning { background: #333; color: #eee; border-color: #eee; }
 .night-mode .person-head, .night-mode .person-body { background: #eee; }
+.night-mode .app-header, .night-mode .review-toolbar { background: #111; }
 .night-mode .dialog-overlay { background: rgba(17, 17, 17, 0.94); }
 .night-mode .confirm-dialog { background: #111; color: #eee; border-color: #eee; }

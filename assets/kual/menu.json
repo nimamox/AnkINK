@@ -1,26 +1,12 @@
 {
   "items": [
     {
-      "name": "AnkINK",
+      "name": "Launch AnkINK",
       "priority": 0,
-      "items": [
-        {
-          "name": "Start AnkINK",
-          "priority": 1,
-          "action": "/mnt/us/ankink/ankink.sh",
-          "params": "",
-          "status": false,
-          "internal": "status Start AnkINK"
-        },
-        {
-          "name": "Stop AnkINK backend",
-          "priority": 2,
-          "action": "/mnt/us/ankink/stop-ankink.sh",
-          "params": "",
-          "status": false,
-          "internal": "status Stop AnkINK backend"
-        }
-      ]
+      "action": "/mnt/us/ankink/ankink.sh",
+      "params": "",
+      "status": false,
+      "internal": "status Launch AnkINK"
     }
   ]
 }

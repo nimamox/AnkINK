@@ -24,8 +24,8 @@ ssh "$TARGET" 'mkdir -p /mnt/us/ankink /mnt/us/extensions/AnkINK'
 if command -v rsync >/dev/null; then
   # /mnt/us is Kindle's user-storage mount and does not support chown.
   # Archive mode normally implies --owner and --group, so turn them off.
-  rsync -az --no-owner --no-group "$BUNDLE/" "$TARGET:/mnt/us/ankink/"
-  rsync -az --no-owner --no-group "$EXTENSION/" "$TARGET:/mnt/us/extensions/AnkINK/"
+  rsync -az --delete --no-owner --no-group "$BUNDLE/" "$TARGET:/mnt/us/ankink/"
+  rsync -az --delete --no-owner --no-group "$EXTENSION/" "$TARGET:/mnt/us/extensions/AnkINK/"
 else
   scp -pr "$BUNDLE/." "$TARGET:/mnt/us/ankink/"
   scp -pr "$EXTENSION/." "$TARGET:/mnt/us/extensions/AnkINK/"

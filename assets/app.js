@@ -9,9 +9,16 @@
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
   function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
-  function closeApplication() {
+  function resetCardScroll() { byId("card").scrollTop = 0; }
+  function closeInterface() {
     if (window.kindle && window.kindle.appmgr && window.kindle.appmgr.back) window.kindle.appmgr.back();
     else window.close();
+  }
+  function closeApplication() {
+    if (state.closing) return;
+    state.closing = true;
+    request("POST", "/api/quit", "", function () { closeInterface(); }, 0);
+    window.setTimeout(closeInterface, 750);
   }
   function warning(message) {
     byId("warning").innerHTML = "";
@@ -246,6 +253,7 @@
   }
   function nextCard() {
     state.answerShown = false;
+    resetCardScroll();
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
     hide(byId("rating-controls")); show(byId("show-controls"));
     request("GET", "/api/decks/" + state.deck.id + "/next", null, function (error, card) {
@@ -256,7 +264,7 @@
         hide(byId("show-controls")); return;
       }
       state.card = card; safeHtml(byId("front"), card.front, "Empty front field");
-      safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); window.scrollTo(0, 0);
+      safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); resetCardScroll();
       updateCounts(card.counts);
       if (card.buttons && card.buttons.length === 4) {
         for (var i = 0; i < 4; ++i) {
@@ -295,7 +303,7 @@
   byId("show-answer").onclick = showAnswer;
   byId("rating-1").onclick = function () { answer(1); }; byId("rating-2").onclick = function () { answer(2); };
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
-  byId("back").onclick = function () { hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null; window.scrollTo(0, 0); };
+  byId("back").onclick = function () { hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null; byId("decks-view").scrollTop = 0; };
   byId("refresh").onclick = function () {
     request("POST", "/api/refresh", "", function (error) { if (error) warning(error); }, 0);
   };
