@@ -9,7 +9,10 @@
 </head>
 <body>
   <div class="app-header">
-    <div class="brand"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></div>
+    <div class="brand">
+      <span class="brand-copy"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></span>
+      <button id="account" class="account-button" type="button" title="AnkiWeb account"><span class="person-head"></span><span class="person-body"></span></button>
+    </div>
     <div class="header-actions">
       <button id="night-mode" class="mode-button" type="button" title="Night mode">&#9789;</button>
       <span class="font-controls"><button id="font-plus" type="button">+</button><button id="font-minus" type="button">&minus;</button></span>
@@ -19,6 +22,18 @@
     </div>
   </div>
   <div id="warning" class="warning hidden"></div>
+
+  <div id="account-dialog" class="dialog-overlay hidden" role="dialog" aria-labelledby="account-dialog-title">
+    <div class="confirm-dialog">
+      <p class="eyebrow">ANKIWEB ACCOUNT</p>
+      <h2 id="account-dialog-title">Log out of AnkINK?</h2>
+      <p>Your reviews remain on this Kindle until you synchronize or replace the collection.</p>
+      <div class="auth-actions">
+        <button id="account-cancel" type="button">Cancel</button>
+        <button id="account-logout" class="dark-button" type="button">Log out</button>
+      </div>
+    </div>
+  </div>
 
   <div id="auth-panel" class="auth-panel hidden">
     <p class="eyebrow">ANKIWEB</p>

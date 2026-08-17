@@ -164,6 +164,7 @@
       if (!status.authenticated) {
         byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
       }
+      hide(byId("auth-panel")); hide(byId("review-view")); show(byId("decks-view"));
       byId("status").innerHTML = "Engine v" + status.version + (status.collectionOpen ? " ready" : " - collection error");
       request("GET", "/api/decks", null, function (deckError, message) {
         var list = byId("decks"), i, button, name, count, arrow, deck;
@@ -214,7 +215,9 @@
     updateCounts(deck); hide(byId("decks-view")); show(byId("review-view")); nextCard();
   }
   function showLogin() {
-    warning(""); show(byId("auth-panel")); hide(byId("full-sync-panel"));
+    state.deck = null; state.card = null; warning("");
+    hide(byId("review-view")); hide(byId("decks-view")); hide(byId("account-dialog"));
+    show(byId("auth-panel")); hide(byId("full-sync-panel"));
     byId("ankiweb-password").value = ""; window.scrollTo(0, 0);
   }
   function syncNow() {
@@ -298,7 +301,18 @@
   byId("font-plus").onclick = function () { fontScale = Math.min(1.6, fontScale + 0.1); applyFontScale(); };
   byId("font-minus").onclick = function () { fontScale = Math.max(0.7, fontScale - 0.1); applyFontScale(); };
   byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
-  byId("auth-cancel").onclick = function () { hide(byId("auth-panel")); };
+  byId("account").onclick = function () { show(byId("account-dialog")); };
+  byId("account-cancel").onclick = function () { hide(byId("account-dialog")); };
+  byId("account-logout").onclick = function () {
+    byId("status").innerHTML = "Logging out...";
+    request("POST", "/api/auth/logout", "", function (error, result) {
+      if (error || !result || result.type === "error") {
+        hide(byId("account-dialog")); warning(error || (result && result.message) || "Logout failed."); return;
+      }
+      byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin();
+    }, 0);
+  };
+  byId("auth-cancel").onclick = closeApplication;
   byId("auth-submit").onclick = function () {
     var username = byId("ankiweb-username").value;
     var password = byId("ankiweb-password").value;
