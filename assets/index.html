@@ -11,14 +11,14 @@
 <body>
   <div class="app-header">
     <div class="header-settings">
-      <button id="settings" class="settings-button" type="button" title="Settings">&#9881;</button>
+      <button id="settings" class="settings-button" type="button" title="Settings">&#8801;</button>
     </div>
     <div class="brand">
       <span class="brand-copy"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></span>
     </div>
     <div class="header-actions">
-      <button id="night-mode" class="mode-button" type="button" title="Night mode">&#9789;</button>
       <span class="font-controls"><button id="font-plus" type="button">+</button><button id="font-minus" type="button">&minus;</button></span>
+      <button id="night-mode" class="mode-button" type="button" title="Night mode">&#9789;</button>
       <button id="sync" class="header-button icon-button" type="button" title="Sync">&#8651;</button>
       <button id="refresh" class="header-button icon-button" type="button" title="Full refresh">&#8635;</button>
       <button id="close" class="header-button icon-button" type="button" title="Close">&times;</button>
@@ -52,6 +52,12 @@
         <label class="setting-choice compact"><input type="radio" name="full-refresh" value="manual"> Manual only</label>
         <label class="setting-choice compact"><input type="radio" name="full-refresh" value="every-card"> Every card</label>
         <label class="setting-choice compact"><input type="radio" name="full-refresh" value="every-five"> Every 5 cards</label>
+      </div>
+      <div class="settings-section">
+        <h3>Night-mode cards</h3>
+        <label class="setting-choice"><input type="radio" name="night-card-mode" value="standard"> <strong>Standard</strong><small>Keep card and template colors. Images remain unchanged.</small></label>
+        <label class="setting-choice"><input type="radio" name="night-card-mode" value="palette"> <strong>Adapt colors</strong><small>Lighten dark text and darken bright backgrounds. Images remain unchanged.</small></label>
+        <label class="setting-choice"><input type="radio" name="night-card-mode" value="palette-images"> <strong>Adapt colors and invert images</strong><small>Also invert image pixels using Canvas. This may take a moment on large images.</small></label>
       </div>
       <div class="settings-actions">
         <button id="settings-close" type="button">Done</button>
@@ -117,6 +123,6 @@
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260821-undo-bookkeeping"></script>
+  <script src="app-settings.js?v=20260822-raw-media"></script>
 </body>
 </html>

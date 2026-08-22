@@ -245,6 +245,11 @@ int HttpServer::run() {
                 std::string(R"({"type":"input","action":)") +
                     json_string(action) + "}");
       } else if (request.method == "POST" &&
+                 request.target == "/api/input/clear") {
+        page_action.clear();
+        respond(client, 200, "OK", "application/json; charset=utf-8",
+                R"({"type":"input-cleared"})");
+      } else if (request.method == "POST" &&
                  request.target == "/api/simulator/input") {
         if (!options_.simulator)
           throw std::runtime_error("simulator input is disabled");
@@ -268,9 +273,13 @@ int HttpServer::run() {
         respond(client, 200, "OK", "application/json; charset=utf-8", collection_.next_card_json(id));
       } else if (request.method == "POST" && request.target == "/api/answer") {
         const auto card = integer(form_value(request.body, "card"), "card");
+        const auto review_token =
+            integer(form_value(request.body, "token"), "review token");
         const auto rating = integer(form_value(request.body, "rating"), "rating");
         respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.answer_json(card, static_cast<int>(rating)));
+                collection_.answer_json(
+                    card, static_cast<std::uint64_t>(review_token),
+                    static_cast<int>(rating)));
       } else if (request.method == "POST" && request.target == "/api/undo") {
         respond(client, 200, "OK", "application/json; charset=utf-8",
                 collection_.undo_json());

@@ -247,7 +247,8 @@ std::string Collection::decks_json() const { return impl_->decks_json(); }
 std::string Collection::next_card_json(std::int64_t deck_id) {
   return impl_->next_card_json(deck_id);
 }
-std::string Collection::answer_json(std::int64_t card_id, int rating) {
+std::string Collection::answer_json(std::int64_t card_id,
+                                    std::uint64_t, int rating) {
   return impl_->answer_json(card_id, rating);
 }
 

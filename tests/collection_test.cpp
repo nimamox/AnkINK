@@ -69,7 +69,7 @@ int main() {
             "deck is missing from JSON");
     require(collection.next_card_json(42).find("bonjour") != std::string::npos,
             "front is missing from card JSON");
-    const auto answer = collection.answer_json(200, 3);
+    const auto answer = collection.answer_json(200, 0, 3);
     require(answer.find("answered") != std::string::npos,
             "answer was not acknowledged");
     require(collection.next_card_json(42).find("complete") != std::string::npos,

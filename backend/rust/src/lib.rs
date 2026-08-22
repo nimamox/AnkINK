@@ -46,12 +46,14 @@ fn flatten_deck_tree(
 struct PendingCard {
     id: CardId,
     states: SchedulingStates,
+    token: u64,
 }
 
 pub struct AnkinkAnkiBackend {
     collection: Option<Collection>,
     collection_path: String,
     pending: Option<PendingCard>,
+    next_review_token: u64,
     sync_auth: Option<SyncAuth>,
     runtime: tokio::runtime::Runtime,
     web_client: reqwest::Client,
@@ -71,6 +73,7 @@ impl AnkinkAnkiBackend {
             collection: None,
             collection_path: String::new(),
             pending: None,
+            next_review_token: 0,
             sync_auth: None,
             runtime,
             web_client,
@@ -134,15 +137,22 @@ impl AnkinkAnkiBackend {
             .describe_next_states(&queued.states)
             .map_err(|error| error.to_string())?;
         let id = queued.card.id();
+        self.next_review_token = self.next_review_token.wrapping_add(1);
+        if self.next_review_token == 0 {
+            self.next_review_token = 1;
+        }
+        let review_token = self.next_review_token;
         self.pending = Some(PendingCard {
             id,
             states: queued.states,
+            token: review_token,
         });
 
         Ok(json!({
             "type": "card",
             "deckId": deck_id,
             "id": id.0,
+            "reviewToken": review_token,
             "front": rendered.question(),
             "back": rendered.answer(),
             "css": rendered.css,
@@ -156,26 +166,39 @@ impl AnkinkAnkiBackend {
         }))
     }
 
-    fn answer(&mut self, card_id: i64, rating: i32) -> Result<Value, String> {
-        let pending = self
-            .pending
-            .take()
-            .ok_or_else(|| "No queued card is awaiting an answer".to_owned())?;
-        if pending.id.0 != card_id {
-            return Err("The answered card is not the current queued card".to_owned());
-        }
+    fn answer(&mut self, card_id: i64, review_token: u64, rating: i32) -> Result<Value, String> {
         let rating_number = rating;
-        let (rating, new_state): (Rating, CardState) = match rating_number {
-            1 => (Rating::Again, pending.states.again),
-            2 => (Rating::Hard, pending.states.hard),
-            3 => (Rating::Good, pending.states.good),
-            4 => (Rating::Easy, pending.states.easy),
+        let rating = match rating_number {
+            1 => Rating::Again,
+            2 => Rating::Hard,
+            3 => Rating::Good,
+            4 => Rating::Easy,
             _ => return Err("Rating must be between 1 and 4".to_owned()),
+        };
+
+        // Keep pending intact until the request is fully validated and Anki has
+        // successfully applied the answer. A stale or duplicate request must
+        // never poison the currently displayed review card.
+        let (pending_id, current_state, new_state): (CardId, CardState, CardState) = {
+            let pending = self
+                .pending
+                .as_ref()
+                .ok_or_else(|| "No queued card is awaiting an answer".to_owned())?;
+            if pending.id.0 != card_id || pending.token != review_token {
+                return Err("Stale review command; reloading the current card".to_owned());
+            }
+            let new_state = match rating {
+                Rating::Again => pending.states.again.clone(),
+                Rating::Hard => pending.states.hard.clone(),
+                Rating::Good => pending.states.good.clone(),
+                Rating::Easy => pending.states.easy.clone(),
+            };
+            (pending.id, pending.states.current.clone(), new_state)
         };
         self.collection()?
             .answer_card(&mut CardAnswer {
-                card_id: pending.id,
-                current_state: pending.states.current,
+                card_id: pending_id,
+                current_state,
                 new_state,
                 rating,
                 answered_at: TimestampMillis::now(),
@@ -184,7 +207,8 @@ impl AnkinkAnkiBackend {
                 from_queue: true,
             })
             .map_err(|error| error.to_string())?;
-        Ok(json!({"type": "answered", "id": card_id, "rating": rating_number}))
+        self.pending = None;
+        Ok(json!({"type": "answered", "id": card_id, "reviewToken": review_token, "rating": rating_number}))
     }
 
     fn undo(&mut self) -> Result<Value, String> {
@@ -396,9 +420,10 @@ pub extern "C" fn ankink_anki_next_card(
 pub extern "C" fn ankink_anki_answer(
     backend: *mut AnkinkAnkiBackend,
     card_id: i64,
+    review_token: u64,
     rating: i32,
 ) -> *mut c_char {
-    ffi_json(backend, |backend| backend.answer(card_id, rating))
+    ffi_json(backend, |backend| backend.answer(card_id, review_token, rating))
 }
 
 #[no_mangle]

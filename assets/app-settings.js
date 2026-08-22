@@ -3,12 +3,13 @@
   var API = "http://127.0.0.1:8765";
   var MEDIA_VERSION = String(new Date().getTime());
   var state = { deck: null, card: null, reviewed: 0, answerShown: false, inputBusy: false,
-    cardLoading: false, answerInFlight: false, undoInFlight: false };
+    cardLoading: false, answerInFlight: false, undoInFlight: false,
+    syncInFlight: false, inputEpoch: 0 };
   var warningTimer = null;
-  var initialSyncAttempted = false;
   var pendingReviews = parseInt(window.localStorage.getItem("ankink_pending_reviews") || "0", 10) || 0;
   var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
   var nightMode = window.localStorage.getItem("ankink_night_mode") === "1";
+  var nightCardMode = window.localStorage.getItem("ankink_night_card_mode") || "standard";
   var pageButtonMode = window.localStorage.getItem("ankink_page_button_mode") === "reversed" ? "reversed" : "normal";
   var fullRefreshMode = window.localStorage.getItem("ankink_full_refresh_mode") || "manual";
   var reviewsSinceFullRefresh = parseInt(window.localStorage.getItem("ankink_reviews_since_full_refresh") || "0", 10) || 0;
@@ -16,6 +17,7 @@
   try { collapsedDecks = JSON.parse(window.localStorage.getItem("ankink_collapsed_decks") || "{}"); } catch (ignored) { collapsedDecks = {}; }
   if (!collapsedDecks || typeof collapsedDecks !== "object") collapsedDecks = {};
   if (fullRefreshMode !== "manual" && fullRefreshMode !== "every-card" && fullRefreshMode !== "every-five") fullRefreshMode = "manual";
+  if (nightCardMode !== "standard" && nightCardMode !== "palette" && nightCardMode !== "palette-images") nightCardMode = "standard";
   function byId(id) { return document.getElementById(id); }
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
@@ -147,7 +149,12 @@
   }
   function closeApplication() {
     if (state.closing) return;
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) {
+      warning("Please wait for the current operation to finish.");
+      return;
+    }
     state.closing = true;
+    state.inputEpoch += 1;
     if (pendingReviews > 0) {
       request("POST", "/api/sync", "", function (error, result) {
         if (!error && result && result.type !== "error" && result.required === "none") storePendingReviews(0);
@@ -190,6 +197,11 @@
       else callback("AnkINK engine is not responding.", null);
     };
     xhr.send(body || null);
+  }
+  function clearPhysicalInput(done) {
+    request("POST", "/api/input/clear", "", function () {
+      if (done) done();
+    }, 0);
   }
   function safeHtml(element, html, fallback) {
     var container = document.createElement("div");
@@ -266,11 +278,154 @@
     }
     byId("card-template-style").innerHTML = output.join("\n");
   }
+  function parsedColor(value) {
+    var match, hex, alpha;
+    value = String(value || "").replace(/^\s+|\s+$/g, "").toLowerCase();
+    if (!value || value === "transparent") return null;
+    match = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)$/);
+    if (match) {
+      alpha = typeof match[4] === "undefined" ? 1 : parseFloat(match[4]);
+      if (alpha === 0) return null;
+      return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+    }
+    match = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+    if (!match) return null;
+    hex = match[1];
+    if (hex.length === 3) hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
+    return [parseInt(hex.substring(0, 2), 16), parseInt(hex.substring(2, 4), 16), parseInt(hex.substring(4, 6), 16)];
+  }
+  function colorText(rgb) {
+    return "rgb(" + Math.round(rgb[0]) + "," + Math.round(rgb[1]) + "," + Math.round(rgb[2]) + ")";
+  }
+  function colorLuminance(rgb) { return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]; }
+  function nightFriendlyColor(value, background) {
+    var rgb = parsedColor(value), luminance, factor;
+    if (!rgb) return null;
+    luminance = colorLuminance(rgb);
+    if (background) {
+      if (luminance <= 55) return null;
+      factor = 55 / luminance;
+      return colorText([rgb[0] * factor, rgb[1] * factor, rgb[2] * factor]);
+    }
+    if (luminance >= 190) return null;
+    factor = (190 - luminance) / (255 - luminance);
+    return colorText([
+      rgb[0] + (255 - rgb[0]) * factor,
+      rgb[1] + (255 - rgb[1]) * factor,
+      rgb[2] + (255 - rgb[2]) * factor
+    ]);
+  }
+  function saveNightStyle(element) {
+    if (element._ankinkNightStyleSaved) return;
+    element._ankinkNightStyleSaved = true;
+    element._ankinkNightOriginalStyle = element.getAttribute("style");
+  }
+  function restoreNightPalette(root) {
+    var elements = [root], descendants = root.getElementsByTagName("*"), i, element;
+    for (i = 0; i < descendants.length; ++i) elements.push(descendants[i]);
+    for (i = 0; i < elements.length; ++i) {
+      element = elements[i];
+      if (!element._ankinkNightStyleSaved) continue;
+      if (element._ankinkNightOriginalStyle === null) element.removeAttribute("style");
+      else element.setAttribute("style", element._ankinkNightOriginalStyle);
+      try { delete element._ankinkNightStyleSaved; delete element._ankinkNightOriginalStyle; }
+      catch (ignored) { element._ankinkNightStyleSaved = false; element._ankinkNightOriginalStyle = null; }
+    }
+  }
+  function setImportantStyle(element, property, value) {
+    if (!value) return;
+    saveNightStyle(element);
+    if (element.style.setProperty) element.style.setProperty(property, value, "important");
+    else element.style[property === "background-color" ? "backgroundColor" : property] = value;
+  }
+  function applyNightPalette(root) {
+    var elements = [root], descendants = root.getElementsByTagName("*"), i, element, computed, parentComputed;
+    var foreground, background;
+    for (i = 0; i < descendants.length; ++i) elements.push(descendants[i]);
+    for (i = 0; i < elements.length; ++i) {
+      element = elements[i];
+      if (element.tagName === "IMG" || element.tagName === "VIDEO" || element.tagName === "CANVAS") continue;
+      computed = window.getComputedStyle ? window.getComputedStyle(element, null) : element.currentStyle;
+      if (!computed) continue;
+      parentComputed = element.parentNode && element.parentNode.nodeType === 1 && window.getComputedStyle ?
+        window.getComputedStyle(element.parentNode, null) : null;
+      if (!parentComputed || computed.color !== parentComputed.color) {
+        foreground = nightFriendlyColor(computed.color, false);
+        setImportantStyle(element, "color", foreground);
+      }
+      background = nightFriendlyColor(computed.backgroundColor, true);
+      setImportantStyle(element, "background-color", background);
+    }
+  }
+  function restoreNightImage(image) {
+    var original;
+    if (!image._ankinkNightImageInverted) return;
+    original = image._ankinkNightOriginalSource;
+    image._ankinkNightImageInverted = false;
+    image._ankinkNightOriginalSource = null;
+    if (original) image.setAttribute("src", original);
+  }
+  function invertNightImage(image) {
+    var width, height, scale, canvas, context, pixels, data, i, source;
+    if (!nightMode || nightCardMode !== "palette-images" || image._ankinkNightImageInverted ||
+        image._ankinkNightImageBusy || image._ankinkMediaReady === false) return;
+    width = image.naturalWidth || image.width; height = image.naturalHeight || image.height;
+    source = image.getAttribute("src") || "";
+    if (!width || !height || !source || source.indexOf("data:image/gif;base64,R0lGODlhAQABAAD/") === 0) return;
+    scale = Math.min(1, 1600 / Math.max(width, height));
+    width = Math.max(1, Math.round(width * scale)); height = Math.max(1, Math.round(height * scale));
+    image._ankinkNightImageBusy = true;
+    try {
+      canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+      context = canvas.getContext("2d"); context.drawImage(image, 0, 0, width, height);
+      pixels = context.getImageData(0, 0, width, height); data = pixels.data;
+      for (i = 0; i < data.length; i += 4) {
+        data[i] = 255 - data[i]; data[i + 1] = 255 - data[i + 1]; data[i + 2] = 255 - data[i + 2];
+      }
+      context.putImageData(pixels, 0, 0);
+      image._ankinkNightOriginalSource = source;
+      image._ankinkNightImageInverted = true;
+      image.setAttribute("src", canvas.toDataURL("image/png"));
+    } catch (ignored) {
+      image._ankinkNightImageInverted = false;
+      image._ankinkNightOriginalSource = null;
+    }
+    image._ankinkNightImageBusy = false;
+    scheduleScrollButtonUpdate();
+  }
+  function applyNightCardAppearance() {
+    var roots = [byId("front"), byId("back-face")], images, i, j;
+    for (i = 0; i < roots.length; ++i) {
+      restoreNightPalette(roots[i]);
+      if (nightMode && nightCardMode !== "standard") applyNightPalette(roots[i]);
+      images = roots[i].getElementsByTagName("img");
+      for (j = 0; j < images.length; ++j) {
+        if (nightMode && nightCardMode === "palette-images") invertNightImage(images[j]);
+        else restoreNightImage(images[j]);
+      }
+    }
+  }
   function prepareImages(root) {
     var images = root.getElementsByTagName("img"), i, filename;
     for (i = 0; i < images.length; ++i) {
       filename = images[i].getAttribute("data-ankink-media");
+      images[i]._ankinkMediaReady = !filename;
+      images[i].onload = function () {
+        this._ankinkMediaReady = true;
+        scheduleScrollButtonUpdate(); invertNightImage(this);
+      };
+      images[i].onerror = function () {
+        var failedImage = this, failedFilename = this._ankinkMediaFilename;
+        if (!failedFilename || this._ankinkMediaFallbackTried) return;
+        this._ankinkMediaFallbackTried = true;
+        request("GET", "/api/media-data/" + encodeURIComponent(failedFilename) + "?v=" + MEDIA_VERSION,
+          null, function (error, data) {
+            if (!error && data && typeof data.data === "string" && data.data.indexOf("data:image/") === 0)
+              failedImage.setAttribute("src", data.data);
+          }, 0);
+      };
       if (filename) loadMediaImage(images[i], filename);
+      if (!filename && images[i].complete) invertNightImage(images[i]);
       images[i].onclick = function () {
         if (this.className.indexOf("image-expanded") >= 0)
           this.className = this.className.replace(/(^|\s)image-expanded(?=\s|$)/g, "");
@@ -283,14 +438,10 @@
     }
   }
   function loadMediaImage(image, filename) {
-    image.onload = scheduleScrollButtonUpdate;
-    request("GET", "/api/media-data/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION,
-      null, function (error, data) {
-        if (!error && data && typeof data.data === "string" && data.data.indexOf("data:image/") === 0)
-          image.setAttribute("src", data.data);
-        else
-          image.setAttribute("src", API + "/api/media/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION);
-      }, 0);
+    image._ankinkMediaFilename = filename;
+    image._ankinkMediaFallbackTried = false;
+    image._ankinkMediaReady = false;
+    image.setAttribute("src", API + "/api/media/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION);
   }
   function answerOnly(html) {
     var source = html || "";
@@ -365,7 +516,7 @@
     collect(root);
     for (var i = 0; i < nodes.length; ++i) replace(nodes[i]);
   }
-  function loadDecks(skipInitialSync) {
+  function loadDecks() {
     warning(""); byId("status").innerHTML = "Connecting to AnkINK engine...";
     request("GET", "/api/status", null, function (error, status) {
       if (error) { warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
@@ -386,10 +537,6 @@
         tree = buildDeckTree(message.decks);
         for (i = 0; i < tree.length; ++i) renderDeckNode(tree[i], list);
         scheduleScrollButtonUpdate();
-        if (!skipInitialSync && !initialSyncAttempted) {
-          initialSyncAttempted = true;
-          syncNow(function (success) { if (success) loadDecks(true); });
-        }
       }, 0);
     }, 12);
   }
@@ -411,6 +558,7 @@
       byId("night-mode").title = "Night mode";
     }
     window.localStorage.setItem("ankink_night_mode", nightMode ? "1" : "0");
+    applyNightCardAppearance();
   }
   function updateCounts(counts) {
     counts = counts || { "new": 0, learning: 0, review: 0 };
@@ -418,27 +566,38 @@
       counts.learning + " learn &middot; " + counts.review + " review";
   }
   function openDeck(deck) {
+    if (state.syncInFlight || state.cardLoading || state.answerInFlight || state.undoInFlight) return;
     state.deck = deck; state.reviewed = 0; byId("review-title").innerHTML = "";
     byId("review-title").appendChild(document.createTextNode(deckName(deck.name)));
     updateCounts(deck); hide(byId("decks-view")); show(byId("review-view")); nextCard(); scheduleScrollButtonUpdate();
   }
   function showLogin() {
-    state.deck = null; state.card = null; warning("");
+    state.inputEpoch += 1; state.deck = null; state.card = null; warning("");
     hide(byId("review-view")); hide(byId("decks-view")); hide(byId("account-dialog"));
     show(byId("auth-panel")); hide(byId("full-sync-panel"));
     byId("ankiweb-password").value = ""; window.scrollTo(0, 0); scheduleScrollButtonUpdate();
   }
   function syncNow(done) {
+    if (state.syncInFlight) { if (done) done(false); return; }
+    if (state.deck || state.cardLoading || state.answerInFlight || state.undoInFlight) {
+      warning("Return to Decks before synchronizing.");
+      if (done) done(false);
+      return;
+    }
+    state.syncInFlight = true;
+    state.inputEpoch += 1;
     warning(""); byId("status").innerHTML = "Synchronizing with AnkiWeb...";
     request("POST", "/api/sync", "", function (error, result) {
       if (error || !result || result.type === "error") {
         var message = error || (result && result.message) || "Sync failed.";
+        state.syncInFlight = false;
         byId("status").innerHTML = "Sync unavailable";
         if (message.indexOf("Sign in") >= 0) showLogin(); else warning(message);
         updateSyncStatus(); if (done) done(false);
         return;
       }
       if (result.required === "full") {
+        state.syncInFlight = false;
         byId("status").innerHTML = "Full sync required";
         if (result.downloadAllowed && !result.uploadAllowed) {
           downloadFromAnkiWeb(done); return;
@@ -447,13 +606,17 @@
         else warning("AnkiWeb requires a full sync, but download is not currently allowed.");
         window.scrollTo(0, 0); if (done) done(false); return;
       }
+      state.syncInFlight = false;
       storePendingReviews(0);
       if (result.message) warning(result.message);
-      if (done) done(true); else loadDecks(true);
+      if (done) done(true); else loadDecks();
     }, 0);
   }
   function nextCard() {
-    if (!state.deck) return;
+    var loadEpoch;
+    if (!state.deck || state.syncInFlight) return;
+    state.inputEpoch += 1;
+    loadEpoch = state.inputEpoch;
     state.cardLoading = true;
     state.card = null;
     state.answerShown = false;
@@ -461,40 +624,65 @@
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
     hide(byId("rating-controls")); show(byId("show-controls"));
     request("GET", "/api/decks/" + state.deck.id + "/next", null, function (error, card) {
-      state.cardLoading = false;
-      if (error) { warning(error); return; }
-      if (card.type === "error") { warning(card.message); return; }
-      if (card.type === "complete") {
-        applyCardCss("");
-        state.card = null; byId("front").innerHTML = "<h2>Session complete</h2><p>You reviewed " + state.reviewed + " cards.</p>";
-        hide(byId("show-controls")); runScheduledRefresh(); scheduleScrollButtonUpdate(); return;
-      }
-      state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
-      safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); resetCardScroll();
-      updateCounts(card.counts);
-      if (card.buttons && card.buttons.length === 4) {
-        for (var i = 0; i < 4; ++i) {
-          byId("rating-" + (i + 1)).getElementsByTagName("small")[0].innerHTML = card.buttons[i].interval;
+      if (loadEpoch !== state.inputEpoch) return;
+      clearPhysicalInput(function () {
+        if (loadEpoch !== state.inputEpoch) return;
+        state.cardLoading = false;
+        if (error) { warning(error); return; }
+        if (!card || card.type === "error") { warning((card && card.message) || "Unable to load card."); return; }
+        if (card.type === "complete") {
+          applyCardCss("");
+          state.card = null; byId("front").innerHTML = "<h2>Session complete</h2><p>You reviewed " + state.reviewed + " cards.</p>";
+          hide(byId("show-controls")); runScheduledRefresh(); scheduleScrollButtonUpdate(); return;
         }
-      }
-      runScheduledRefresh();
-      scheduleScrollButtonUpdate();
+        state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
+        safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); applyNightCardAppearance(); resetCardScroll();
+        updateCounts(card.counts);
+        if (card.buttons && card.buttons.length === 4) {
+          for (var i = 0; i < 4; ++i) {
+            byId("rating-" + (i + 1)).getElementsByTagName("small")[0].innerHTML = card.buttons[i].interval;
+          }
+        }
+        runScheduledRefresh();
+        scheduleScrollButtonUpdate();
+      });
     }, 1);
   }
+  function isReviewStateError(message) {
+    return message === "No queued card is awaiting an answer" ||
+      message.indexOf("Stale review command") === 0 ||
+      message.indexOf("not the current queued card") >= 0;
+  }
   function answer(rating) {
-    var cardId;
-    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight) return;
-    cardId = state.card.id;
+    var cardId, reviewToken, answerEpoch;
+    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
+    cardId = state.card.id; reviewToken = state.card.reviewToken;
+    if (!reviewToken) { warning("Reloading card..."); nextCard(); return; }
+    state.inputEpoch += 1;
+    answerEpoch = state.inputEpoch;
     state.answerInFlight = true;
-    request("POST", "/api/answer", "card=" + encodeURIComponent(cardId) + "&rating=" + rating,
+    request("POST", "/api/answer", "card=" + encodeURIComponent(cardId) +
+      "&token=" + encodeURIComponent(reviewToken) + "&rating=" + rating,
       function (error, result) {
+        var message;
+        if (answerEpoch !== state.inputEpoch) return;
+        if (error || !result || result.type === "error") {
+          message = error || (result && result.message) || "Answer failed.";
+          clearPhysicalInput(function () {
+            if (answerEpoch !== state.inputEpoch) return;
+            state.answerInFlight = false;
+            if (isReviewStateError(message)) { warning("Reloading card..."); nextCard(); }
+            else warning(message);
+          });
+          return;
+        }
         state.answerInFlight = false;
-        if (error || (result && result.type === "error")) warning(error || result.message);
-        else { state.reviewed += 1; storePendingReviews(pendingReviews + 1); scheduleAutomaticRefresh(); nextCard(); }
+        state.reviewed += 1; storePendingReviews(pendingReviews + 1);
+        scheduleAutomaticRefresh(); nextCard();
       }, 0);
   }
   function showAnswer() {
-    if (state.card && !state.cardLoading && !state.answerInFlight && !state.undoInFlight) {
+    if (state.card && !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight) {
       state.answerShown = true; show(byId("back-face")); show(byId("answer-divider"));
       hide(byId("show-controls")); show(byId("rating-controls"));
       if (byId("answer-divider").scrollIntoView) byId("answer-divider").scrollIntoView(true);
@@ -502,16 +690,23 @@
     }
   }
   function undoAnswer() {
-    if (state.cardLoading || state.answerInFlight || state.undoInFlight) return;
+    var undoEpoch;
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
+    state.inputEpoch += 1;
+    undoEpoch = state.inputEpoch;
     state.undoInFlight = true;
     request("POST", "/api/undo", "", function (error, result) {
-      state.undoInFlight = false;
-      if (error || !result) { warning(error || "Undo failed."); return; }
-      if (result.type === "undo-empty") return;
-      if (result.type === "error") { warning(result.message); return; }
-      if (state.reviewed > 0) state.reviewed -= 1;
-      storePendingReviews(pendingReviews - 1);
-      warning(""); nextCard();
+      if (undoEpoch !== state.inputEpoch) return;
+      clearPhysicalInput(function () {
+        if (undoEpoch !== state.inputEpoch) return;
+        state.undoInFlight = false;
+        if (error || !result) { warning(error || "Undo failed."); return; }
+        if (result.type === "undo-empty") return;
+        if (result.type === "error") { warning(result.message); return; }
+        if (state.reviewed > 0) state.reviewed -= 1;
+        storePendingReviews(pendingReviews - 1);
+        warning(""); nextCard();
+      });
     }, 0);
   }
   function cardCanScrollDown() {
@@ -549,13 +744,17 @@
     fullRefresh();
   }
   function pollPageButtons() {
-    if (state.inputBusy) return;
+    var pollEpoch;
+    if (state.inputBusy || state.cardLoading || state.answerInFlight ||
+        state.undoInFlight || state.syncInFlight) return;
+    pollEpoch = state.inputEpoch;
     state.inputBusy = true;
     request("GET", "/api/input", null, function (error, input) {
       var advance;
       state.inputBusy = false;
+      if (pollEpoch !== state.inputEpoch) return;
       if (error || !input || !state.deck || !input.action ||
-          state.cardLoading || state.answerInFlight || state.undoInFlight) return;
+          state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
       advance = (pageButtonMode === "normal" && input.action === "forward") ||
         (pageButtonMode === "reversed" && input.action === "backward");
       if (advance) {
@@ -569,11 +768,14 @@
   byId("rating-1").onclick = function () { answer(1); }; byId("rating-2").onclick = function () { answer(2); };
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
   byId("back").onclick = function () {
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) {
+      warning("Please wait for the current operation to finish."); return;
+    }
+    state.inputEpoch += 1;
     hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null;
-    state.cardLoading = false; state.answerInFlight = false; state.undoInFlight = false;
     byId("decks-view").scrollTop = 0;
     scheduleScrollButtonUpdate();
-    loadDecks(true);
+    clearPhysicalInput(function () { loadDecks(); });
   };
   byId("refresh").onclick = function () {
     fullRefresh();
@@ -590,6 +792,7 @@
   byId("settings").onclick = function () {
     selectedRadio("page-buttons", pageButtonMode);
     selectedRadio("full-refresh", fullRefreshMode);
+    selectedRadio("night-card-mode", nightCardMode);
     show(byId("settings-dialog"));
   };
   byId("settings-close").onclick = function () { hide(byId("settings-dialog")); };
@@ -600,6 +803,7 @@
   (function () {
     var pageButtons = document.getElementsByName("page-buttons");
     var fullRefreshButtons = document.getElementsByName("full-refresh");
+    var nightCardModes = document.getElementsByName("night-card-mode");
     var i;
     for (i = 0; i < pageButtons.length; ++i) pageButtons[i].onclick = function () {
       pageButtonMode = this.value;
@@ -609,6 +813,11 @@
       fullRefreshMode = this.value;
       window.localStorage.setItem("ankink_full_refresh_mode", fullRefreshMode);
       saveFullRefreshProgress(0);
+    };
+    for (i = 0; i < nightCardModes.length; ++i) nightCardModes[i].onclick = function () {
+      nightCardMode = this.value;
+      window.localStorage.setItem("ankink_night_card_mode", nightCardMode);
+      applyNightCardAppearance();
     };
   }());
   byId("account-cancel").onclick = function () { hide(byId("account-dialog")); };
@@ -634,16 +843,22 @@
         hide(byId("auth-panel")); syncNow();
       }, 0);
   };
-  byId("full-sync-cancel").onclick = function () { hide(byId("full-sync-panel")); };
+  byId("full-sync-cancel").onclick = function () {
+    state.syncInFlight = false; hide(byId("full-sync-panel")); updateSyncStatus();
+  };
   function downloadFromAnkiWeb(done) {
+    if (state.syncInFlight) { if (done) done(false); return; }
+    state.syncInFlight = true;
+    state.inputEpoch += 1;
     hide(byId("full-sync-panel")); byId("status").innerHTML = "Downloading collection from AnkiWeb...";
     request("POST", "/api/sync/full-download", "", function (error, result) {
+      state.syncInFlight = false;
       if (error || !result || result.type === "error") {
         warning(error || (result && result.message) || "Download failed.");
         updateSyncStatus(); if (done) done(false); return;
       }
       storePendingReviews(0);
-      if (done) done(true); else loadDecks(true);
+      if (done) done(true); else loadDecks();
     }, 0);
   }
   byId("full-download").onclick = function () { downloadFromAnkiWeb(); };
