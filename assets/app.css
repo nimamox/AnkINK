@@ -47,11 +47,17 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }
 .deck-list { border-top: 2px solid #111; }
-.deck { display: table; width: 100%; min-height: 105px; padding: 18px 10px; border: 0; border-bottom: 2px solid #aaa; background: #fff; text-align: left; }
+.deck-row { position: relative; width: 100%; min-height: 105px; padding-left: 52px; border-bottom: 2px solid #aaa; }
+.deck-toggle { position: absolute; top: 0; left: 0; width: 52px; height: 103px; padding: 0; border: 0; background: #fff; text-align: center; font: bold 30px/1 "Amazon Ember", Arial, sans-serif; }
+.deck-toggle-placeholder { color: transparent; }
+.deck { display: table; width: 100%; height: 103px; padding: 18px 10px 18px 0; border: 0; background: #fff; text-align: left; }
+.deck-content { display: table; width: 100%; table-layout: fixed; }
 .deck-name, .deck-count, .deck-arrow { display: table-cell; vertical-align: middle; }
 .deck-name { width: 70%; font-weight: bold; word-wrap: break-word; }
 .deck-count { width: 24%; color: #444; text-align: right; font: 17px "Amazon Ember", Arial, sans-serif; }
 .deck-arrow { width: 6%; padding-left: 15px; text-align: right; font: bold 40px "Amazon Ember", Arial, sans-serif; }
+.deck-children { margin-left: 44px; }
+.deck-group .deck-name { display: block; width: 100%; }
 .empty-state { padding: 80px 20px; color: #444; text-align: center; }
 #review-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow: hidden; }
 .review-toolbar { position: absolute; top: 0; right: 0; left: 0; display: table; width: 100%; height: 88px; table-layout: fixed; overflow: hidden; border-bottom: 2px solid #aaa; background: #fff; }
@@ -84,6 +90,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .auth-panel input, .night-mode .auth-actions button { background: #111; color: #eee; border-color: #eee; }
 .night-mode .controls .primary, .night-mode .auth-actions .dark-button { background: #eee; color: #111; }
 .night-mode .app-header, .night-mode .deck-list { border-color: #eee; }
+.night-mode .deck-toggle { background: #111; color: #eee; }
 .night-mode #status, .night-mode .eyebrow, .night-mode .path,
 .night-mode .deck-count, .night-mode .session-count, .night-mode .answer-divider,
 .night-mode .empty-state { color: #bbb; }

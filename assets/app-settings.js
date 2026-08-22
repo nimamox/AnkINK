@@ -11,12 +11,91 @@
   var pageButtonMode = window.localStorage.getItem("ankink_page_button_mode") === "reversed" ? "reversed" : "normal";
   var fullRefreshMode = window.localStorage.getItem("ankink_full_refresh_mode") || "manual";
   var reviewsSinceFullRefresh = parseInt(window.localStorage.getItem("ankink_reviews_since_full_refresh") || "0", 10) || 0;
+  var collapsedDecks = {};
+  try { collapsedDecks = JSON.parse(window.localStorage.getItem("ankink_collapsed_decks") || "{}"); } catch (ignored) { collapsedDecks = {}; }
+  if (!collapsedDecks || typeof collapsedDecks !== "object") collapsedDecks = {};
   if (fullRefreshMode !== "manual" && fullRefreshMode !== "every-card" && fullRefreshMode !== "every-five") fullRefreshMode = "manual";
   function byId(id) { return document.getElementById(id); }
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
   function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
+  function saveCollapsedDecks() {
+    window.localStorage.setItem("ankink_collapsed_decks", JSON.stringify(collapsedDecks));
+  }
+  function buildDeckTree(decks) {
+    var roots = [], i, j, parts, parent, children, lookup, key, node, fullName;
+    for (i = 0; i < decks.length; ++i) {
+      parts = deckName(decks[i].name).split("::");
+      parent = null; children = roots; fullName = "";
+      for (j = 0; j < parts.length; ++j) {
+        if (!parts[j]) continue;
+        fullName = fullName ? fullName + "::" + parts[j] : parts[j];
+        lookup = parent ? parent.childLookup : roots.childLookup;
+        if (!lookup) {
+          lookup = {};
+          if (parent) parent.childLookup = lookup; else roots.childLookup = lookup;
+        }
+        key = parts[j]; node = lookup[key];
+        if (!node) {
+          node = { name: parts[j], fullName: fullName, deck: null, children: [], childLookup: {} };
+          lookup[key] = node; children.push(node);
+        }
+        if (j === parts.length - 1) node.deck = decks[i];
+        parent = node; children = node.children;
+      }
+    }
+    return roots;
+  }
+  function renderDeckNode(node, container) {
+    var wrapper = document.createElement("div"), row = document.createElement("div");
+    var toggle = document.createElement("button"), deckButton, content, name, count, arrow, children, collapsed;
+    wrapper.className = "deck-node"; row.className = "deck-row";
+    toggle.type = "button";
+    if (node.children.length) {
+      collapsed = collapsedDecks[node.fullName] === true;
+      toggle.className = "deck-toggle";
+      toggle.innerHTML = collapsed ? "+" : "&minus;";
+      toggle.title = collapsed ? "Expand subdecks" : "Collapse subdecks";
+    } else {
+      toggle.className = "deck-toggle deck-toggle-placeholder";
+      toggle.disabled = true;
+      toggle.innerHTML = "&nbsp;";
+    }
+    row.appendChild(toggle);
+    if (node.deck) {
+      deckButton = document.createElement("button"); deckButton.className = "deck"; deckButton.type = "button";
+      content = document.createElement("span"); content.className = "deck-content";
+      name = document.createElement("span"); name.className = "deck-name"; name.appendChild(document.createTextNode(node.name));
+      count = document.createElement("span"); count.className = "deck-count"; count.appendChild(document.createTextNode(node.deck.cards + " due"));
+      arrow = document.createElement("span"); arrow.className = "deck-arrow"; arrow.innerHTML = "&rsaquo;";
+      content.appendChild(name); content.appendChild(count); content.appendChild(arrow); deckButton.appendChild(content);
+      deckButton.onclick = (function (selected) { return function () { openDeck(selected); }; }(node.deck));
+      row.appendChild(deckButton);
+    } else {
+      deckButton = document.createElement("div"); deckButton.className = "deck deck-group";
+      name = document.createElement("span"); name.className = "deck-name"; name.appendChild(document.createTextNode(node.name));
+      deckButton.appendChild(name); row.appendChild(deckButton);
+    }
+    wrapper.appendChild(row);
+    if (node.children.length) {
+      children = document.createElement("div"); children.className = "deck-children";
+      for (var i = 0; i < node.children.length; ++i) renderDeckNode(node.children[i], children);
+      if (collapsed) children.style.display = "none";
+      toggle.onclick = (function (path, childContainer, control) {
+        return function () {
+          var isCollapsed = childContainer.style.display === "none";
+          childContainer.style.display = isCollapsed ? "block" : "none";
+          control.innerHTML = isCollapsed ? "&minus;" : "+";
+          control.title = isCollapsed ? "Collapse subdecks" : "Expand subdecks";
+          if (isCollapsed) delete collapsedDecks[path]; else collapsedDecks[path] = true;
+          saveCollapsedDecks();
+        };
+      }(node.fullName, children, toggle));
+      wrapper.appendChild(children);
+    }
+    container.appendChild(wrapper);
+  }
   function resetCardScroll() { byId("card").scrollTop = 0; }
   function selectedRadio(name, value) {
     var inputs = document.getElementsByName(name), i;
@@ -268,7 +347,7 @@
       hide(byId("auth-panel")); hide(byId("review-view")); show(byId("decks-view"));
       updateSyncStatus();
       request("GET", "/api/decks", null, function (deckError, message) {
-        var list = byId("decks"), i, button, name, count, arrow, deck;
+        var list = byId("decks"), tree, i;
         clear(list); byId("collection-path").innerHTML = "";
         byId("collection-path").appendChild(document.createTextNode((message && message.path) || status.collection || ""));
         if (deckError || !message || !message.decks || !message.decks.length) {
@@ -276,14 +355,8 @@
           empty.appendChild(document.createTextNode(deckError || "This collection contains no decks.")); list.appendChild(empty);
           if (deckError) warning(deckError); return;
         }
-        for (i = 0; i < message.decks.length; ++i) {
-          deck = message.decks[i]; button = document.createElement("button"); button.className = "deck"; button.type = "button";
-          name = document.createElement("span"); name.className = "deck-name"; name.appendChild(document.createTextNode(deckName(deck.name)));
-          count = document.createElement("span"); count.className = "deck-count"; count.appendChild(document.createTextNode(deck.cards + " due"));
-          arrow = document.createElement("span"); arrow.className = "deck-arrow"; arrow.innerHTML = "&rsaquo;";
-          button.appendChild(name); button.appendChild(count); button.appendChild(arrow);
-          button.onclick = (function (selected) { return function () { openDeck(selected); }; }(deck)); list.appendChild(button);
-        }
+        tree = buildDeckTree(message.decks);
+        for (i = 0; i < tree.length; ++i) renderDeckNode(tree[i], list);
         if (!skipInitialSync && !initialSyncAttempted) {
           initialSyncAttempted = true;
           syncNow(function (success) { if (success) loadDecks(true); });
