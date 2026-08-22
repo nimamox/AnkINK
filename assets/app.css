@@ -12,7 +12,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .brand-copy { display: inline-block; vertical-align: middle; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
 .header-actions { display: table-cell; width: 370px; vertical-align: middle; text-align: right; white-space: nowrap; }
-.header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
+.header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; vertical-align: middle; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .header-button.icon-button { width: 72px; padding: 0; font: 40px/1 Arial, sans-serif; }
 .settings-button { display: inline-block; width: 54px; height: 72px; margin: 0; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 37px/1 Arial, sans-serif; }
 .mode-button { display: inline-block; width: 54px; height: 72px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 30px/1 "Amazon Ember", Arial, sans-serif; }
