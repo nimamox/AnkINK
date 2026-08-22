@@ -84,4 +84,14 @@ assert.match(frontend, /images\[i\]\.onerror = function/);
 assert.match(mediaLoading, /image\.setAttribute\("src", API \+ "\/api\/media\/"/);
 assert.doesNotMatch(mediaLoading, /api\/media-data/);
 
+// The card font is allowlisted, persistent, and applied only to card faces.
+assert.match(frontend, /ankink_card_font"\) \|\| "Bookerly"/);
+assert.match(frontend, /"Caecilia": '\"Caecilia Regular\"/);
+assert.match(frontend, /"Caecilia Condensed": 'condensed,/);
+assert.match(frontend, /"Helvetica": '\"Helvetica Neue LT\"/);
+assert.match(frontend, /setItem\("ankink_card_font", cardFont\)/);
+assert.match(frontend, /byId\("front"\)\.style\.setProperty\("font-family", family, "important"\)/);
+assert.match(frontend, /byId\("back-face"\)\.style\.setProperty\("font-family", family, "important"\)/);
+assert.match(frontend, /function applyCardFont[\s\S]*restoreNightPalette\(byId\("front"\)\)[\s\S]*applyNightCardAppearance\(\)/);
+
 console.log("reviewer contract tests passed");

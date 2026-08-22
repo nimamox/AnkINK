@@ -54,6 +54,21 @@
         <label class="setting-choice compact"><input type="radio" name="full-refresh" value="every-five"> Every 5 cards</label>
       </div>
       <div class="settings-section">
+        <label class="setting-select" for="card-font"><strong>Card font</strong>
+          <select id="card-font">
+            <option value="Amazon Ember">Amazon Ember</option>
+            <option value="Baskerville">Baskerville</option>
+            <option value="Bookerly">Bookerly</option>
+            <option value="Caecilia">Caecilia</option>
+            <option value="Caecilia Condensed">Caecilia Condensed</option>
+            <option value="Futura">Futura</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="OpenDyslexic">OpenDyslexic</option>
+            <option value="Palatino">Palatino</option>
+          </select>
+        </label>
+      </div>
+      <div class="settings-section">
         <h3>Night-mode cards</h3>
         <label class="setting-choice"><input type="radio" name="night-card-mode" value="standard"> <strong>Standard</strong><small>Keep card and template colors. Images remain unchanged.</small></label>
         <label class="setting-choice"><input type="radio" name="night-card-mode" value="palette"> <strong>Adapt colors</strong><small>Lighten dark text and darken bright backgrounds. Images remain unchanged.</small></label>
@@ -123,6 +138,6 @@
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260822-raw-media"></script>
+  <script src="app-settings.js?v=20260822-card-fonts"></script>
 </body>
 </html>

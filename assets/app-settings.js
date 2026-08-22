@@ -8,6 +8,18 @@
   var warningTimer = null;
   var pendingReviews = parseInt(window.localStorage.getItem("ankink_pending_reviews") || "0", 10) || 0;
   var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
+  var cardFonts = {
+    "Amazon Ember": '"Amazon Ember", Arial, sans-serif',
+    "Baskerville": 'Baskerville, Georgia, serif',
+    "Bookerly": 'Bookerly, Georgia, serif',
+    "Caecilia": '"Caecilia Regular", Georgia, serif',
+    "Caecilia Condensed": 'condensed, "Caecilia Regular", Georgia, serif',
+    "Futura": 'Futura, Arial, sans-serif',
+    "Helvetica": '"Helvetica Neue LT", Helvetica, Arial, sans-serif',
+    "OpenDyslexic": 'OpenDyslexic, Arial, sans-serif',
+    "Palatino": 'Palatino, Georgia, serif'
+  };
+  var cardFont = window.localStorage.getItem("ankink_card_font") || "Bookerly";
   var nightMode = window.localStorage.getItem("ankink_night_mode") === "1";
   var nightCardMode = window.localStorage.getItem("ankink_night_card_mode") || "standard";
   var pageButtonMode = window.localStorage.getItem("ankink_page_button_mode") === "reversed" ? "reversed" : "normal";
@@ -18,6 +30,7 @@
   if (!collapsedDecks || typeof collapsedDecks !== "object") collapsedDecks = {};
   if (fullRefreshMode !== "manual" && fullRefreshMode !== "every-card" && fullRefreshMode !== "every-five") fullRefreshMode = "manual";
   if (nightCardMode !== "standard" && nightCardMode !== "palette" && nightCardMode !== "palette-images") nightCardMode = "standard";
+  if (!cardFonts[cardFont]) cardFont = "Bookerly";
   function byId(id) { return document.getElementById(id); }
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
@@ -546,6 +559,21 @@
     window.localStorage.setItem("ankink_font_scale", String(fontScale));
     scheduleScrollButtonUpdate();
   }
+  function applyCardFont() {
+    var family = cardFonts[cardFont];
+    restoreNightPalette(byId("front"));
+    restoreNightPalette(byId("back-face"));
+    if (byId("front").style.setProperty) {
+      byId("front").style.setProperty("font-family", family, "important");
+      byId("back-face").style.setProperty("font-family", family, "important");
+    } else {
+      byId("front").style.fontFamily = family;
+      byId("back-face").style.fontFamily = family;
+    }
+    window.localStorage.setItem("ankink_card_font", cardFont);
+    applyNightCardAppearance();
+    scheduleScrollButtonUpdate();
+  }
   function applyNightMode() {
     var html = document.documentElement;
     if (nightMode) {
@@ -793,12 +821,18 @@
     selectedRadio("page-buttons", pageButtonMode);
     selectedRadio("full-refresh", fullRefreshMode);
     selectedRadio("night-card-mode", nightCardMode);
+    byId("card-font").value = cardFont;
     show(byId("settings-dialog"));
   };
   byId("settings-close").onclick = function () { hide(byId("settings-dialog")); };
   byId("settings-logout").onclick = function () {
     hide(byId("settings-dialog"));
     show(byId("account-dialog"));
+  };
+  byId("card-font").onchange = function () {
+    if (!cardFonts[this.value]) return;
+    cardFont = this.value;
+    applyCardFont();
   };
   (function () {
     var pageButtons = document.getElementsByName("page-buttons");
@@ -863,5 +897,5 @@
   }
   byId("full-download").onclick = function () { downloadFromAnkiWeb(); };
   byId("close").onclick = closeApplication;
-  applyFontScale(); applyNightMode(); loadDecks(); window.setInterval(pollPageButtons, 250);
+  applyFontScale(); applyCardFont(); applyNightMode(); loadDecks(); window.setInterval(pollPageButtons, 250);
 }());
