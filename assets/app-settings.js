@@ -152,6 +152,27 @@
     var inputs = document.getElementsByName(name), i;
     for (i = 0; i < inputs.length; ++i) inputs[i].checked = inputs[i].value === value;
   }
+  var settingsTooltipSource = null;
+  function hideSettingsTooltip() {
+    hide(byId("settings-tooltip"));
+    settingsTooltipSource = null;
+  }
+  function showSettingsTooltip(button) {
+    var tooltip = byId("settings-tooltip"), text = button.getAttribute("data-help") || "";
+    var bounds, left, top;
+    if (settingsTooltipSource === button && tooltip.className.indexOf("hidden") < 0) {
+      hideSettingsTooltip(); return;
+    }
+    clear(tooltip); tooltip.appendChild(document.createTextNode(text)); show(tooltip);
+    bounds = button.getBoundingClientRect();
+    left = Math.max(20, Math.min(window.innerWidth - tooltip.offsetWidth - 20,
+      bounds.right - tooltip.offsetWidth));
+    top = bounds.bottom + 8;
+    if (top + tooltip.offsetHeight > window.innerHeight - 20)
+      top = Math.max(20, bounds.top - tooltip.offsetHeight - 8);
+    tooltip.style.left = left + "px"; tooltip.style.top = top + "px";
+    settingsTooltipSource = button;
+  }
   function saveFullRefreshProgress(value) {
     reviewsSinceFullRefresh = value;
     window.localStorage.setItem("ankink_reviews_since_full_refresh", String(value));
@@ -850,9 +871,10 @@
     selectedRadio("full-refresh", fullRefreshMode);
     selectedRadio("night-card-mode", nightCardMode);
     byId("card-font").value = cardFont;
+    hideSettingsTooltip();
     show(byId("settings-dialog"));
   };
-  byId("settings-close").onclick = function () { hide(byId("settings-dialog")); };
+  byId("settings-close").onclick = function () { hideSettingsTooltip(); hide(byId("settings-dialog")); };
   byId("settings-logout").onclick = function () {
     hide(byId("settings-dialog"));
     show(byId("account-dialog"));
@@ -868,6 +890,18 @@
       fontScale = parseFloat(this.getAttribute("data-scale"));
       applyFontScale();
     };
+  }());
+  (function () {
+    var helpButtons = document.getElementsByClassName("setting-help"), i;
+    for (i = 0; i < helpButtons.length; ++i) helpButtons[i].onclick = function (event) {
+      event = event || window.event;
+      if (event.stopPropagation) event.stopPropagation();
+      else event.cancelBubble = true;
+      showSettingsTooltip(this);
+    };
+    byId("settings-tooltip").onclick = hideSettingsTooltip;
+    byId("settings-dialog").onscroll = hideSettingsTooltip;
+    document.onclick = hideSettingsTooltip;
   }());
   (function () {
     var pageButtons = document.getElementsByName("page-buttons");

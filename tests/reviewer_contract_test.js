@@ -102,4 +102,13 @@ assert.match(frontend, /style\.setProperty\("font-family", family, "important"\)
 assert.match(frontend, /byId\("font-plus"\)\.onclick = function \(\) \{ changeFontScale\(1\); \}/);
 assert.match(frontend, /byId\("font-minus"\)\.onclick = function \(\) \{ changeFontScale\(-1\); \}/);
 
+// Explanatory settings copy is revealed on demand by touch-friendly help
+// buttons instead of permanently occupying space in the dialog.
+assert.match(frontend, /getElementsByClassName\("setting-help"\)/);
+assert.match(frontend, /function showSettingsTooltip\(button\)/);
+assert.match(frontend, /button\.getAttribute\("data-help"\)/);
+assert.match(frontend, /byId\("settings-dialog"\)\.onscroll = hideSettingsTooltip/);
+assert.match(frontend, /event\.stopPropagation\(\)/);
+assert.match(frontend, /document\.onclick = hideSettingsTooltip/);
+
 console.log("reviewer contract tests passed");

@@ -38,13 +38,15 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .settings-section h3 { margin: 0 0 16px; font: bold 21px "Amazon Ember", Arial, sans-serif; }
 .setting-choice { display: block; margin: 14px 0; font: 19px/1.25 "Amazon Ember", Arial, sans-serif; }
 .setting-choice input { width: 23px; height: 23px; margin: 0 10px 0 0; vertical-align: middle; }
-.setting-choice small { display: block; margin: 5px 0 0 35px; color: #555; font: 15px/1.25 "Amazon Ember", Arial, sans-serif; }
 .setting-choice.compact { display: inline-block; margin-right: 22px; white-space: nowrap; }
+.setting-choice-row { min-height: 46px; white-space: nowrap; }
+.setting-choice-row .setting-choice { display: inline-block; margin: 5px 0; padding: 7px 0; vertical-align: middle; }
+.setting-help { display: inline-block; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: #111; vertical-align: middle; font: 28px/1 "Kindle Symbol", "Amazon Ember", sans-serif; }
+.settings-tooltip { position: fixed; z-index: 1100; width: 560px; padding: 18px 22px; border: 3px solid #111; background: #fff; color: #111; font: 17px/1.35 "Amazon Ember", Arial, sans-serif; }
 .setting-select { display: block; font: 19px/1.25 "Amazon Ember", Arial, sans-serif; }
 .setting-select strong { display: block; margin-bottom: 10px; }
 .setting-select select { display: block; width: 100%; height: 58px; padding: 6px 12px; border: 2px solid #111; background: #fff; color: #111; font: 20px "Amazon Ember", Arial, sans-serif; }
-.font-size-label { display: block; margin-top: 24px; font: bold 19px/1.25 "Amazon Ember", Arial, sans-serif; }
-.font-size-choices { display: table; width: 100%; height: 78px; margin-top: 9px; table-layout: fixed; }
+.font-size-choices { display: table; width: 100%; height: 78px; margin-top: 14px; table-layout: fixed; }
 .font-size-choices button { display: table-cell; width: 12.5%; height: 70px; padding: 0; border: 2px solid transparent; background: transparent; color: #111; vertical-align: middle; line-height: 1; }
 .font-size-choices button:nth-child(1) { font-size: 14px; }
 .font-size-choices button:nth-child(2) { font-size: 17px; }
@@ -125,6 +127,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .font-size-choices button { color: #eee; }
 .night-mode .font-size-choices button.selected { border-color: #eee; background: #eee; color: #111; }
 .night-mode .settings-section { border-color: #777; }
-.night-mode .setting-choice small { color: #bbb; }
+.night-mode .setting-help { color: #eee; }
+.night-mode .settings-tooltip { border-color: #eee; background: #111; color: #eee; }
 .night-mode .settings-actions button { background: #111; color: #eee; border-color: #eee; }
 .night-mode .settings-actions .logout-button { background: #eee; color: #111; }

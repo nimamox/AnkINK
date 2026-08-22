@@ -42,10 +42,11 @@
     <div class="settings-dialog">
       <p class="eyebrow">AnkINK</p>
       <h2 id="settings-dialog-title">Settings</h2>
+      <div id="settings-tooltip" class="settings-tooltip hidden" role="tooltip"></div>
       <div class="settings-section">
         <h3>Physical page buttons</h3>
-        <label class="setting-choice"><input type="radio" name="page-buttons" value="normal"> <strong>Forward shows answer</strong><small>Forward: Show Answer / Good &middot; Backward: Undo last answer</small></label>
-        <label class="setting-choice"><input type="radio" name="page-buttons" value="reversed"> <strong>Reverse page buttons</strong><small>Backward: Show Answer / Good &middot; Forward: Undo last answer</small></label>
+        <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="page-buttons" value="normal"> <strong>Forward shows answer</strong></label><button class="setting-help" type="button" aria-label="Explain forward page button behavior" data-help="Forward: Show Answer / Good · Backward: Undo last answer">ⓘ</button></div>
+        <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="page-buttons" value="reversed"> <strong>Reverse page buttons</strong></label><button class="setting-help" type="button" aria-label="Explain reversed page button behavior" data-help="Backward: Show Answer / Good · Forward: Undo last answer">ⓘ</button></div>
       </div>
       <div class="settings-section">
         <h3>E-ink full refresh</h3>
@@ -67,7 +68,6 @@
             <option value="Palatino">Palatino</option>
           </select>
         </label>
-        <strong class="font-size-label">Card font size</strong>
         <div id="card-font-sizes" class="font-size-choices" role="group" aria-label="Card font size">
           <button type="button" name="card-font-size" data-scale="0.7" aria-label="Extra small card font">Aa</button>
           <button type="button" name="card-font-size" data-scale="0.8" aria-label="Small card font">Aa</button>
@@ -81,9 +81,9 @@
       </div>
       <div class="settings-section">
         <h3>Night-mode cards</h3>
-        <label class="setting-choice"><input type="radio" name="night-card-mode" value="standard"> <strong>Standard</strong><small>Keep card and template colors. Images remain unchanged.</small></label>
-        <label class="setting-choice"><input type="radio" name="night-card-mode" value="palette"> <strong>Adapt colors</strong><small>Lighten dark text and darken bright backgrounds. Images remain unchanged.</small></label>
-        <label class="setting-choice"><input type="radio" name="night-card-mode" value="palette-images"> <strong>Adapt colors and invert images</strong><small>Also invert image pixels using Canvas. This may take a moment on large images.</small></label>
+        <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="night-card-mode" value="standard"> <strong>Standard</strong></label><button class="setting-help" type="button" aria-label="Explain standard night-mode cards" data-help="Keep card and template colors. Images remain unchanged.">ⓘ</button></div>
+        <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="night-card-mode" value="palette"> <strong>Adapt colors</strong></label><button class="setting-help" type="button" aria-label="Explain adapted night-mode colors" data-help="Lighten dark text and darken bright backgrounds. Images remain unchanged.">ⓘ</button></div>
+        <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="night-card-mode" value="palette-images"> <strong>Adapt colors and invert images</strong></label><button class="setting-help" type="button" aria-label="Explain adapted colors and inverted images" data-help="Also invert image pixels using Canvas. This may take a moment on large images.">ⓘ</button></div>
       </div>
       <div class="settings-actions">
         <button id="settings-close" type="button">Done</button>
@@ -149,6 +149,6 @@
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260822-card-font-sizes"></script>
+  <script src="app-settings.js?v=20260822-dismiss-help"></script>
 </body>
 </html>
