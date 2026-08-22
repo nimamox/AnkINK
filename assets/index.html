@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AnkINK</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css">
-  <link rel="stylesheet" href="app.css?v=20260821-deck-tree">
+  <link rel="stylesheet" href="app.css?v=20260821-card-night-mode">
   <style id="card-template-style"></style>
 </head>
 <body>
@@ -44,8 +44,8 @@
       <h2 id="settings-dialog-title">Settings</h2>
       <div class="settings-section">
         <h3>Physical page buttons</h3>
-        <label class="setting-choice"><input type="radio" name="page-buttons" value="normal"> <strong>Forward shows answer</strong><small>Forward: Show Answer / Good &middot; Backward: Undo / Again</small></label>
-        <label class="setting-choice"><input type="radio" name="page-buttons" value="reversed"> <strong>Reverse page buttons</strong><small>Backward: Show Answer / Good &middot; Forward: Undo / Again</small></label>
+        <label class="setting-choice"><input type="radio" name="page-buttons" value="normal"> <strong>Forward shows answer</strong><small>Forward: Show Answer / Good &middot; Backward: Undo last answer</small></label>
+        <label class="setting-choice"><input type="radio" name="page-buttons" value="reversed"> <strong>Reverse page buttons</strong><small>Backward: Show Answer / Good &middot; Forward: Undo last answer</small></label>
       </div>
       <div class="settings-section">
         <h3>E-ink full refresh</h3>
@@ -112,7 +112,11 @@
       <button id="rating-4" type="button"><strong>Easy</strong><small>4</small></button>
     </div>
   </div>
+  <div id="scroll-pager" class="scroll-pager">
+    <button id="scroll-up" class="scroll-button scroll-up hidden" type="button" title="Scroll up">&#9650;</button>
+    <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
+  </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260821-deck-tree"></script>
+  <script src="app-settings.js?v=20260821-anki-undo"></script>
 </body>
 </html>

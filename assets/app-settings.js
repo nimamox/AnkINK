@@ -2,7 +2,8 @@
   "use strict";
   var API = "http://127.0.0.1:8765";
   var MEDIA_VERSION = String(new Date().getTime());
-  var state = { deck: null, card: null, reviewed: 0, answerShown: false, inputBusy: false };
+  var state = { deck: null, card: null, reviewed: 0, answerShown: false, inputBusy: false,
+    cardLoading: false, answerInFlight: false, undoInFlight: false };
   var warningTimer = null;
   var initialSyncAttempted = false;
   var pendingReviews = parseInt(window.localStorage.getItem("ankink_pending_reviews") || "0", 10) || 0;
@@ -20,6 +21,30 @@
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
   function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
+  function activeScrollTarget() {
+    if (byId("review-view").className.indexOf("hidden") < 0) return byId("card");
+    if (byId("decks-view").className.indexOf("hidden") < 0) return byId("decks-view");
+    return null;
+  }
+  function updateScrollButtons() {
+    var target = activeScrollTarget(), pager = byId("scroll-pager"), maximum;
+    if (!target) {
+      hide(byId("scroll-up")); hide(byId("scroll-down")); return;
+    }
+    pager.className = target.id === "card" ? "scroll-pager review-scroll" : "scroll-pager";
+    maximum = Math.max(0, target.scrollHeight - target.clientHeight);
+    if (target.scrollTop > 6) show(byId("scroll-up")); else hide(byId("scroll-up"));
+    if (target.scrollTop < maximum - 6) show(byId("scroll-down")); else hide(byId("scroll-down"));
+  }
+  function scheduleScrollButtonUpdate() { window.setTimeout(updateScrollButtons, 0); }
+  function pageScroll(direction) {
+    var target = activeScrollTarget(), distance, maximum;
+    if (!target) return;
+    distance = Math.max(1, Math.floor(target.clientHeight * 0.8));
+    maximum = Math.max(0, target.scrollHeight - target.clientHeight);
+    target.scrollTop = Math.max(0, Math.min(maximum, target.scrollTop + direction * distance));
+    updateScrollButtons();
+  }
   function saveCollapsedDecks() {
     window.localStorage.setItem("ankink_collapsed_decks", JSON.stringify(collapsedDecks));
   }
@@ -90,6 +115,7 @@
           control.title = isCollapsed ? "Collapse subdecks" : "Expand subdecks";
           if (isCollapsed) delete collapsedDecks[path]; else collapsedDecks[path] = true;
           saveCollapsedDecks();
+          scheduleScrollButtonUpdate();
         };
       }(node.fullName, children, toggle));
       wrapper.appendChild(children);
@@ -252,10 +278,12 @@
           this.className += " image-expanded";
           if (this.scrollIntoView) this.scrollIntoView(true);
         }
+        scheduleScrollButtonUpdate();
       };
     }
   }
   function loadMediaImage(image, filename) {
+    image.onload = scheduleScrollButtonUpdate;
     request("GET", "/api/media-data/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION,
       null, function (error, data) {
         if (!error && data && typeof data.data === "string" && data.data.indexOf("data:image/") === 0)
@@ -357,6 +385,7 @@
         }
         tree = buildDeckTree(message.decks);
         for (i = 0; i < tree.length; ++i) renderDeckNode(tree[i], list);
+        scheduleScrollButtonUpdate();
         if (!skipInitialSync && !initialSyncAttempted) {
           initialSyncAttempted = true;
           syncNow(function (success) { if (success) loadDecks(true); });
@@ -368,6 +397,7 @@
     byId("front").style.fontSize = Math.round(32 * fontScale) + "px";
     byId("back-face").style.fontSize = Math.round(26 * fontScale) + "px";
     window.localStorage.setItem("ankink_font_scale", String(fontScale));
+    scheduleScrollButtonUpdate();
   }
   function applyNightMode() {
     var html = document.documentElement;
@@ -390,13 +420,13 @@
   function openDeck(deck) {
     state.deck = deck; state.reviewed = 0; byId("review-title").innerHTML = "";
     byId("review-title").appendChild(document.createTextNode(deckName(deck.name)));
-    updateCounts(deck); hide(byId("decks-view")); show(byId("review-view")); nextCard();
+    updateCounts(deck); hide(byId("decks-view")); show(byId("review-view")); nextCard(); scheduleScrollButtonUpdate();
   }
   function showLogin() {
     state.deck = null; state.card = null; warning("");
     hide(byId("review-view")); hide(byId("decks-view")); hide(byId("account-dialog"));
     show(byId("auth-panel")); hide(byId("full-sync-panel"));
-    byId("ankiweb-password").value = ""; window.scrollTo(0, 0);
+    byId("ankiweb-password").value = ""; window.scrollTo(0, 0); scheduleScrollButtonUpdate();
   }
   function syncNow(done) {
     warning(""); byId("status").innerHTML = "Synchronizing with AnkiWeb...";
@@ -423,17 +453,21 @@
     }, 0);
   }
   function nextCard() {
+    if (!state.deck) return;
+    state.cardLoading = true;
+    state.card = null;
     state.answerShown = false;
     resetCardScroll();
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
     hide(byId("rating-controls")); show(byId("show-controls"));
     request("GET", "/api/decks/" + state.deck.id + "/next", null, function (error, card) {
+      state.cardLoading = false;
       if (error) { warning(error); return; }
       if (card.type === "error") { warning(card.message); return; }
       if (card.type === "complete") {
         applyCardCss("");
         state.card = null; byId("front").innerHTML = "<h2>Session complete</h2><p>You reviewed " + state.reviewed + " cards.</p>";
-        hide(byId("show-controls")); runScheduledRefresh(); return;
+        hide(byId("show-controls")); runScheduledRefresh(); scheduleScrollButtonUpdate(); return;
       }
       state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
       safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); resetCardScroll();
@@ -444,28 +478,39 @@
         }
       }
       runScheduledRefresh();
+      scheduleScrollButtonUpdate();
     }, 1);
   }
   function answer(rating) {
-    if (!state.card) return;
-    request("POST", "/api/answer", "card=" + encodeURIComponent(state.card.id) + "&rating=" + rating,
-      function (error, result) { if (error || (result && result.type === "error")) warning(error || result.message); else { state.reviewed += 1; storePendingReviews(pendingReviews + 1); scheduleAutomaticRefresh(); nextCard(); } }, 0);
+    var cardId;
+    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight) return;
+    cardId = state.card.id;
+    state.answerInFlight = true;
+    request("POST", "/api/answer", "card=" + encodeURIComponent(cardId) + "&rating=" + rating,
+      function (error, result) {
+        state.answerInFlight = false;
+        if (error || (result && result.type === "error")) warning(error || result.message);
+        else { state.reviewed += 1; storePendingReviews(pendingReviews + 1); scheduleAutomaticRefresh(); nextCard(); }
+      }, 0);
   }
   function showAnswer() {
-    if (state.card) {
+    if (state.card && !state.cardLoading && !state.answerInFlight && !state.undoInFlight) {
       state.answerShown = true; show(byId("back-face")); show(byId("answer-divider"));
       hide(byId("show-controls")); show(byId("rating-controls"));
       if (byId("answer-divider").scrollIntoView) byId("answer-divider").scrollIntoView(true);
+      scheduleScrollButtonUpdate();
     }
   }
   function undoAnswer() {
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight) return;
+    state.undoInFlight = true;
     request("POST", "/api/undo", "", function (error, result) {
-      if (error || (result && result.type === "error")) warning(error || result.message);
-      else {
-        if (state.reviewed > 0) state.reviewed -= 1;
-        storePendingReviews(pendingReviews > 0 ? pendingReviews - 1 : 1);
-        warning(""); nextCard();
-      }
+      state.undoInFlight = false;
+      if (error || !result) { warning(error || "Undo failed."); return; }
+      if (result.type === "undo-empty") return;
+      if (result.type === "error") { warning(result.message); return; }
+      if (state.reviewed > 0) state.reviewed -= 1;
+      warning(""); nextCard();
     }, 0);
   }
   function cardCanScrollDown() {
@@ -506,15 +551,17 @@
     if (state.inputBusy) return;
     state.inputBusy = true;
     request("GET", "/api/input", null, function (error, input) {
+      var advance;
       state.inputBusy = false;
-      if (error || !input || !state.deck || !state.card || !input.action) return;
-      if ((pageButtonMode === "normal" && input.action === "forward") ||
-          (pageButtonMode === "reversed" && input.action === "backward")) {
+      if (error || !input || !state.deck || !input.action ||
+          state.cardLoading || state.answerInFlight || state.undoInFlight) return;
+      advance = (pageButtonMode === "normal" && input.action === "forward") ||
+        (pageButtonMode === "reversed" && input.action === "backward");
+      if (advance) {
+        if (!state.card) return;
         if (cardCanScrollDown()) scrollCardForward();
         else if (state.answerShown) answer(3); else showAnswer();
-      } else {
-        if (state.answerShown) answer(1); else undoAnswer();
-      }
+      } else undoAnswer();
     }, 0);
   }
   byId("show-answer").onclick = showAnswer;
@@ -522,8 +569,10 @@
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
   byId("back").onclick = function () {
     hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null;
+    state.cardLoading = false; state.answerInFlight = false; state.undoInFlight = false;
     byId("decks-view").scrollTop = 0;
-    if (pendingReviews > 0) syncNow(function () { loadDecks(true); });
+    scheduleScrollButtonUpdate();
+    loadDecks(true);
   };
   byId("refresh").onclick = function () {
     fullRefresh();
@@ -532,6 +581,11 @@
   byId("font-plus").onclick = function () { fontScale = Math.min(1.6, fontScale + 0.1); applyFontScale(); };
   byId("font-minus").onclick = function () { fontScale = Math.max(0.7, fontScale - 0.1); applyFontScale(); };
   byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
+  byId("scroll-up").onclick = function () { pageScroll(-1); };
+  byId("scroll-down").onclick = function () { pageScroll(1); };
+  byId("decks-view").onscroll = updateScrollButtons;
+  byId("card").onscroll = updateScrollButtons;
+  window.onresize = scheduleScrollButtonUpdate;
   byId("settings").onclick = function () {
     selectedRadio("page-buttons", pageButtonMode);
     selectedRadio("full-refresh", fullRefreshMode);

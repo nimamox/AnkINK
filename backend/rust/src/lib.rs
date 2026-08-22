@@ -14,6 +14,7 @@ use anki::sync::collection::normal::SyncActionRequired;
 use anki::sync::login::{sync_login, SyncAuth};
 use anki::sync::media::progress::MediaSyncProgress;
 use anki::timestamp::{TimestampMillis, TimestampSecs};
+use anki::undo::Op;
 use serde_json::{json, Value};
 
 fn flatten_deck_tree(
@@ -187,10 +188,13 @@ impl AnkinkAnkiBackend {
     }
 
     fn undo(&mut self) -> Result<Value, String> {
-        self.pending = None;
+        if !matches!(self.collection()?.can_undo(), Some(Op::AnswerCard)) {
+            return Ok(json!({"type": "undo-empty"}));
+        }
         self.collection()?
             .undo()
             .map_err(|error| error.to_string())?;
+        self.pending = None;
         Ok(json!({"type": "undone"}))
     }
 
