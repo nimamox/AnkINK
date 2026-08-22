@@ -113,3 +113,14 @@ if(ANKINK_BUILD_TESTS AND NOT ANKINK_USE_RSLIB)
     target_compile_options(ankink_collection_tests PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME ankink_collection_tests COMMAND ankink_collection_tests)
 endif()
+
+if(ANKINK_BUILD_TESTS)
+    find_program(ANKINK_NODE_EXECUTABLE node)
+    if(ANKINK_NODE_EXECUTABLE)
+        add_test(NAME ankink_reviewer_contract_tests
+            COMMAND "${ANKINK_NODE_EXECUTABLE}"
+                    "${CMAKE_SOURCE_DIR}/tests/reviewer_contract_test.js"
+                    "${CMAKE_SOURCE_DIR}/assets/app-settings.js"
+                    "${CMAKE_SOURCE_DIR}/backend/rust/src/lib.rs")
+    endif()
+endif()

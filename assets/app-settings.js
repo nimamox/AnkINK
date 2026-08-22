@@ -510,6 +510,7 @@
       if (result.type === "undo-empty") return;
       if (result.type === "error") { warning(result.message); return; }
       if (state.reviewed > 0) state.reviewed -= 1;
+      storePendingReviews(pendingReviews - 1);
       warning(""); nextCard();
     }, 0);
   }
