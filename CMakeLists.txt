@@ -90,7 +90,7 @@ if(ANKINK_BUILD_APP)
     set_target_properties(ankinkd PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
 
     install(TARGETS ankinkd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-    install(FILES assets/index.html assets/app.css assets/app.js assets/config.xml
+    install(FILES assets/index.html assets/app.css assets/app-settings.js assets/config.xml
         DESTINATION ${CMAKE_INSTALL_DATADIR}/ankink)
     install(DIRECTORY assets/vendor DESTINATION ${CMAKE_INSTALL_DATADIR}/ankink)
     install(PROGRAMS scripts/run-kindle.sh DESTINATION . RENAME ankink.sh)

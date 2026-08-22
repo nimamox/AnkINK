@@ -5,21 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AnkINK</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css">
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app.css?v=20260821-header-layout">
   <style id="card-template-style"></style>
 </head>
 <body>
   <div class="app-header">
+    <div class="header-settings">
+      <button id="settings" class="settings-button" type="button" title="Settings">&#9881;</button>
+    </div>
     <div class="brand">
       <span class="brand-copy"><h1>Ank<span>INK</span></h1><p id="status">Starting AnkINK engine...</p></span>
-      <button id="account" class="account-button" type="button" title="AnkiWeb account"><span class="person-head"></span><span class="person-body"></span></button>
     </div>
     <div class="header-actions">
       <button id="night-mode" class="mode-button" type="button" title="Night mode">&#9789;</button>
       <span class="font-controls"><button id="font-plus" type="button">+</button><button id="font-minus" type="button">&minus;</button></span>
-      <button id="sync" class="header-button" type="button">Sync</button>
-      <button id="refresh" class="header-button" type="button">Refresh</button>
-      <button id="close" class="header-button" type="button">Close</button>
+      <button id="sync" class="header-button icon-button" type="button" title="Sync">&#8651;</button>
+      <button id="refresh" class="header-button icon-button" type="button" title="Full refresh">&#8635;</button>
+      <button id="close" class="header-button icon-button" type="button" title="Close">&times;</button>
     </div>
   </div>
   <div id="warning" class="warning hidden"></div>
@@ -27,11 +29,33 @@
   <div id="account-dialog" class="dialog-overlay hidden" role="dialog" aria-labelledby="account-dialog-title">
     <div class="confirm-dialog">
       <p class="eyebrow">ANKIWEB ACCOUNT</p>
-      <h2 id="account-dialog-title">Log out of AnkINK?</h2>
+      <h2 id="account-dialog-title">Log out of AnkINK</h2>
       <p>Your reviews remain on this Kindle until you synchronize or replace the collection.</p>
       <div class="auth-actions">
         <button id="account-cancel" type="button">Cancel</button>
         <button id="account-logout" class="dark-button" type="button">Log out</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-dialog" class="dialog-overlay hidden" role="dialog" aria-labelledby="settings-dialog-title">
+    <div class="settings-dialog">
+      <p class="eyebrow">ANKINK</p>
+      <h2 id="settings-dialog-title">Settings</h2>
+      <div class="settings-section">
+        <h3>Physical page buttons</h3>
+        <label class="setting-choice"><input type="radio" name="page-buttons" value="normal"> <strong>Forward shows answer</strong><small>Forward: Show Answer / Good &middot; Backward: Undo / Again</small></label>
+        <label class="setting-choice"><input type="radio" name="page-buttons" value="reversed"> <strong>Reverse page buttons</strong><small>Backward: Show Answer / Good &middot; Forward: Undo / Again</small></label>
+      </div>
+      <div class="settings-section">
+        <h3>E-ink full refresh</h3>
+        <label class="setting-choice compact"><input type="radio" name="full-refresh" value="manual"> Manual only</label>
+        <label class="setting-choice compact"><input type="radio" name="full-refresh" value="every-card"> Every card</label>
+        <label class="setting-choice compact"><input type="radio" name="full-refresh" value="every-five"> Every 5 cards</label>
+      </div>
+      <div class="settings-actions">
+        <button id="settings-close" type="button">Done</button>
+        <button id="settings-logout" class="logout-button" type="button">Log out</button>
       </div>
     </div>
   </div>
@@ -89,6 +113,6 @@
     </div>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app.js"></script>
+  <script src="app-settings.js"></script>
 </body>
 </html>

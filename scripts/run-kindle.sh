@@ -76,7 +76,7 @@ fi
 # A content-specific file URL prevents Mesquite/WebKit's process-global cache
 # from serving assets from an older installation.
 ANKINK_ASSET_ID=$(cksum "$ANKINK_ROOT/share/ankink/index.html" \
-  "$ANKINK_ROOT/share/ankink/app.css" "$ANKINK_ROOT/share/ankink/app.js" | \
+  "$ANKINK_ROOT/share/ankink/app.css" "$ANKINK_ROOT/share/ankink/app-settings.js" | \
   cksum | awk '{print $1}')
 ANKINK_MESQUITE_DIR="/var/local/mesquite/ankink-$ANKINK_ASSET_ID"
 ANKINK_STAGE="$ANKINK_MESQUITE_DIR.new"

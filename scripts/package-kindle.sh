@@ -21,7 +21,7 @@ mkdir -p "$ANKINK_OUTPUT/bin" "$ANKINK_OUTPUT/lib" "$ANKINK_OUTPUT/share/ankink"
   "$ANKINK_OUTPUT/kual-extension/AnkINK"
 cp "$ANKINK_BUILD_DIR/ankinkd" "$ANKINK_OUTPUT/bin/ankinkd"
 cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
-  "$ANKINK_ROOT/assets/app.js" "$ANKINK_ROOT/assets/config.xml" \
+  "$ANKINK_ROOT/assets/app-settings.js" "$ANKINK_ROOT/assets/config.xml" \
   "$ANKINK_OUTPUT/share/ankink/"
 cp -R "$ANKINK_ROOT/assets/vendor" "$ANKINK_OUTPUT/share/ankink/"
 cp "$ANKINK_ROOT/scripts/run-kindle.sh" "$ANKINK_OUTPUT/ankink.sh"

@@ -6,15 +6,15 @@ h1, h2, p { margin: 0; }
 h1 { font: bold 50px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: -3px; }
 h1 span { font-weight: normal; }
 h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
-.app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; height: 125px; border-bottom: 4px solid #111; background: #fff; }
+.app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; width: 92%; height: 125px; table-layout: fixed; border-bottom: 4px solid #111; background: #fff; }
+.header-settings { display: table-cell; width: 88px; vertical-align: middle; white-space: nowrap; }
 .brand { display: table-cell; vertical-align: middle; white-space: nowrap; }
 .brand-copy { display: inline-block; vertical-align: middle; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
-.header-actions { display: table-cell; width: 520px; vertical-align: middle; text-align: right; white-space: nowrap; }
+.header-actions { display: table-cell; width: 370px; vertical-align: middle; text-align: right; white-space: nowrap; }
 .header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
-.account-button { display: inline-block; width: 54px; height: 72px; margin-left: 34px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 27px/1 "Amazon Ember", Arial, sans-serif; }
-.person-head { display: block; width: 14px; height: 14px; margin: 0 auto 5px; border-radius: 9px; background: #111; }
-.person-body { display: block; width: 30px; height: 18px; margin: 0 auto; border-radius: 18px 18px 3px 3px; background: #111; }
+.header-button.icon-button { width: 72px; padding: 0; font: 40px/1 Arial, sans-serif; }
+.settings-button { display: inline-block; width: 54px; height: 72px; margin: 0; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 37px/1 Arial, sans-serif; }
 .mode-button { display: inline-block; width: 54px; height: 72px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 30px/1 "Amazon Ember", Arial, sans-serif; }
 .font-controls { display: inline-block; width: 54px; height: 72px; vertical-align: middle; }
 .font-controls button { display: block; width: 54px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
@@ -31,6 +31,17 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .dialog-overlay { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; padding-top: 260px; background: rgba(255, 255, 255, 0.92); }
 .confirm-dialog { width: 680px; margin: 0 auto; padding: 38px; border: 4px solid #111; background: #fff; }
 .confirm-dialog h2 { margin-bottom: 24px; }
+.settings-dialog { width: 760px; margin: 115px auto 0; padding: 38px; border: 4px solid #111; background: #fff; }
+.settings-dialog h2 { margin-bottom: 26px; }
+.settings-section { margin-top: 26px; padding-top: 22px; border-top: 2px solid #aaa; }
+.settings-section h3 { margin: 0 0 16px; font: bold 21px "Amazon Ember", Arial, sans-serif; }
+.setting-choice { display: block; margin: 14px 0; font: 19px/1.25 "Amazon Ember", Arial, sans-serif; }
+.setting-choice input { width: 23px; height: 23px; margin: 0 10px 0 0; vertical-align: middle; }
+.setting-choice small { display: block; margin: 5px 0 0 35px; color: #555; font: 15px/1.25 "Amazon Ember", Arial, sans-serif; }
+.setting-choice.compact { display: inline-block; margin-right: 22px; white-space: nowrap; }
+.settings-actions { display: table; width: 100%; margin-top: 32px; border-spacing: 8px 0; }
+.settings-actions button { display: table-cell; width: 50%; min-height: 72px; border: 3px solid #111; background: #fff; font: bold 19px "Amazon Ember", Arial, sans-serif; }
+.settings-actions .logout-button { background: #111; color: #fff; }
 .section-heading { padding: 48px 0 25px; }
 #decks-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow-y: auto; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
@@ -67,7 +78,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .ratings strong { font-size: 17px; } .ratings small { margin-top: 6px; font-size: 14px; }
 .hidden { display: none; }
 .night-mode, .night-mode body { background: #111; color: #eee; }
-.night-mode button, .night-mode .header-button, .night-mode .mode-button, .night-mode .account-button,
+.night-mode button, .night-mode .header-button, .night-mode .mode-button, .night-mode .settings-button,
 .night-mode .font-controls button, .night-mode .deck, .night-mode .text-button,
 .night-mode .controls, .night-mode .controls button, .night-mode .auth-panel,
 .night-mode .auth-panel input, .night-mode .auth-actions button { background: #111; color: #eee; border-color: #eee; }
@@ -77,7 +88,10 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .deck-count, .night-mode .session-count, .night-mode .answer-divider,
 .night-mode .empty-state { color: #bbb; }
 .night-mode .warning { background: #333; color: #eee; border-color: #eee; }
-.night-mode .person-head, .night-mode .person-body { background: #eee; }
 .night-mode .app-header, .night-mode .review-toolbar { background: #111; }
 .night-mode .dialog-overlay { background: rgba(17, 17, 17, 0.94); }
-.night-mode .confirm-dialog { background: #111; color: #eee; border-color: #eee; }
+.night-mode .confirm-dialog, .night-mode .settings-dialog { background: #111; color: #eee; border-color: #eee; }
+.night-mode .settings-section { border-color: #777; }
+.night-mode .setting-choice small { color: #bbb; }
+.night-mode .settings-actions button { background: #111; color: #eee; border-color: #eee; }
+.night-mode .settings-actions .logout-button { background: #eee; color: #111; }

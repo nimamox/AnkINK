@@ -8,12 +8,24 @@
   var pendingReviews = parseInt(window.localStorage.getItem("ankink_pending_reviews") || "0", 10) || 0;
   var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
   var nightMode = window.localStorage.getItem("ankink_night_mode") === "1";
+  var pageButtonMode = window.localStorage.getItem("ankink_page_button_mode") === "reversed" ? "reversed" : "normal";
+  var fullRefreshMode = window.localStorage.getItem("ankink_full_refresh_mode") || "manual";
+  var reviewsSinceFullRefresh = parseInt(window.localStorage.getItem("ankink_reviews_since_full_refresh") || "0", 10) || 0;
+  if (fullRefreshMode !== "manual" && fullRefreshMode !== "every-card" && fullRefreshMode !== "every-five") fullRefreshMode = "manual";
   function byId(id) { return document.getElementById(id); }
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
   function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
   function resetCardScroll() { byId("card").scrollTop = 0; }
+  function selectedRadio(name, value) {
+    var inputs = document.getElementsByName(name), i;
+    for (i = 0; i < inputs.length; ++i) inputs[i].checked = inputs[i].value === value;
+  }
+  function saveFullRefreshProgress(value) {
+    reviewsSinceFullRefresh = value;
+    window.localStorage.setItem("ankink_reviews_since_full_refresh", String(value));
+  }
   function updateSyncStatus() {
     byId("status").innerHTML = pendingReviews > 0
       ? "&#9679; " + pendingReviews + " review" + (pendingReviews === 1 ? "" : "s") + " not synced"
@@ -348,7 +360,7 @@
       if (card.type === "complete") {
         applyCardCss("");
         state.card = null; byId("front").innerHTML = "<h2>Session complete</h2><p>You reviewed " + state.reviewed + " cards.</p>";
-        hide(byId("show-controls")); return;
+        hide(byId("show-controls")); runScheduledRefresh(); return;
       }
       state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
       safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); resetCardScroll();
@@ -358,12 +370,13 @@
           byId("rating-" + (i + 1)).getElementsByTagName("small")[0].innerHTML = card.buttons[i].interval;
         }
       }
+      runScheduledRefresh();
     }, 1);
   }
   function answer(rating) {
     if (!state.card) return;
     request("POST", "/api/answer", "card=" + encodeURIComponent(state.card.id) + "&rating=" + rating,
-      function (error, result) { if (error || (result && result.type === "error")) warning(error || result.message); else { state.reviewed += 1; storePendingReviews(pendingReviews + 1); nextCard(); } }, 0);
+      function (error, result) { if (error || (result && result.type === "error")) warning(error || result.message); else { state.reviewed += 1; storePendingReviews(pendingReviews + 1); scheduleAutomaticRefresh(); nextCard(); } }, 0);
   }
   function showAnswer() {
     if (state.card) {
@@ -391,16 +404,42 @@
     card.scrollTop = Math.min(card.scrollHeight - card.clientHeight,
       card.scrollTop + Math.max(1, Math.floor(card.clientHeight * 0.85)));
   }
+  function fullRefresh() {
+    if (state.refreshInFlight) return;
+    state.refreshInFlight = true;
+    request("POST", "/api/refresh", "", function (error) {
+      state.refreshInFlight = false;
+      if (error) warning(error);
+    }, 0);
+  }
+  function scheduleAutomaticRefresh() {
+    if (fullRefreshMode === "manual") return;
+    if (fullRefreshMode === "every-card") {
+      state.refreshAfterCard = true;
+      return;
+    }
+    saveFullRefreshProgress(reviewsSinceFullRefresh + 1);
+    if (reviewsSinceFullRefresh >= 5) {
+      saveFullRefreshProgress(0);
+      state.refreshAfterCard = true;
+    }
+  }
+  function runScheduledRefresh() {
+    if (!state.refreshAfterCard) return;
+    state.refreshAfterCard = false;
+    fullRefresh();
+  }
   function pollPageButtons() {
     if (state.inputBusy) return;
     state.inputBusy = true;
     request("GET", "/api/input", null, function (error, input) {
       state.inputBusy = false;
       if (error || !input || !state.deck || !state.card || !input.action) return;
-      if (input.action === "forward") {
+      if ((pageButtonMode === "normal" && input.action === "forward") ||
+          (pageButtonMode === "reversed" && input.action === "backward")) {
         if (cardCanScrollDown()) scrollCardForward();
         else if (state.answerShown) answer(3); else showAnswer();
-      } else if (input.action === "backward") {
+      } else {
         if (state.answerShown) answer(1); else undoAnswer();
       }
     }, 0);
@@ -414,13 +453,36 @@
     if (pendingReviews > 0) syncNow(function () { loadDecks(true); });
   };
   byId("refresh").onclick = function () {
-    request("POST", "/api/refresh", "", function (error) { if (error) warning(error); }, 0);
+    fullRefresh();
   };
   byId("sync").onclick = function () { syncNow(); };
   byId("font-plus").onclick = function () { fontScale = Math.min(1.6, fontScale + 0.1); applyFontScale(); };
   byId("font-minus").onclick = function () { fontScale = Math.max(0.7, fontScale - 0.1); applyFontScale(); };
   byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
-  byId("account").onclick = function () { show(byId("account-dialog")); };
+  byId("settings").onclick = function () {
+    selectedRadio("page-buttons", pageButtonMode);
+    selectedRadio("full-refresh", fullRefreshMode);
+    show(byId("settings-dialog"));
+  };
+  byId("settings-close").onclick = function () { hide(byId("settings-dialog")); };
+  byId("settings-logout").onclick = function () {
+    hide(byId("settings-dialog"));
+    show(byId("account-dialog"));
+  };
+  (function () {
+    var pageButtons = document.getElementsByName("page-buttons");
+    var fullRefreshButtons = document.getElementsByName("full-refresh");
+    var i;
+    for (i = 0; i < pageButtons.length; ++i) pageButtons[i].onclick = function () {
+      pageButtonMode = this.value;
+      window.localStorage.setItem("ankink_page_button_mode", pageButtonMode);
+    };
+    for (i = 0; i < fullRefreshButtons.length; ++i) fullRefreshButtons[i].onclick = function () {
+      fullRefreshMode = this.value;
+      window.localStorage.setItem("ankink_full_refresh_mode", fullRefreshMode);
+      saveFullRefreshProgress(0);
+    };
+  }());
   byId("account-cancel").onclick = function () { hide(byId("account-dialog")); };
   byId("account-logout").onclick = function () {
     byId("status").innerHTML = "Logging out...";
