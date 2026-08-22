@@ -7,7 +7,17 @@
     syncInFlight: false, inputEpoch: 0 };
   var warningTimer = null;
   var pendingReviews = parseInt(window.localStorage.getItem("ankink_pending_reviews") || "0", 10) || 0;
-  var fontScale = parseFloat(window.localStorage.getItem("ankink_font_scale") || "1");
+  var fontScales = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
+  function nearestFontScale(value) {
+    var nearest = fontScales[0], distance = Math.abs(value - nearest), i, candidateDistance;
+    if (!isFinite(value)) return 1;
+    for (i = 1; i < fontScales.length; ++i) {
+      candidateDistance = Math.abs(value - fontScales[i]);
+      if (candidateDistance < distance) { nearest = fontScales[i]; distance = candidateDistance; }
+    }
+    return nearest;
+  }
+  var fontScale = nearestFontScale(parseFloat(window.localStorage.getItem("ankink_font_scale") || "1"));
   var cardFonts = {
     "Amazon Ember": '"Amazon Ember", Arial, sans-serif',
     "Baskerville": 'Baskerville, Georgia, serif',
@@ -557,7 +567,24 @@
     byId("front").style.fontSize = Math.round(32 * fontScale) + "px";
     byId("back-face").style.fontSize = Math.round(26 * fontScale) + "px";
     window.localStorage.setItem("ankink_font_scale", String(fontScale));
+    updateFontSizeChoices();
     scheduleScrollButtonUpdate();
+  }
+  function updateFontSizeChoices() {
+    var buttons = document.getElementsByName("card-font-size"), family = cardFonts[cardFont], i, scale;
+    for (i = 0; i < buttons.length; ++i) {
+      scale = parseFloat(buttons[i].getAttribute("data-scale"));
+      buttons[i].className = Math.abs(scale - fontScale) < 0.001 ? "selected" : "";
+      if (buttons[i].style.setProperty) buttons[i].style.setProperty("font-family", family, "important");
+      else buttons[i].style.fontFamily = family;
+    }
+  }
+  function changeFontScale(direction) {
+    var index = 0, i;
+    for (i = 0; i < fontScales.length; ++i)
+      if (Math.abs(fontScales[i] - fontScale) < 0.001) { index = i; break; }
+    index = Math.max(0, Math.min(fontScales.length - 1, index + direction));
+    fontScale = fontScales[index]; applyFontScale();
   }
   function applyCardFont() {
     var family = cardFonts[cardFont];
@@ -571,6 +598,7 @@
       byId("back-face").style.fontFamily = family;
     }
     window.localStorage.setItem("ankink_card_font", cardFont);
+    updateFontSizeChoices();
     applyNightCardAppearance();
     scheduleScrollButtonUpdate();
   }
@@ -809,8 +837,8 @@
     fullRefresh();
   };
   byId("sync").onclick = function () { syncNow(); };
-  byId("font-plus").onclick = function () { fontScale = Math.min(1.6, fontScale + 0.1); applyFontScale(); };
-  byId("font-minus").onclick = function () { fontScale = Math.max(0.7, fontScale - 0.1); applyFontScale(); };
+  byId("font-plus").onclick = function () { changeFontScale(1); };
+  byId("font-minus").onclick = function () { changeFontScale(-1); };
   byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
   byId("scroll-up").onclick = function () { pageScroll(-1); };
   byId("scroll-down").onclick = function () { pageScroll(1); };
@@ -834,6 +862,13 @@
     cardFont = this.value;
     applyCardFont();
   };
+  (function () {
+    var fontSizeButtons = document.getElementsByName("card-font-size"), i;
+    for (i = 0; i < fontSizeButtons.length; ++i) fontSizeButtons[i].onclick = function () {
+      fontScale = parseFloat(this.getAttribute("data-scale"));
+      applyFontScale();
+    };
+  }());
   (function () {
     var pageButtons = document.getElementsByName("page-buttons");
     var fullRefreshButtons = document.getElementsByName("full-refresh");

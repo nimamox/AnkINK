@@ -94,4 +94,12 @@ assert.match(frontend, /byId\("front"\)\.style\.setProperty\("font-family", fami
 assert.match(frontend, /byId\("back-face"\)\.style\.setProperty\("font-family", family, "important"\)/);
 assert.match(frontend, /function applyCardFont[\s\S]*restoreNightPalette\(byId\("front"\)\)[\s\S]*applyNightCardAppearance\(\)/);
 
+// Font-size previews share the selected card face and the header controls use
+// the same discrete, persistent scale choices.
+assert.match(frontend, /fontScales = \[0\.7, 0\.8, 0\.9, 1, 1\.1, 1\.25, 1\.4, 1\.6\]/);
+assert.match(frontend, /getElementsByName\("card-font-size"\)/);
+assert.match(frontend, /style\.setProperty\("font-family", family, "important"\)/);
+assert.match(frontend, /byId\("font-plus"\)\.onclick = function \(\) \{ changeFontScale\(1\); \}/);
+assert.match(frontend, /byId\("font-minus"\)\.onclick = function \(\) \{ changeFontScale\(-1\); \}/);
+
 console.log("reviewer contract tests passed");

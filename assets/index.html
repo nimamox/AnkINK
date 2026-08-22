@@ -40,7 +40,7 @@
 
   <div id="settings-dialog" class="dialog-overlay hidden" role="dialog" aria-labelledby="settings-dialog-title">
     <div class="settings-dialog">
-      <p class="eyebrow">ANKINK</p>
+      <p class="eyebrow">AnkINK</p>
       <h2 id="settings-dialog-title">Settings</h2>
       <div class="settings-section">
         <h3>Physical page buttons</h3>
@@ -67,6 +67,17 @@
             <option value="Palatino">Palatino</option>
           </select>
         </label>
+        <strong class="font-size-label">Card font size</strong>
+        <div id="card-font-sizes" class="font-size-choices" role="group" aria-label="Card font size">
+          <button type="button" name="card-font-size" data-scale="0.7" aria-label="Extra small card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="0.8" aria-label="Small card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="0.9" aria-label="Slightly small card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="1" aria-label="Default card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="1.1" aria-label="Slightly large card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="1.25" aria-label="Large card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="1.4" aria-label="Very large card font">Aa</button>
+          <button type="button" name="card-font-size" data-scale="1.6" aria-label="Extra large card font">Aa</button>
+        </div>
       </div>
       <div class="settings-section">
         <h3>Night-mode cards</h3>
@@ -138,6 +149,6 @@
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260822-card-fonts"></script>
+  <script src="app-settings.js?v=20260822-card-font-sizes"></script>
 </body>
 </html>
