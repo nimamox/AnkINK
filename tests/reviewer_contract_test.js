@@ -21,6 +21,7 @@ const decks = between(frontend, 'byId("back").onclick', 'byId("refresh").onclick
 const answer = between(frontend, "function answer(rating)", "function showAnswer()");
 const loading = between(frontend, "function nextCard()", "function isReviewStateError");
 const loadDecks = between(frontend, "function loadDecks()", "function applyFontScale(");
+const startup = between(frontend, "function startApplication()", "function loadDecks()");
 const sync = between(frontend, "function syncNow(done)", "function nextCard()");
 const close = between(frontend, "function closeApplication()", "function warning(message)");
 const mediaLoading = between(frontend, "function loadMediaImage", "function answerOnly");
@@ -42,6 +43,9 @@ assert.equal(Math.max(0, 0 - 1), 0);
 assert.doesNotMatch(decks, /syncNow\(/);
 assert.match(decks, /loadDecks\(\)/);
 assert.doesNotMatch(loadDecks, /syncNow\(/);
+assert.match(startup, /syncNow\(function \(\)/);
+assert.ok(startup.indexOf('syncNow(function ()') < startup.indexOf('loadDecks();'));
+assert.match(startup, /hide\(byId\("decks-view"\)\).*hide\(byId\("sync"\)\)/);
 assert.match(close, /"POST", "\/api\/sync"/);
 assert.match(close, /state\.syncInFlight = true;/);
 assert.ok(close.indexOf('"/api/sync"') < close.indexOf('"/api/quit"'));
@@ -54,11 +58,16 @@ assert.match(polling, /if \(!state\.card\)[\s\S]*return;[\s\S]*else undoAnswer\(
 
 // Rapid input cannot overlap answer/undo/loading transitions.
 assert.match(inputWaiting, /function reviewerReadyForInput\(\)[\s\S]*state\.cardLoading[\s\S]*state\.answerInFlight[\s\S]*state\.undoInFlight[\s\S]*state\.syncInFlight/);
-assert.match(polling, /if \(state\.inputBusy \|\| !reviewerReadyForInput\(\)\) return;[\s\S]*state\.inputBusy = true;/);
+assert.match(polling, /if \(state\.inputBusy \|\| !pageButtonInputReady\(\)\) return;[\s\S]*state\.inputBusy = true;/);
 assert.match(polling, /pollEpoch !== state\.inputEpoch/);
 assert.match(polling, /request\("GET", "\/api\/input"/);
 assert.match(polling, /resumePageButtonInput\(\)/);
 assert.doesNotMatch(frontend, /setInterval\(pollPageButtons/);
+assert.match(inputWaiting, /function deckListReadyForInput\(\)/);
+assert.match(inputWaiting, /function pageButtonInputReady\(\)/);
+assert.match(polling, /if \(deckListReadyForInput\(\)\)[\s\S]*pageScroll\(input\.action === "forward" \? 1 : -1\)/);
+assert.match(frontend, /hide\(byId\("sync"\)\).*show\(byId\("review-view"\)\)/);
+assert.match(loadDecks, /show\(byId\("sync"\)\)/);
 assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.syncInFlight\) return;/);
 assert.match(undo, /state\.undoInFlight = true;/);
 assert.match(loading, /clearPhysicalInput\(function/);

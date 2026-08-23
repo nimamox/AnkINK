@@ -626,7 +626,27 @@
     request("GET", "/api/settings", null, function (error, settings) {
       if (error) warning(error);
       applySettings(settings);
-      loadDecks();
+      startApplication();
+    }, 12);
+  }
+  // A normal launch always gets one chance to synchronize before any deck is
+  // interactive.  Reviewing remains offline-first after that; the only other
+  // automatic synchronization is the existing close path.
+  function startApplication() {
+    hide(byId("decks-view")); hide(byId("review-view")); hide(byId("sync"));
+    byId("status").innerHTML = "Connecting to AnkINK engine...";
+    request("GET", "/api/status", null, function (error, status) {
+      if (error) { warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
+      if (!status.authenticated) {
+        byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
+      }
+      syncNow(function () {
+        // A full-sync or sign-in prompt owns the screen; otherwise make the
+        // locally available collection usable even if startup sync failed.
+        if (byId("full-sync-panel").className.indexOf("hidden") >= 0 &&
+            byId("auth-panel").className.indexOf("hidden") >= 0)
+          loadDecks();
+      });
     }, 12);
   }
   function loadDecks() {
@@ -639,6 +659,7 @@
       if (typeof status.pendingReviews === "number")
         storePendingReviews(status.pendingReviews);
       hide(byId("auth-panel")); hide(byId("review-view")); show(byId("decks-view"));
+      show(byId("sync"));
       updateSyncStatus();
       request("GET", "/api/decks", null, function (deckError, message) {
         var list = byId("decks"), tree, i;
@@ -652,6 +673,7 @@
         tree = buildDeckTree(message.decks);
         for (i = 0; i < tree.length; ++i) renderDeckNode(tree[i], list);
         scheduleScrollButtonUpdate();
+        clearPhysicalInput(resumePageButtonInput);
       }, 0);
     }, 12);
   }
@@ -717,11 +739,11 @@
     if (state.syncInFlight || state.cardLoading || state.answerInFlight || state.undoInFlight) return;
     state.deck = deck; state.reviewed = 0; byId("review-title").innerHTML = "";
     byId("review-title").appendChild(document.createTextNode(deckName(deck.name)));
-    updateCounts(deck); hide(byId("decks-view")); show(byId("review-view")); nextCard(); scheduleScrollButtonUpdate();
+    updateCounts(deck); hide(byId("decks-view")); hide(byId("sync")); show(byId("review-view")); nextCard(); scheduleScrollButtonUpdate();
   }
   function showLogin() {
     state.inputEpoch += 1; state.deck = null; state.card = null; warning("");
-    hide(byId("review-view")); hide(byId("decks-view")); hide(byId("account-dialog"));
+    hide(byId("review-view")); hide(byId("decks-view")); hide(byId("sync")); hide(byId("account-dialog"));
     show(byId("auth-panel")); hide(byId("full-sync-panel"));
     byId("ankiweb-password").value = ""; window.scrollTo(0, 0); scheduleScrollButtonUpdate();
   }
@@ -911,24 +933,39 @@
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
       !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight;
   }
+  function deckListReadyForInput() {
+    return !state.deck && byId("decks-view").className.indexOf("hidden") < 0 &&
+      byId("settings-dialog").className.indexOf("hidden") >= 0 &&
+      byId("auth-panel").className.indexOf("hidden") >= 0 &&
+      byId("full-sync-panel").className.indexOf("hidden") >= 0 &&
+      !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight;
+  }
+  function pageButtonInputReady() {
+    return reviewerReadyForInput() || deckListReadyForInput();
+  }
   function resumePageButtonInput(delay) {
-    if (!reviewerReadyForInput() || state.inputBusy || inputWaitTimer !== null) return;
+    if (!pageButtonInputReady() || state.inputBusy || inputWaitTimer !== null) return;
     inputWaitTimer = window.setTimeout(function () {
       inputWaitTimer = null; pollPageButtons();
     }, delay || 0);
   }
   function pollPageButtons() {
     var pollEpoch;
-    if (state.inputBusy || !reviewerReadyForInput()) return;
+    if (state.inputBusy || !pageButtonInputReady()) return;
     pollEpoch = state.inputEpoch;
     state.inputBusy = true;
     request("GET", "/api/input", null, function (error, input) {
       var advance;
       state.inputBusy = false;
       if (pollEpoch !== state.inputEpoch) { resumePageButtonInput(); return; }
-      if (!reviewerReadyForInput()) return;
+      if (!pageButtonInputReady()) return;
       if (error || !input) { resumePageButtonInput(500); return; }
       if (!input.action) { resumePageButtonInput(); return; }
+      if (deckListReadyForInput()) {
+        pageScroll(input.action === "forward" ? 1 : -1);
+        resumePageButtonInput();
+        return;
+      }
       advance = (pageButtonMode === "normal" && input.action === "forward") ||
         (pageButtonMode === "reversed" && input.action === "backward");
       if (advance) {
@@ -948,6 +985,7 @@
     }
     state.inputEpoch += 1;
     hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null;
+    show(byId("sync"));
     byId("decks-view").scrollTop = 0;
     scheduleScrollButtonUpdate();
     clearPhysicalInput(function () { loadDecks(); });
@@ -1071,5 +1109,5 @@
   }
   byId("full-download").onclick = function () { downloadFromAnkiWeb(); };
   byId("close").onclick = closeApplication;
-  loadSettings(); resumePageButtonInput();
+  loadSettings();
 }());
