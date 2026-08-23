@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
       else if (argument == "--assets") options.asset_dir = value;
       else if (argument == "--simulator-assets") options.simulator_asset_dir = value;
       else if (argument == "--data-dir") {
+        options.data_dir = value;
         if (::setenv("ANKINK_DATA_DIR", value.c_str(), 1) != 0)
           throw std::runtime_error("could not set AnkINK data directory");
       }

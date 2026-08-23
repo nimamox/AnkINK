@@ -9,6 +9,8 @@
 config.json
 host-key
 auth.json
+state.conf
+state.conf.tmp
 *.anki2
 *.anki21
 *.apkg

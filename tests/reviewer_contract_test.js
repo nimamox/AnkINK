@@ -16,20 +16,23 @@ function between(source, start, end) {
 
 const undo = between(frontend, "function undoAnswer()", "function cardCanScrollDown()");
 const polling = between(frontend, "function pollPageButtons()", 'byId("show-answer")');
+const inputWaiting = between(frontend, "var inputWaitTimer", 'byId("show-answer")');
 const decks = between(frontend, 'byId("back").onclick', 'byId("refresh").onclick');
 const answer = between(frontend, "function answer(rating)", "function showAnswer()");
 const loading = between(frontend, "function nextCard()", "function isReviewStateError");
-const loadDecks = between(frontend, "function loadDecks()", "function applyFontScale()");
+const loadDecks = between(frontend, "function loadDecks()", "function applyFontScale(");
 const sync = between(frontend, "function syncNow(done)", "function nextCard()");
 const close = between(frontend, "function closeApplication()", "function warning(message)");
 const mediaLoading = between(frontend, "function loadMediaImage", "function answerOnly");
 const rustAnswer = between(backend, "fn answer(&mut self", "fn undo(&mut self)");
 const rustUndo = between(backend, "fn undo(&mut self)", "fn login(&mut self");
 
-// Answer bookkeeping increments once; only a successful undo decrements it.
-assert.match(frontend, /storePendingReviews\(pendingReviews \+ 1\)/);
-assert.match(undo, /if \(result\.type === "undo-empty"\) return;[\s\S]*if \(result\.type === "error"\)[\s\S]*storePendingReviews\(pendingReviews - 1\)/);
-assert.match(undo, /storePendingReviews\(pendingReviews - 1\);[\s\S]*warning\(""\); nextCard\(\);/);
+// The daemon owns durable state; the frontend only mirrors returned counts.
+assert.doesNotMatch(frontend, /localStorage|sessionStorage/);
+assert.match(frontend, /request\("GET", "\/api\/settings"/);
+assert.match(frontend, /request\("POST", "\/api\/settings"/);
+assert.match(frontend, /storePendingFromResult\(result, pendingReviews \+ 1\)/);
+assert.match(undo, /if \(result\.type === "undo-empty"\)[\s\S]*return;[\s\S]*if \(result\.type === "error"\)[\s\S]*storePendingFromResult\(result, pendingReviews - 1\)/);
 assert.match(frontend, /pendingReviews = Math\.max\(0, value\)/);
 assert.equal(Math.max(0, 0 + 1 - 1), 0);
 assert.equal(Math.max(0, 0 + 1 + 1 - 1), 1);
@@ -40,15 +43,22 @@ assert.doesNotMatch(decks, /syncNow\(/);
 assert.match(decks, /loadDecks\(\)/);
 assert.doesNotMatch(loadDecks, /syncNow\(/);
 assert.match(close, /"POST", "\/api\/sync"/);
+assert.match(close, /state\.syncInFlight = true;/);
+assert.ok(close.indexOf('"/api/sync"') < close.indexOf('"/api/quit"'));
+assert.match(close, /"\/api\/quit", "", function \(\) \{ closeInterface\(\); \}/);
+assert.doesNotMatch(close, /setTimeout\(closeInterface/);
 assert.doesNotMatch(polling, /!state\.card\s*\|\|\s*!input\.action/);
 assert.match(polling, /pageButtonMode === "normal" && input\.action === "forward"/);
 assert.match(polling, /pageButtonMode === "reversed" && input\.action === "backward"/);
-assert.match(polling, /if \(!state\.card\) return;[\s\S]*else undoAnswer\(\)/);
+assert.match(polling, /if \(!state\.card\)[\s\S]*return;[\s\S]*else undoAnswer\(\)/);
 
 // Rapid input cannot overlap answer/undo/loading transitions.
-assert.match(polling, /state\.cardLoading \|\| state\.answerInFlight \|\|[\s\S]*state\.undoInFlight \|\| state\.syncInFlight/);
-assert.ok(polling.indexOf("state.cardLoading") < polling.indexOf("state.inputBusy = true"));
+assert.match(inputWaiting, /function reviewerReadyForInput\(\)[\s\S]*state\.cardLoading[\s\S]*state\.answerInFlight[\s\S]*state\.undoInFlight[\s\S]*state\.syncInFlight/);
+assert.match(polling, /if \(state\.inputBusy \|\| !reviewerReadyForInput\(\)\) return;[\s\S]*state\.inputBusy = true;/);
 assert.match(polling, /pollEpoch !== state\.inputEpoch/);
+assert.match(polling, /request\("GET", "\/api\/input"/);
+assert.match(polling, /resumePageButtonInput\(\)/);
+assert.doesNotMatch(frontend, /setInterval\(pollPageButtons/);
 assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.syncInFlight\) return;/);
 assert.match(undo, /state\.undoInFlight = true;/);
 assert.match(loading, /clearPhysicalInput\(function/);
@@ -72,9 +82,9 @@ assert.ok(rustAnswer.indexOf(".answer_card") < rustAnswer.indexOf("self.pending 
 
 // Night-card rendering defaults to the legacy behavior, persists the selected
 // mode, restores original styles, and uses Canvas rather than CSS filters.
-assert.match(frontend, /ankink_night_card_mode"\) \|\| "standard"/);
-assert.match(frontend, /nightCardMode !== "standard"[\s\S]*nightCardMode !== "palette"[\s\S]*nightCardMode !== "palette-images"/);
-assert.match(frontend, /setItem\("ankink_night_card_mode", nightCardMode\)/);
+assert.match(frontend, /nightCardMode = "standard"/);
+assert.match(frontend, /nightCardMode !== "palette"[\s\S]*nightCardMode !== "palette-images"[\s\S]*nightCardMode = "standard"/);
+assert.match(frontend, /saveSetting\("nightCardMode", nightCardMode\)/);
 assert.match(frontend, /_ankinkNightOriginalStyle/);
 assert.match(frontend, /getImageData\(0, 0, width, height\)/);
 assert.match(frontend, /data\[i\] = 255 - data\[i\]/);
@@ -85,11 +95,11 @@ assert.match(mediaLoading, /image\.setAttribute\("src", API \+ "\/api\/media\/"/
 assert.doesNotMatch(mediaLoading, /api\/media-data/);
 
 // The card font is allowlisted, persistent, and applied only to card faces.
-assert.match(frontend, /ankink_card_font"\) \|\| "Bookerly"/);
+assert.match(frontend, /cardFont = "Bookerly"/);
 assert.match(frontend, /"Caecilia": '\"Caecilia Regular\"/);
 assert.match(frontend, /"Caecilia Condensed": 'condensed,/);
 assert.match(frontend, /"Helvetica": '\"Helvetica Neue LT\"/);
-assert.match(frontend, /setItem\("ankink_card_font", cardFont\)/);
+assert.match(frontend, /saveSetting\("cardFont", cardFont\)/);
 assert.match(frontend, /byId\("front"\)\.style\.setProperty\("font-family", family, "important"\)/);
 assert.match(frontend, /byId\("back-face"\)\.style\.setProperty\("font-family", family, "important"\)/);
 assert.match(frontend, /function applyCardFont[\s\S]*restoreNightPalette\(byId\("front"\)\)[\s\S]*applyNightCardAppearance\(\)/);

@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
+find_package(Threads REQUIRED)
 
 set(CMAKE_INSTALL_BINDIR bin CACHE PATH "Executable installation directory")
 set(CMAKE_INSTALL_DATADIR share CACHE PATH "Data installation directory")
@@ -82,10 +83,14 @@ endif()
 target_compile_options(ankink_collection PRIVATE -Wall -Wextra -Wpedantic)
 
 if(ANKINK_BUILD_APP)
-    add_executable(ankinkd src/daemon_main.cpp src/http_server.cpp)
-    target_include_directories(ankinkd PRIVATE include)
-    target_link_libraries(ankinkd PRIVATE ankink_collection)
-    target_compile_definitions(ankinkd PRIVATE ANKINK_VERSION="${PROJECT_VERSION}")
+    add_library(ankink_http_server src/http_server.cpp src/app_state.cpp)
+    target_include_directories(ankink_http_server PUBLIC include)
+    target_link_libraries(ankink_http_server PUBLIC ankink_collection Threads::Threads)
+    target_compile_definitions(ankink_http_server PRIVATE ANKINK_VERSION="${PROJECT_VERSION}")
+    target_compile_options(ankink_http_server PRIVATE -Wall -Wextra -Wpedantic)
+
+    add_executable(ankinkd src/daemon_main.cpp)
+    target_link_libraries(ankinkd PRIVATE ankink_http_server)
     target_compile_options(ankinkd PRIVATE -Wall -Wextra -Wpedantic)
     set_target_properties(ankinkd PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
 
@@ -104,6 +109,13 @@ if(ANKINK_BUILD_APP)
             DEPENDS ankinkd
             USES_TERMINAL
             COMMENT "Starting the AnkINK Kindle simulator")
+    endif()
+
+    if(ANKINK_BUILD_TESTS)
+        add_executable(ankink_http_server_tests tests/http_server_test.cpp)
+        target_link_libraries(ankink_http_server_tests PRIVATE ankink_http_server Threads::Threads)
+        target_compile_options(ankink_http_server_tests PRIVATE -Wall -Wextra -Wpedantic)
+        add_test(NAME ankink_http_server_tests COMMAND ankink_http_server_tests)
     endif()
 endif()
 

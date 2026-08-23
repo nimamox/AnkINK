@@ -57,9 +57,10 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .font-size-choices button:nth-child(7) { font-size: 38px; }
 .font-size-choices button:nth-child(8) { font-size: 45px; }
 .font-size-choices button.selected { border-color: #111; background: #111; color: #fff; }
-.settings-actions { display: table; width: 100%; margin-top: 32px; border-spacing: 8px 0; }
-.settings-actions button { display: table-cell; width: 50%; min-height: 72px; border: 3px solid #111; background: #fff; font: bold 19px "Amazon Ember", Arial, sans-serif; }
-.settings-actions .logout-button { background: #111; color: #fff; }
+.settings-signout { margin-top: 22px; }
+.settings-signout button { display: block; width: 100%; min-height: 60px; border: 2px solid #777; background: transparent; color: #555; font: 19px "Amazon Ember", Arial, sans-serif; }
+.settings-actions { margin-top: 32px; }
+.settings-actions button { display: block; width: 100%; min-height: 72px; border: 3px solid #111; background: #fff; font: bold 19px "Amazon Ember", Arial, sans-serif; }
 .section-heading { padding: 48px 0 25px; }
 #decks-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow-y: auto; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
@@ -93,7 +94,37 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .card img { max-width: 100%; max-height: 330px; }
 .card img.image-expanded { display: block; width: 100%; height: auto; max-height: none; margin: 15px auto; }
 .card audio, .card video { display: none; }
-.answer-divider { margin: 48px 0 35px; padding: 12px 0; border-top: 2px solid #aaa; border-bottom: 2px solid #aaa; color: #444; font: bold 20pt "Amazon Ember", Arial, sans-serif; text-align: center; letter-spacing: 4px; }
+.answer-divider {
+  position: relative;
+  margin: 48px 0 35px;
+  padding: 12px 45px;
+  border-top: 2px solid #999;
+  border-bottom: 2px solid #999;
+  color: #444;
+  font: bold 12pt sans-serif;
+  text-align: center;
+  letter-spacing: 4px;
+}
+
+.answer-divider:before,
+.answer-divider:after {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #777;
+  content: "";
+}
+
+.answer-divider:before {
+  left: 14px;
+}
+
+.answer-divider:after {
+  right: 14px;
+}
 .answer { font-size: 26px; }
 .katex { font-size: 1.08em; }
 .katex-display { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; }
@@ -130,4 +161,11 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .setting-help { color: #eee; }
 .night-mode .settings-tooltip { border-color: #eee; background: #111; color: #eee; }
 .night-mode .settings-actions button { background: #111; color: #eee; border-color: #eee; }
-.night-mode .settings-actions .logout-button { background: #eee; color: #111; }
+.night-mode .settings-signout button { border-color: #999; color: #ccc; }
+.tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border: 2px solid #888;
+  border-radius: 8px;
+  white-space: nowrap;
+}

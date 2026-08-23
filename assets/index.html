@@ -85,9 +85,11 @@
         <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="night-card-mode" value="palette"> <strong>Adapt colors</strong></label><button class="setting-help" type="button" aria-label="Explain adapted night-mode colors" data-help="Lighten dark text and darken bright backgrounds. Images remain unchanged.">ⓘ</button></div>
         <div class="setting-choice-row"><label class="setting-choice"><input type="radio" name="night-card-mode" value="palette-images"> <strong>Adapt colors and invert images</strong></label><button class="setting-help" type="button" aria-label="Explain adapted colors and inverted images" data-help="Also invert image pixels using Canvas. This may take a moment on large images.">ⓘ</button></div>
       </div>
+      <div class="settings-signout">
+        <button id="settings-logout" type="button">Sign out</button>
+      </div>
       <div class="settings-actions">
         <button id="settings-close" type="button">Done</button>
-        <button id="settings-logout" class="logout-button" type="button">Log out</button>
       </div>
     </div>
   </div>
@@ -125,7 +127,7 @@
 
   <div id="review-view" class="hidden">
     <div class="review-toolbar">
-      <button id="back" class="text-button" type="button">&lsaquo; Decks</button>
+      <button id="back" class="text-button" type="button" style="margin-top: 10px;">«  Decks</button>
       <div class="review-title"><h2 id="review-title">Deck</h2></div>
       <div id="session-count" class="session-count">0 new &middot; 0 learn &middot; 0 review</div>
     </div>
@@ -149,6 +151,6 @@
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260822-dismiss-help"></script>
+  <script src="app-settings.js?v=20260822-daemon-state"></script>
 </body>
 </html>

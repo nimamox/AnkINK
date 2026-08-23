@@ -2,21 +2,23 @@
 
 #include <arpa/inet.h>
 #include <algorithm>
+#include <chrono>
 #include <cerrno>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <utility>
 #ifdef __linux__
-#include <fcntl.h>
 #include <linux/input.h>
 #endif
 
@@ -63,9 +65,15 @@ std::string form_value(const std::string &body, const std::string &name) {
   return {};
 }
 bool send_all(int fd, const std::string &data) {
+#ifdef MSG_NOSIGNAL
+  constexpr int send_flags = MSG_NOSIGNAL;
+#else
+  constexpr int send_flags = 0;
+#endif
   std::size_t sent = 0;
   while (sent < data.size()) {
-    const auto count = ::send(fd, data.data() + sent, data.size() - sent, 0);
+    const auto count =
+        ::send(fd, data.data() + sent, data.size() - sent, send_flags);
     if (count < 0 && errno == EINTR) continue;
     if (count <= 0) return false;
     sent += static_cast<std::size_t>(count);
@@ -165,6 +173,19 @@ std::int64_t integer(const std::string &value, const char *name) {
   if (used != value.size()) throw std::runtime_error(std::string("invalid ") + name);
   return result;
 }
+bool json_type(const std::string &body, const char *type) {
+  return body.find(std::string(R"("type":")") + type + '"') !=
+         std::string::npos;
+}
+std::string with_app_state(std::string body, std::uint64_t count,
+                           bool state_persisted = true) {
+  const auto closing = body.rfind('}');
+  if (closing != std::string::npos)
+    body.insert(closing, R"(,"pendingReviews":)" + std::to_string(count) +
+                             R"(,"statePersisted":)" +
+                             (state_persisted ? "true" : "false"));
+  return body;
+}
 #ifdef __linux__
 int open_page_keys() {
   for (int index = 0; index < 16; ++index) {
@@ -178,122 +199,188 @@ int open_page_keys() {
 #endif
 } // namespace
 
-HttpServer::HttpServer(ServerOptions options) : options_(std::move(options)) {
+HttpServer::HttpServer(ServerOptions options)
+    : options_(std::move(options)), app_state_(options_.data_dir) {
   collection_.open(options_.collection_path, collection_error_);
 }
+
+HttpServer::~HttpServer() { stop(); }
+
 void HttpServer::request_stop() noexcept { stop_requested = 1; }
 
-int HttpServer::run() {
-  const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
-  if (listener < 0) throw std::runtime_error(std::string("socket: ") + std::strerror(errno));
-  int reuse = 1; setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-  sockaddr_in address{}; address.sin_family = AF_INET;
-  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK); address.sin_port = htons(options_.port);
-  if (::bind(listener, reinterpret_cast<sockaddr *>(&address), sizeof(address)) != 0) {
-    const std::string error = std::strerror(errno); ::close(listener);
-    throw std::runtime_error("bind: " + error);
+std::uint16_t HttpServer::bound_port() const noexcept { return bound_port_.load(); }
+
+void HttpServer::wake_listener() noexcept {
+  if (wake_write_ < 0) return;
+  const char byte = 1;
+  const auto ignored = ::write(wake_write_, &byte, 1);
+  (void)ignored;
+}
+
+void HttpServer::close_wakeup_pipe() noexcept {
+  if (wake_read_ >= 0) ::close(wake_read_);
+  if (wake_write_ >= 0) ::close(wake_write_);
+  wake_read_ = wake_write_ = -1;
+}
+
+void HttpServer::stop() noexcept {
+  if (stopping_.exchange(true)) return;
+  input_condition_.notify_all();
+  pending_clients_condition_.notify_all();
+  wake_listener();
+  std::lock_guard<std::mutex> lock(clients_mutex_);
+  for (const int client : active_clients_) ::shutdown(client, SHUT_RDWR);
+}
+
+void HttpServer::queue_page_action(std::string action) {
+  {
+    std::lock_guard<std::mutex> lock(input_mutex_);
+    page_actions_.push_back(std::move(action));
   }
-  if (::listen(listener, 8) != 0) { ::close(listener); throw std::runtime_error("listen failed"); }
-  std::cout << "AnkINK daemon listening at http://127.0.0.1:" << options_.port << "/\n";
-  if (!collection_.is_open()) std::cerr << "AnkINK collection: " << collection_error_ << '\n';
-  int page_keys = -1;
-  std::string page_action;
-#ifdef __linux__
-  page_keys = open_page_keys();
-  if (page_keys >= 0) std::cout << "AnkINK input: physical page buttons enabled\n";
-#endif
-  while (!stop_requested) {
-    fd_set set; FD_ZERO(&set); FD_SET(listener, &set); timeval timeout{1, 0};
-    int highest = listener;
-    if (page_keys >= 0) { FD_SET(page_keys, &set); highest = std::max(highest, page_keys); }
-    const int ready = select(highest + 1, &set, nullptr, nullptr, &timeout);
-    if (ready < 0 && errno == EINTR) continue;
-    if (ready <= 0) continue;
-#ifdef __linux__
-    if (page_keys >= 0 && FD_ISSET(page_keys, &set)) {
-      input_event event{};
-      while (::read(page_keys, &event, sizeof(event)) == sizeof(event)) {
-        if (event.type == EV_KEY && event.value == 1) {
-          if (event.code == KEY_PAGEUP) page_action = "forward";
-          else if (event.code == KEY_PAGEDOWN) page_action = "backward";
-        }
-      }
+  input_condition_.notify_one();
+}
+
+void HttpServer::worker_loop() noexcept {
+  for (;;) {
+    int client = -1;
+    {
+      std::unique_lock<std::mutex> lock(pending_clients_mutex_);
+      pending_clients_condition_.wait(lock, [this] {
+        return stopping_.load() || !pending_clients_.empty();
+      });
+      if (pending_clients_.empty()) return;
+      client = pending_clients_.front();
+      pending_clients_.pop_front();
     }
-#endif
-    if (!FD_ISSET(listener, &set)) continue;
-    const int client = ::accept(listener, nullptr, nullptr);
-    if (client < 0) continue;
-    timeval io_timeout{5, 0};
-    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &io_timeout, sizeof(io_timeout));
-    setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &io_timeout, sizeof(io_timeout));
-    try {
-      Request request;
-      if (!read_request(client, request))
-        respond(client, 400, "Bad Request", "application/json", R"({"type":"error","message":"Invalid request"})");
-      else if (request.method == "OPTIONS") respond(client, 204, "No Content", "text/plain", "");
-      else if (request.method == "GET" && (request.target == "/api/status" || request.target == "/health")) {
-        const std::string body = std::string(R"({"type":"status","version":")") + ANKINK_VERSION +
+    if (stopping_.load()) {
+      {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
+        active_clients_.erase(client);
+      }
+      ::close(client);
+    } else {
+      handle_client(client);
+    }
+  }
+}
+
+void HttpServer::handle_client(int client) noexcept {
+  const auto collection_call = [this](auto operation) {
+    std::lock_guard<std::mutex> lock(collection_mutex_);
+    if (options_.collection_operation_delay.count() > 0)
+      std::this_thread::sleep_for(options_.collection_operation_delay);
+    return operation();
+  };
+
+  try {
+    Request request;
+    if (!read_request(client, request)) {
+      respond(client, 400, "Bad Request", "application/json",
+              R"({"type":"error","message":"Invalid request"})");
+    } else if (request.method == "OPTIONS") {
+      respond(client, 204, "No Content", "text/plain", "");
+    } else if (request.method == "GET" &&
+               (request.target == "/api/status" || request.target == "/health")) {
+      const std::string body = collection_call([this] {
+        return std::string(R"({"type":"status","version":")") + ANKINK_VERSION +
           R"(","collectionOpen":)" + (collection_.is_open() ? "true" : "false") +
           R"(,"authenticated":)" + (collection_.is_authenticated() ? "true" : "false") +
           R"(,"collection":)" + json_string(options_.collection_path) +
+          R"(,"pendingReviews":)" + std::to_string(app_state_.pending_reviews()) +
           R"(,"error":)" + json_string(collection_error_) + "}";
-        respond(client, 200, "OK", "application/json; charset=utf-8", body);
-      } else if (request.method == "GET" && request.target == "/api/input") {
-        const std::string action = page_action;
-        page_action.clear();
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                std::string(R"({"type":"input","action":)") +
-                    json_string(action) + "}");
-      } else if (request.method == "POST" &&
-                 request.target == "/api/input/clear") {
-        page_action.clear();
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                R"({"type":"input-cleared"})");
-      } else if (request.method == "POST" &&
-                 request.target == "/api/simulator/input") {
-        if (!options_.simulator)
-          throw std::runtime_error("simulator input is disabled");
-        const std::string action = form_value(request.body, "action");
-        if (action != "forward" && action != "backward")
-          throw std::runtime_error("action must be forward or backward");
-        page_action = action;
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                std::string(R"({"type":"input","action":)") +
-                    json_string(action) + "}");
-      } else if (request.method == "GET" && request.target == "/api/decks") {
-        const std::string body = collection_.is_open() ? collection_.decks_json() :
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "GET" && request.target == "/api/settings") {
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              app_state_.settings_json());
+    } else if (request.method == "POST" && request.target == "/api/settings") {
+      const std::string key = form_value(request.body, "key");
+      const std::string value = form_value(request.body, "value");
+      std::string error;
+      if (!app_state_.set_setting(key, value, error))
+        throw std::runtime_error(error);
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              app_state_.settings_json());
+    } else if (request.method == "GET" && request.target == "/api/input") {
+      std::string action;
+      {
+        std::unique_lock<std::mutex> lock(input_mutex_);
+        const std::uint64_t generation = input_generation_;
+        input_condition_.wait_for(lock, options_.input_long_poll_timeout, [this, generation] {
+          return stopping_.load() || input_generation_ != generation || !page_actions_.empty();
+        });
+        if (!page_actions_.empty()) {
+          action = std::move(page_actions_.front());
+          page_actions_.pop_front();
+        }
+      }
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              std::string(R"({"type":"input","action":)") + json_string(action) + "}");
+    } else if (request.method == "POST" && request.target == "/api/input/clear") {
+      {
+        std::lock_guard<std::mutex> lock(input_mutex_);
+        page_actions_.clear();
+        ++input_generation_;
+      }
+      input_condition_.notify_all();
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              R"({"type":"input-cleared"})");
+    } else if (request.method == "POST" && request.target == "/api/simulator/input") {
+      if (!options_.simulator) throw std::runtime_error("simulator input is disabled");
+      const std::string action = form_value(request.body, "action");
+      if (action != "forward" && action != "backward")
+        throw std::runtime_error("action must be forward or backward");
+      queue_page_action(action);
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              std::string(R"({"type":"input","action":)") + json_string(action) + "}");
+    } else if (request.method == "GET" && request.target == "/api/decks") {
+      const auto result = collection_call([this] {
+        const bool open = collection_.is_open();
+        const std::string body = open ? collection_.decks_json() :
           std::string(R"({"type":"decks","path":)") + json_string(options_.collection_path) +
           R"(,"decks":[],"error":)" + json_string(collection_error_) + "}";
-        respond(client, collection_.is_open() ? 200 : 503,
-                collection_.is_open() ? "OK" : "Service Unavailable",
-                "application/json; charset=utf-8", body);
-      } else if (request.method == "GET" && request.target.compare(0, 11, "/api/decks/") == 0 &&
-                 request.target.size() > 16 && request.target.substr(request.target.size() - 5) == "/next") {
-        const auto id = integer(request.target.substr(11, request.target.size() - 16), "deck id");
-        respond(client, 200, "OK", "application/json; charset=utf-8", collection_.next_card_json(id));
-      } else if (request.method == "POST" && request.target == "/api/answer") {
-        const auto card = integer(form_value(request.body, "card"), "card");
-        const auto review_token =
-            integer(form_value(request.body, "token"), "review token");
-        const auto rating = integer(form_value(request.body, "rating"), "rating");
+        return std::make_pair(open, body);
+      });
+      respond(client, result.first ? 200 : 503,
+              result.first ? "OK" : "Service Unavailable",
+              "application/json; charset=utf-8", result.second);
+    } else if (request.method == "GET" &&
+               request.target.compare(0, 11, "/api/decks/") == 0 &&
+               request.target.size() > 16 &&
+               request.target.substr(request.target.size() - 5) == "/next") {
+      const auto id = integer(request.target.substr(11, request.target.size() - 16), "deck id");
+      const std::string body = collection_call([this, id] { return collection_.next_card_json(id); });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" && request.target == "/api/answer") {
+      const auto card = integer(form_value(request.body, "card"), "card");
+      const auto token = integer(form_value(request.body, "token"), "review token");
+      const auto rating = integer(form_value(request.body, "rating"), "rating");
+      const std::string body = collection_call([this, card, token, rating] {
+        std::string result = collection_.answer_json(
+            card, static_cast<std::uint64_t>(token), static_cast<int>(rating));
+        const bool persisted = !json_type(result, "answered") ||
+                               app_state_.record_answer();
+        return with_app_state(std::move(result), app_state_.pending_reviews(),
+                              persisted);
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" && request.target == "/api/undo") {
+      const std::string body = collection_call([this] {
+        std::string result = collection_.undo_json();
+        const bool persisted = !json_type(result, "undone") ||
+                               app_state_.record_undo();
+        return with_app_state(std::move(result), app_state_.pending_reviews(),
+                              persisted);
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" && request.target == "/api/quit") {
+      respond(client, 200, "OK", "application/json; charset=utf-8", R"({"type":"quitting"})");
+      stop();
+    } else if (request.method == "POST" && request.target == "/api/refresh") {
+      if (options_.simulator) {
         respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.answer_json(
-                    card, static_cast<std::uint64_t>(review_token),
-                    static_cast<int>(rating)));
-      } else if (request.method == "POST" && request.target == "/api/undo") {
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.undo_json());
-      } else if (request.method == "POST" && request.target == "/api/quit") {
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                R"({"type":"quitting"})");
-        stop_requested = 1;
-      } else if (request.method == "POST" && request.target == "/api/refresh") {
-        if (options_.simulator) {
-          respond(client, 200, "OK", "application/json; charset=utf-8",
-                  R"({"type":"refreshed","simulated":true})");
-          ::close(client);
-          continue;
-        }
+                R"({"type":"refreshed","simulated":true})");
+      } else {
         const int result = std::system(
             "if [ -x /usr/bin/fbink ]; then /usr/bin/fbink -q -f -s; "
             "elif [ -x /mnt/us/extensions/MRInstaller/bin/PW2/fbink ]; then "
@@ -301,71 +388,189 @@ int HttpServer::run() {
             "else exit 1; fi >/dev/null 2>&1");
         if (result != 0)
           throw std::runtime_error("Full refresh requires a working /usr/bin/fbink command");
+        respond(client, 200, "OK", "application/json; charset=utf-8", R"({"type":"refreshed"})");
+      }
+    } else if (request.method == "POST" && request.target == "/api/auth/login") {
+      const std::string username = form_value(request.body, "username");
+      const std::string password = form_value(request.body, "password");
+      if (username.empty() || password.empty())
+        throw std::runtime_error("username and password are required");
+      const std::string body = collection_call([this, &username, &password] {
+        return collection_.login_json(username, password);
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" && request.target == "/api/auth/logout") {
+      const std::string body = collection_call([this] { return collection_.logout_json(); });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" && request.target == "/api/sync") {
+      const std::string body = collection_call([this] {
+        std::string result = collection_.sync_json();
+        const bool completed = json_type(result, "sync") &&
+          result.find(R"("required":"none")") != std::string::npos;
+        const bool persisted = !completed || app_state_.record_sync();
+        return with_app_state(std::move(result), app_state_.pending_reviews(),
+                              persisted);
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" && request.target == "/api/sync/full-download") {
+      const std::string body = collection_call([this] {
+        std::string result = collection_.full_download_json();
+        const bool completed = json_type(result, "sync");
+        const bool persisted = !completed || app_state_.record_sync();
+        return with_app_state(std::move(result), app_state_.pending_reviews(),
+                              persisted);
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "GET" &&
+               (request.target.compare(0, 11, "/api/media/") == 0 ||
+                request.target.compare(0, 16, "/api/media-data/") == 0)) {
+      const bool as_data = request.target.compare(0, 16, "/api/media-data/") == 0;
+      const std::string name = url_decode(request.target.substr(as_data ? 16 : 11));
+      if (name.empty() || name.find("..") != std::string::npos ||
+          name.find('/') != std::string::npos || name.find('\\') != std::string::npos)
+        throw std::runtime_error("invalid media filename");
+      std::string media_dir = options_.collection_path;
+      const auto dot = media_dir.rfind('.');
+      if (dot != std::string::npos) media_dir.resize(dot);
+      media_dir += ".media/";
+      const std::string body = read_file(media_dir + name);
+      if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
+      else if (as_data)
         respond(client, 200, "OK", "application/json; charset=utf-8",
-                R"({"type":"refreshed"})");
-      } else if (request.method == "POST" && request.target == "/api/auth/login") {
-        const std::string username = form_value(request.body, "username");
-        const std::string password = form_value(request.body, "password");
-        if (username.empty() || password.empty())
-          throw std::runtime_error("username and password are required");
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.login_json(username, password));
-      } else if (request.method == "POST" && request.target == "/api/auth/logout") {
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.logout_json());
-      } else if (request.method == "POST" && request.target == "/api/sync") {
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.sync_json());
-      } else if (request.method == "POST" &&
-                 request.target == "/api/sync/full-download") {
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                collection_.full_download_json());
-      } else if (request.method == "GET" &&
-                 (request.target.compare(0, 11, "/api/media/") == 0 ||
-                  request.target.compare(0, 16, "/api/media-data/") == 0)) {
-        const bool as_data = request.target.compare(0, 16, "/api/media-data/") == 0;
-        const std::string name = url_decode(request.target.substr(as_data ? 16 : 11));
-        if (name.empty() || name.find("..") != std::string::npos ||
-            name.find('/') != std::string::npos || name.find('\\') != std::string::npos)
-          throw std::runtime_error("invalid media filename");
-        std::string media_dir = options_.collection_path;
-        const auto dot = media_dir.rfind('.');
-        if (dot != std::string::npos) media_dir.resize(dot);
-        media_dir += ".media/";
-        const std::string body = read_file(media_dir + name);
-        if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
-        else if (as_data)
-          respond(client, 200, "OK", "application/json; charset=utf-8",
-                  "{\"data\":\"data:" + mime_type(name) + ";base64," + base64(body) + "\"}");
-        else respond(client, 200, "OK", mime_type(name), body);
-      } else if (request.method == "GET" && options_.simulator &&
-                 (request.target == "/simulator" ||
-                  request.target.compare(0, 11, "/simulator/") == 0)) {
-        const std::string relative =
-            request.target == "/simulator" || request.target == "/simulator/"
-                ? "index.html"
-                : request.target.substr(11);
-        if (relative.find("..") != std::string::npos)
-          throw std::runtime_error("invalid simulator asset path");
-        const std::string body =
-            read_file(options_.simulator_asset_dir + "/" + relative);
-        if (body.empty())
-          respond(client, 404, "Not Found", "text/plain", "Not found\n");
-        else
-          respond(client, 200, "OK", mime_type(relative), body);
-      } else if (request.method == "GET" && request.target.find("..") == std::string::npos) {
-        const std::string relative = request.target == "/" ? "index.html" : request.target.substr(1);
-        const std::string body = read_file(options_.asset_dir + "/" + relative);
-        if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
-        else respond(client, 200, "OK", mime_type(relative), body);
-      } else respond(client, 404, "Not Found", "application/json", R"({"type":"error","message":"Not found"})");
-    } catch (const std::exception &exception) {
-      respond(client, 400, "Bad Request", "application/json; charset=utf-8",
-              std::string(R"({"type":"error","message":)") + json_string(exception.what()) + "}");
+                "{\"data\":\"data:" + mime_type(name) + ";base64," + base64(body) + "\"}");
+      else respond(client, 200, "OK", mime_type(name), body);
+    } else if (request.method == "GET" && options_.simulator &&
+               (request.target == "/simulator" ||
+                request.target.compare(0, 11, "/simulator/") == 0)) {
+      const std::string relative =
+          request.target == "/simulator" || request.target == "/simulator/"
+              ? "index.html" : request.target.substr(11);
+      if (relative.find("..") != std::string::npos)
+        throw std::runtime_error("invalid simulator asset path");
+      const std::string body = read_file(options_.simulator_asset_dir + "/" + relative);
+      if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
+      else respond(client, 200, "OK", mime_type(relative), body);
+    } else if (request.method == "GET" && request.target.find("..") == std::string::npos) {
+      const std::string relative = request.target == "/" ? "index.html" : request.target.substr(1);
+      const std::string body = read_file(options_.asset_dir + "/" + relative);
+      if (body.empty()) respond(client, 404, "Not Found", "text/plain", "Not found\n");
+      else respond(client, 200, "OK", mime_type(relative), body);
+    } else {
+      respond(client, 404, "Not Found", "application/json",
+              R"({"type":"error","message":"Not found"})");
     }
-    ::close(client);
+  } catch (const std::exception &exception) {
+    respond(client, 400, "Bad Request", "application/json; charset=utf-8",
+            std::string(R"({"type":"error","message":)") +
+                json_string(exception.what()) + "}");
   }
+
+  {
+    std::lock_guard<std::mutex> lock(clients_mutex_);
+    active_clients_.erase(client);
+  }
+  ::close(client);
+}
+
+int HttpServer::run() {
+  stop_requested = 0;
+  const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
+  if (listener < 0) throw std::runtime_error(std::string("socket: ") + std::strerror(errno));
+  int wake_pipe[2];
+  if (::pipe(wake_pipe) != 0) {
+    ::close(listener);
+    throw std::runtime_error(std::string("pipe: ") + std::strerror(errno));
+  }
+  wake_read_ = wake_pipe[0]; wake_write_ = wake_pipe[1];
+  ::fcntl(wake_read_, F_SETFL, ::fcntl(wake_read_, F_GETFL) | O_NONBLOCK);
+  ::fcntl(wake_write_, F_SETFL, ::fcntl(wake_write_, F_GETFL) | O_NONBLOCK);
+
+  int reuse = 1; setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+  sockaddr_in address{}; address.sin_family = AF_INET;
+  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK); address.sin_port = htons(options_.port);
+  if (::bind(listener, reinterpret_cast<sockaddr *>(&address), sizeof(address)) != 0) {
+    const std::string error = std::strerror(errno); ::close(listener); close_wakeup_pipe();
+    throw std::runtime_error("bind: " + error);
+  }
+  if (::listen(listener, 16) != 0) {
+    ::close(listener); close_wakeup_pipe(); throw std::runtime_error("listen failed");
+  }
+  socklen_t address_size = sizeof(address);
+  if (::getsockname(listener, reinterpret_cast<sockaddr *>(&address), &address_size) == 0)
+    bound_port_.store(ntohs(address.sin_port));
+  std::cout << "AnkINK daemon listening at http://127.0.0.1:" << bound_port() << "/\n";
+  {
+    std::lock_guard<std::mutex> lock(collection_mutex_);
+    if (!collection_.is_open()) std::cerr << "AnkINK collection: " << collection_error_ << '\n';
+  }
+
+  try {
+    const std::size_t worker_count = std::max<std::size_t>(2, options_.worker_count);
+    workers_.reserve(worker_count);
+    for (std::size_t i = 0; i < worker_count; ++i)
+      workers_.emplace_back(&HttpServer::worker_loop, this);
+  } catch (...) {
+    stop();
+    for (auto &worker : workers_) if (worker.joinable()) worker.join();
+    ::close(listener); close_wakeup_pipe();
+    throw;
+  }
+
+  int page_keys = -1;
+#ifdef __linux__
+  page_keys = open_page_keys();
+  if (page_keys >= 0) std::cout << "AnkINK input: physical page buttons enabled\n";
+#endif
+  while (!stopping_.load() && !stop_requested) {
+    fd_set set; FD_ZERO(&set); FD_SET(listener, &set); FD_SET(wake_read_, &set);
+    timeval timeout{1, 0};
+    int highest = std::max(listener, wake_read_);
+    if (page_keys >= 0) { FD_SET(page_keys, &set); highest = std::max(highest, page_keys); }
+    const int ready = select(highest + 1, &set, nullptr, nullptr, &timeout);
+    if (ready < 0 && errno == EINTR) continue;
+    if (ready <= 0) continue;
+    if (FD_ISSET(wake_read_, &set)) {
+      char bytes[32]; while (::read(wake_read_, bytes, sizeof(bytes)) > 0) {}
+    }
+#ifdef __linux__
+    if (page_keys >= 0 && FD_ISSET(page_keys, &set)) {
+      input_event event{};
+      while (::read(page_keys, &event, sizeof(event)) == sizeof(event)) {
+        if (event.type == EV_KEY && event.value == 1) {
+          if (event.code == KEY_PAGEUP) queue_page_action("forward");
+          else if (event.code == KEY_PAGEDOWN) queue_page_action("backward");
+        }
+      }
+    }
+#endif
+    if (stopping_.load() || stop_requested || !FD_ISSET(listener, &set)) continue;
+    const int client = ::accept(listener, nullptr, nullptr);
+    if (client < 0) continue;
+#ifdef SO_NOSIGPIPE
+    int no_sigpipe = 1;
+    setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe,
+               sizeof(no_sigpipe));
+#endif
+    timeval io_timeout{5, 0};
+    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &io_timeout, sizeof(io_timeout));
+    setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &io_timeout, sizeof(io_timeout));
+    {
+      std::lock_guard<std::mutex> clients_lock(clients_mutex_);
+      if (stopping_.load()) { ::close(client); continue; }
+      active_clients_.insert(client);
+      std::lock_guard<std::mutex> pending_lock(pending_clients_mutex_);
+      pending_clients_.push_back(client);
+    }
+    pending_clients_condition_.notify_one();
+  }
+
+  stop();
   if (page_keys >= 0) ::close(page_keys);
-  ::close(listener); return 0;
+  ::close(listener);
+  for (auto &worker : workers_) if (worker.joinable()) worker.join();
+  workers_.clear();
+  close_wakeup_pipe();
+  bound_port_.store(0);
+  return 0;
 }
 } // namespace ankink
