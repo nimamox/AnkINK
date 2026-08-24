@@ -8,6 +8,7 @@ ANKINK_SYSROOT=$1
 ANKINK_BUILD_DIR=$2
 ANKINK_OUTPUT=$3
 ANKINK_ROOT=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
+ANKINK_ANKI_SOURCE=${ANKI_ROOT:-"$ANKINK_ROOT/third_party/anki"}
 ANKINK_READELF=${CROSS_COMPILE:-arm-linux-gnueabi-}readelf
 ANKINK_STRIP=${CROSS_COMPILE:-arm-linux-gnueabi-}strip
 
@@ -18,18 +19,33 @@ if [ -e "$ANKINK_OUTPUT" ]; then
   echo "Output already exists: $ANKINK_OUTPUT" >&2; exit 1
 fi
 mkdir -p "$ANKINK_OUTPUT/bin" "$ANKINK_OUTPUT/lib" "$ANKINK_OUTPUT/share/ankink" \
-  "$ANKINK_OUTPUT/kual-extension/AnkINK"
+  "$ANKINK_OUTPUT/kual-extension/AnkINK" "$ANKINK_OUTPUT/library-launcher"
 cp "$ANKINK_BUILD_DIR/ankinkd" "$ANKINK_OUTPUT/bin/ankinkd"
 cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
   "$ANKINK_ROOT/assets/app-settings.js" "$ANKINK_ROOT/assets/config.xml" \
+  "$ANKINK_ROOT/assets/ankink_logo.png" \
   "$ANKINK_OUTPUT/share/ankink/"
 cp -R "$ANKINK_ROOT/assets/vendor" "$ANKINK_OUTPUT/share/ankink/"
 cp "$ANKINK_ROOT/scripts/run-kindle.sh" "$ANKINK_OUTPUT/ankink.sh"
 cp "$ANKINK_ROOT/packaging/README-KINDLE.txt" "$ANKINK_OUTPUT/README.txt"
-cp "$ANKINK_ROOT/LICENSE" "$ANKINK_OUTPUT/LICENSE"
+cp "$ANKINK_ROOT/LICENSE" "$ANKINK_ROOT/THIRD_PARTY_NOTICES.md" \
+  "$ANKINK_ROOT/SOURCE.md" "$ANKINK_OUTPUT/"
+cp -R "$ANKINK_ROOT/LICENSES" "$ANKINK_OUTPUT/LICENSES"
+mkdir -p "$ANKINK_OUTPUT/THIRD_PARTY"
+cp "$ANKINK_ANKI_SOURCE/LICENSE" \
+  "$ANKINK_OUTPUT/THIRD_PARTY/Anki-LICENSE"
+cp "$ANKINK_ANKI_SOURCE/cargo/licenses.json" \
+  "$ANKINK_OUTPUT/THIRD_PARTY/Anki-cargo-licenses.json"
+cp "$ANKINK_ROOT/backend/rust/Cargo.lock" \
+  "$ANKINK_OUTPUT/THIRD_PARTY/Cargo.lock"
 cp "$ANKINK_ROOT/assets/kual/config.xml" "$ANKINK_ROOT/assets/kual/menu.json" \
   "$ANKINK_OUTPUT/kual-extension/AnkINK/"
-chmod 755 "$ANKINK_OUTPUT/bin/ankinkd" "$ANKINK_OUTPUT/ankink.sh"
+ANKINK_ICON_DATA=$(base64 < "$ANKINK_ROOT/logo/AnkINK_thumb.png" | tr -d '\r\n')
+sed "s|@ICON_DATA@|$ANKINK_ICON_DATA|" \
+  "$ANKINK_ROOT/packaging/library/AnkINK.sh.in" \
+  > "$ANKINK_OUTPUT/library-launcher/AnkINK.sh"
+chmod 755 "$ANKINK_OUTPUT/bin/ankinkd" "$ANKINK_OUTPUT/ankink.sh" \
+  "$ANKINK_OUTPUT/library-launcher/AnkINK.sh"
 
 ANKINK_QUEUE=$(mktemp "${TMPDIR:-/tmp}/ankink-queue.XXXXXX")
 ANKINK_SEEN=$(mktemp "${TMPDIR:-/tmp}/ankink-seen.XXXXXX")

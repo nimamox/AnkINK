@@ -1,0 +1,16 @@
+#!/bin/sh
+# Name: AnkINK
+# Author: AnkINK
+# Icon: data:image/png;base64,@ICON_DATA@
+# Description: Open the AnkINK Anki client.
+# DontUseFBInk
+
+ANKINK_LAUNCHER=/mnt/us/ankink/ankink.sh
+
+if [ ! -x "$ANKINK_LAUNCHER" ]; then
+    eips 2 4 "AnkINK is not installed."
+    eips 2 6 "Copy the dist contents to the Kindle drive."
+    exit 1
+fi
+
+exec "$ANKINK_LAUNCHER"

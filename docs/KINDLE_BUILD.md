@@ -25,6 +25,7 @@ The ready-to-install result is:
 ```text
 dist/ankink/
 dist/extensions/AnkINK/
+dist/documents/AnkINK.sh
 ```
 
 `dist/ankink/ankinkd.sha256` contains the SHA-256 of the daemon.
@@ -35,9 +36,15 @@ dist/extensions/AnkINK/
 ./push_over_ssh.sh root@192.168.15.244
 ```
 
-This copies `dist/ankink/` to `/mnt/us/ankink/` and the KUAL extension to
-`/mnt/us/extensions/AnkINK/`. It does not delete unrelated Kindle files or
-restart AnkINK; reopen it from KUAL after the transfer.
+This copies `dist/ankink/` to `/mnt/us/ankink/`, the KUAL extension to
+`/mnt/us/extensions/AnkINK/`, and the direct Library launcher to
+`/mnt/us/documents/AnkINK.sh`. It does not delete unrelated Kindle files or
+restart AnkINK; reopen it from the Library or KUAL after the transfer.
+
+For a USB-installed release archive, preserve the contents of `dist/` at the
+archive root. Users extract it on their computer and copy the `ankink`,
+`extensions`, and `documents` directories to the top level of the mounted
+Kindle drive. They do not need SSH.
 
 ## Manual cross-build
 

@@ -1,10 +1,26 @@
 AnkINK for PW2-compatible ARMEL Kindles
 =======================================
 
-1. Copy this bundle to /mnt/us/ankink.
-2. Copy kual-extension/AnkINK to /mnt/us/extensions/AnkINK.
-3. Open KUAL and choose Launch AnkINK.
-4. On first launch, sign into AnkiWeb. AnkINK stores only
+USB installation
+----------------
+
+This release archive is laid out like the Kindle USB drive. Extract it on your
+computer, then copy the archive's CONTENTS (ankink, extensions, and documents)
+to the top level of the mounted Kindle drive. Do not copy the enclosing dist or
+release directory.
+
+After copying, the Kindle drive must contain:
+
+    ankink/ankink.sh
+    extensions/AnkINK/config.xml
+    documents/AnkINK.sh
+
+Safely eject the Kindle. AnkINK then appears as "AnkINK" in the Kindle Library
+and as "Launch AnkINK" in KUAL. The Library entry requires PEKI, the same
+launcher support used by a Library-installed KUAL.sh. KUAL remains an optional
+second way to launch AnkINK.
+
+On first launch, sign into AnkiWeb. AnkINK stores only
    the returned host key under /var/local/ankink; it does not save the password.
 
 The launcher first closes any old AnkINK UI/backend, starts the bundled ankinkd
@@ -16,6 +32,11 @@ TeX equations locally using the bundled KaTeX fonts and JavaScript.
 Reviews use Anki 26.08's official scheduler and are written to the collection.
 Normal collection/media sync and guarded full download are supported. Full
 upload is not included in this release.
+
+AnkINK is free software under GNU AGPL v3 or later, without warranty. License,
+source, and third-party notices are included in this directory and at:
+
+    https://github.com/nimamox/AnkINK
 
 Tap a card image to toggle its full-width view. The moon/sun button toggles
 night mode. Oasis page buttons map Forward to Show Answer/Good and Backward to

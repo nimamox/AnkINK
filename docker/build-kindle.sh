@@ -23,16 +23,16 @@ export ANKINK_SKIP_RUSTUP=1
 export CARGO_HOME="$CACHE/cargo-home"
 export CARGO_TARGET_DIR="$CACHE/cargo-target"
 export KINDLE_BUILD_DIR="$CACHE/cmake-armel"
-export KINDLE_SDK_ROOT=/opt/ankink-sdk
+export KINDLE_SDK_ROOT=/opt/kindle-sdk
 export KINDLE_ABI=armel
 export PROTOC=/usr/local/bin/protoc
-export CROSS_COMPILE=/opt/ankink-sdk/bin/arm-linux-gnueabi-
+export CROSS_COMPILE=/opt/kindle-sdk/bin/arm-linux-gnueabi-
 mkdir -p "$CARGO_HOME" "$CARGO_TARGET_DIR"
 
 "$WORKSPACE/scripts/build-rslib-kindle.sh"
 
 STAGE="$CACHE/package-stage"
-rm -rf "$STAGE" "$OUTPUT/ankink" "$OUTPUT/extensions"
+rm -rf "$STAGE" "$OUTPUT/ankink" "$OUTPUT/extensions" "$OUTPUT/documents"
 "$WORKSPACE/scripts/package-kindle.sh" \
   "$KINDLE_SDK_ROOT/armel" "$KINDLE_BUILD_DIR" "$STAGE"
 
@@ -42,11 +42,14 @@ rm -rf "$STAGE" "$OUTPUT/ankink" "$OUTPUT/extensions"
 qemu-arm -r 3.0.35 "$STAGE/lib/ld-linux.so.3" \
   --library-path "$STAGE/lib" "$STAGE/bin/ankinkd" --help >/dev/null
 
-mkdir -p "$OUTPUT/extensions"
+mkdir -p "$OUTPUT/extensions" "$OUTPUT/documents"
 mv "$STAGE" "$OUTPUT/ankink"
 mv "$OUTPUT/ankink/kual-extension/AnkINK" "$OUTPUT/extensions/AnkINK"
 rmdir "$OUTPUT/ankink/kual-extension"
+mv "$OUTPUT/ankink/library-launcher/AnkINK.sh" "$OUTPUT/documents/AnkINK.sh"
+rmdir "$OUTPUT/ankink/library-launcher"
 
 sha256sum "$OUTPUT/ankink/bin/ankinkd" > "$OUTPUT/ankink/ankinkd.sha256"
 echo "Built Kindle bundle: $OUTPUT/ankink"
 echo "Built KUAL extension: $OUTPUT/extensions/AnkINK"
+echo "Built Library launcher: $OUTPUT/documents/AnkINK.sh"

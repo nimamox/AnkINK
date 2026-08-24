@@ -10,6 +10,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .header-settings { display: table-cell; width: 88px; vertical-align: middle; white-space: nowrap; }
 .brand { display: table-cell; vertical-align: middle; white-space: nowrap; }
 .brand-copy { display: inline-block; vertical-align: middle; }
+.brand-logo { display: block; width: 230px; height: 50px; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
 .header-actions { display: table-cell; width: 370px; vertical-align: middle; text-align: right; white-space: nowrap; }
 .header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; vertical-align: middle; font: bold 20px "Amazon Ember", Arial, sans-serif; }
@@ -59,6 +60,8 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .font-size-choices button.selected { border-color: #111; background: #111; color: #fff; }
 .settings-signout { margin-top: 22px; }
 .settings-signout button { display: block; width: 100%; min-height: 60px; border: 2px solid #777; background: transparent; color: #555; font: 19px "Amazon Ember", Arial, sans-serif; }
+.legal-note { margin-top: 24px; padding-top: 18px; border-top: 2px solid #aaa; color: #555; font: 15px/1.35 "Amazon Ember", Arial, sans-serif; }
+.legal-note p + p { margin-top: 6px; }
 .settings-actions { margin-top: 32px; }
 .settings-actions button { display: block; width: 100%; min-height: 72px; border: 3px solid #111; background: #fff; font: bold 19px "Amazon Ember", Arial, sans-serif; }
 .section-heading { padding: 48px 0 25px; }
@@ -152,6 +155,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .empty-state { color: #bbb; }
 .night-mode .warning { background: #333; color: #eee; border-color: #eee; }
 .night-mode .app-header, .night-mode .review-toolbar { background: #111; }
+.night-mode .brand-logo { -webkit-filter: invert(1); filter: invert(1); }
 .night-mode .dialog-overlay { background: rgba(17, 17, 17, 0.94); }
 .night-mode .confirm-dialog, .night-mode .settings-dialog { background: #111; color: #eee; border-color: #eee; }
 .night-mode .setting-select select { background: #111; color: #eee; border-color: #eee; }
@@ -162,6 +166,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .settings-tooltip { border-color: #eee; background: #111; color: #eee; }
 .night-mode .settings-actions button { background: #111; color: #eee; border-color: #eee; }
 .night-mode .settings-signout button { border-color: #999; color: #ccc; }
+.night-mode .legal-note { border-color: #777; color: #bbb; }
 .tag {
   display: inline-block;
   padding: 2px 9px;

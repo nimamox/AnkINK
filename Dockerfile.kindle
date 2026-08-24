@@ -1,63 +1,70 @@
 # syntax=docker/dockerfile:1
-# A native Linux builder (amd64 or arm64) that cross-compiles PW2-compatible
-# ARMEL binaries. The target is always armv7-unknown-linux-gnueabi.
+# Shared Kindle development image. It can build C++ Potion and Rust/C++ AnkINK
+# while each repository remains standalone and owns its build entrypoint.
 FROM debian:trixie-slim
 
 ARG ANKI_COMMIT=666c2c64d4a1772c03948f5b667438da63ddaa76
 ARG PROTOC_VERSION=29.3
 ARG RUST_TOOLCHAIN=1.92.0
+ARG OPENSSL_VERSION=3.0.18
+ARG CURL_VERSION=8.16.0
 
 ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_HOME=/opt/rustup \
     CARGO_HOME=/opt/cargo \
     PATH=/opt/cargo/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    KINDLE_SDK_ROOT=/opt/ankink-sdk \
+    KINDLE_SDK_ROOT=/opt/kindle-sdk \
     PROTOC=/usr/local/bin/protoc
 
 RUN apt-get update >/dev/null && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        build-essential \
-        cmake \
-        curl \
-        file \
-        g++-arm-linux-gnueabi \
-        gcc-arm-linux-gnueabi \
-        git \
-        libc6-dev-armel-cross \
-        make \
-        ninja-build \
-        pkg-config \
-        qemu-user \
-        unzip \
-        util-linux \
+        ca-certificates build-essential cmake curl file g++-arm-linux-gnueabi \
+        gcc-arm-linux-gnueabi git libc6-dev-armel-cross make ninja-build perl \
+        pkg-config qemu-user unzip util-linux xz-utils \
     >/dev/null && rm -rf /var/lib/apt/lists/*
 
-# Pin protoc to the version used by the Anki backend build.
 RUN case "$(dpkg --print-architecture)" in \
-        amd64) protoc_arch=x86_64 ;; \
-        arm64) protoc_arch=aarch_64 ;; \
-        *) echo "Unsupported Docker build architecture" >&2; exit 1 ;; \
-    esac \
+        amd64) protoc_arch=x86_64 ;; arm64) protoc_arch=aarch_64 ;; \
+        *) echo "Unsupported Docker build architecture" >&2; exit 1 ;; esac \
     && curl -fsSL -o /tmp/protoc.zip \
-        "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${protoc_arch}.zip" \
-    && unzip -q /tmp/protoc.zip -d /usr/local \
-    && rm /tmp/protoc.zip
+      "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${protoc_arch}.zip" \
+    && unzip -q /tmp/protoc.zip -d /usr/local && rm /tmp/protoc.zip
 
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
     && rustup target add armv7-unknown-linux-gnueabi --toolchain "$RUST_TOOLCHAIN"
 
-# Keep the Anki source inside the image: host checkouts remain clean and the
-# commit used for the Rust backend is reproducible.
 RUN git clone https://github.com/ankitects/anki.git /opt/anki \
     && git -C /opt/anki checkout --detach "$ANKI_COMMIT" \
     && git -C /opt/anki submodule update --init ftl/core-repo ftl/qt-repo \
     && git config --system --add safe.directory /opt/anki
 
 COPY docker/create-sdk.sh /usr/local/bin/create-sdk
-RUN create-sdk
+RUN chmod 755 /usr/local/bin/create-sdk && create-sdk
 
-COPY docker/entrypoint.sh /usr/local/bin/ankink-docker-entrypoint
-COPY docker/build-kindle.sh /usr/local/bin/build-kindle
-RUN chmod 755 /usr/local/bin/create-sdk /usr/local/bin/ankink-docker-entrypoint /usr/local/bin/build-kindle
+# Static target TLS/HTTP libraries keep Potion’s Kindle runtime closure small
+# and avoid depending on the Kindle firmware’s old SSL stack.
+RUN curl -fsSL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" -o /tmp/openssl.tar.gz \
+    && tar -xzf /tmp/openssl.tar.gz -C /tmp \
+    && cd "/tmp/openssl-${OPENSSL_VERSION}" \
+    && CFLAGS="-Os -march=armv7-a -mfpu=neon -mfloat-abi=softfp" \
+       ./Configure linux-armv4 no-shared no-tests no-module \
+         --cross-compile-prefix=arm-linux-gnueabi- --prefix=/opt/kindle-sdk/armel/usr \
+    && make -j"$(nproc)" && make install_sw \
+    && rm -rf /tmp/openssl.tar.gz "/tmp/openssl-${OPENSSL_VERSION}"
 
-ENTRYPOINT ["/usr/local/bin/ankink-docker-entrypoint"]
+RUN curl -fsSL "https://curl.se/download/curl-${CURL_VERSION}.tar.xz" -o /tmp/curl.tar.xz \
+    && tar -xJf /tmp/curl.tar.xz -C /tmp \
+    && cd "/tmp/curl-${CURL_VERSION}" \
+    && PKG_CONFIG_LIBDIR=/opt/kindle-sdk/armel/usr/lib/pkgconfig \
+       CPPFLAGS="-I/opt/kindle-sdk/armel/usr/include" \
+       LDFLAGS="-L/opt/kindle-sdk/armel/usr/lib" \
+       CFLAGS="-Os -march=armv7-a -mfpu=neon -mfloat-abi=softfp" \
+       ./configure --host=arm-linux-gnueabi --prefix=/opt/kindle-sdk/armel/usr \
+         --disable-shared --enable-static --disable-ldap --disable-ldaps \
+         --disable-rtsp --disable-dict --disable-telnet --disable-tftp \
+         --disable-pop3 --disable-imap --disable-smb --disable-smtp \
+         --without-zlib --without-brotli --without-zstd --without-libpsl \
+         --without-libidn2 --with-openssl=/opt/kindle-sdk/armel/usr \
+    && make -j"$(nproc)" && make install \
+    && rm -rf /tmp/curl.tar.xz "/tmp/curl-${CURL_VERSION}"
+
+ENTRYPOINT ["/bin/sh", "/workspace/docker/entrypoint.sh"]

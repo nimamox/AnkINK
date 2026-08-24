@@ -1,3 +1,5 @@
+![AnkINK](logo/ankink_logo_orig_size.png)
+
 # AnkINK
 
 AnkINK is a C++17 Anki reader for jailbroken Kindle devices. Its UI uses the
@@ -122,9 +124,24 @@ The resulting USB layout is:
 
 ```text
 dist/
-├── ankink/                 # copy to Kindle root as /mnt/us/ankink
-└── extensions/
-    └── AnkINK/             # copy to /mnt/us/extensions/AnkINK
+├── ankink/                 # /mnt/us/ankink
+├── extensions/
+│   └── AnkINK/             # /mnt/us/extensions/AnkINK (KUAL)
+└── documents/
+    └── AnkINK.sh           # /mnt/us/documents/AnkINK.sh (Library)
+```
+
+For a user release, archive the **contents** of `dist/`, preserving those three
+top-level directories. The user extracts it on a computer, copies `ankink`,
+`extensions`, and `documents` to the top level of the mounted Kindle USB drive,
+then safely ejects. Copying the enclosing `dist` directory is incorrect. The
+Library entry requires PEKI, the same script-launcher support used by a
+Library-installed `KUAL.sh`; KUAL remains an optional second launch route.
+
+For example, after building:
+
+```sh
+tar -C dist -czf AnkINK-kindle.tar.gz ankink extensions documents
 ```
 
 To install the result over SSH instead of USB:
@@ -133,14 +150,13 @@ To install the result over SSH instead of USB:
 ./push_over_ssh.sh root@192.168.15.244
 ```
 
-The deployment script prefers `rsync` and falls back to `scp`. It only updates
-AnkINK's two target directories and does not restart the application; relaunch
-AnkINK from KUAL afterwards.
+The deployment script prefers `rsync` and falls back to `scp`. It updates
+AnkINK's app directory, KUAL extension, and Library launcher and does not
+restart the application; relaunch AnkINK from the Library or KUAL afterwards.
 
 Cross-build with `cmake/kindle-debian-toolchain.cmake`, then create the minimal
-runtime bundle using `scripts/package-kindle.sh`. Copy the resulting directory
-to `/mnt/us/ankink` and copy `kual-extension/AnkINK` to
-`/mnt/us/extensions/AnkINK`. On first launch, sign into AnkiWeb; AnkINK creates
+runtime bundle using `scripts/package-kindle.sh`. On first launch, sign into
+AnkiWeb; AnkINK creates
 its private collection under `/var/local/ankink` and downloads from AnkiWeb.
 
 The single KUAL action stops any stale AnkINK UI/backend, starts a fresh
@@ -149,5 +165,15 @@ The single KUAL action stops any stale AnkINK UI/backend, starts a fresh
 asks `com.lab126.appmgrd` to launch it. The UI Close button stops the backend as
 well as leaving the interface. The launcher does not stop `lab126_gui`.
 
-AnkINK incorporates Anki's AGPL-3.0-or-later backend and is distributed under
-compatible AGPL terms.
+## License and source
+
+AnkINK is Copyright (C) 2026 AnkINK contributors and is free software licensed
+under the [GNU Affero General Public License v3.0 or later](LICENSE). It
+statically incorporates the pinned AGPL-3.0-or-later Anki backend, so every
+binary release must identify and provide equivalent access to the exact AnkINK,
+Anki, and Rust corresponding sources. See [SOURCE.md](SOURCE.md) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+AnkINK is an independent project and is not affiliated with or endorsed by
+Ankitects. Anki and AnkiWeb are used only to identify compatibility; AnkINK
+does not distribute Anki's official logo.
