@@ -35,6 +35,7 @@
   var cardFont = "Bookerly";
   var nightMode = false;
   var nightCardMode = "standard";
+  var brandLogoDaySrc = null;
   var pageButtonMode = "normal";
   var fullRefreshMode = "manual";
   var reviewsSinceFullRefresh = 0;
@@ -873,6 +874,12 @@
   }
   function applyNightMode(persist) {
     var html = document.documentElement;
+    var brandLogo = byId("brand-logo"), brandNightSrc;
+    if (brandLogo) {
+      if (!brandLogoDaySrc) brandLogoDaySrc = brandLogo.getAttribute("src");
+      brandNightSrc = brandLogo.getAttribute("data-night-src");
+      if (brandNightSrc) brandLogo.src = nightMode ? brandNightSrc : brandLogoDaySrc;
+    }
     if (nightMode) {
       if (html.className.indexOf("night-mode") < 0) html.className += " night-mode";
       byId("night-mode").innerHTML = "&#9788;";
