@@ -135,6 +135,9 @@ if(ANKINK_BUILD_TESTS)
                     "${CMAKE_SOURCE_DIR}/assets/app-settings.js"
                     "${CMAKE_SOURCE_DIR}/backend/rust/src/lib.rs"
                     "${CMAKE_SOURCE_DIR}/assets/index.html"
-                    "${CMAKE_SOURCE_DIR}/assets/vendor/katex/katex.min.js")
+                    "${CMAKE_SOURCE_DIR}/assets/vendor/katex/katex.min.js"
+                    "${CMAKE_SOURCE_DIR}/assets/vendor/katex/katex.min.css"
+                    "${CMAKE_SOURCE_DIR}/assets/vendor/katex/fonts"
+                    "${CMAKE_SOURCE_DIR}/assets/app.css")
     endif()
 endif()

@@ -614,6 +614,24 @@
     }
     return result;
   }
+  function hasClass(node, className) {
+    return !!node &&
+      (" " + String(node.className || "") + " ").indexOf(" " + className + " ") >= 0;
+  }
+  function directSpansWithClass(node, className) {
+    var spans = directSpans(node), result = [], i;
+    for (i = 0; i < spans.length; ++i) {
+      if (hasClass(spans[i], className)) result.push(spans[i]);
+    }
+    return result;
+  }
+  function isInsideMathStructure(node, className) {
+    while (node) {
+      if (hasClass(node, className)) return true;
+      node = node.parentNode;
+    }
+    return false;
+  }
   function positionedContents(vlist) {
     var result = [], children = directSpans(vlist), i, parts;
     for (i = 0; i < children.length; ++i) {
@@ -629,7 +647,12 @@
     var positions, isSub, sup, sub, wrapper, width;
     for (i = 0; i < live.length; ++i) nodes.push(live[i]);
     for (i = 0; i < nodes.length; ++i) {
-      node = nodes[i]; vlists = node.getElementsByClassName("vlist");
+      node = nodes[i];
+      // Do not reconstruct scripts inside fractions: KaTeX's fraction layout
+      // already reserved the native script box's dimensions, and the generic
+      // vlist baseline repair below fixes their position on Mesquite.
+      if (isInsideMathStructure(node, "mfrac")) continue;
+      vlists = node.getElementsByClassName("vlist");
       if (!vlists.length) continue;
       positions = positionedContents(vlists[0]);
       if (!positions.length || positions.length > 2) continue;
@@ -653,37 +676,48 @@
       }
     }
   }
-  function repairKindleFractions(root) {
-    var live = root.getElementsByClassName("mfrac"), nodes = [], i, j, node, vlists;
-    var positions, line, numerator, denominator, wrapper, width;
-    for (i = 0; i < live.length; ++i) nodes.push(live[i]);
-    for (i = 0; i < nodes.length; ++i) {
-      node = nodes[i]; vlists = node.getElementsByClassName("vlist");
-      if (!vlists.length) continue;
-      positions = positionedContents(vlists[0]); line = null; numerator = null; denominator = null;
-      for (j = 0; j < positions.length; ++j) {
-        if ((" " + positions[j].content.className + " ").indexOf(" frac-line ") >= 0) {
-          line = positions[j]; break;
-        }
-      }
-      if (!line) continue;
-      for (j = 0; j < positions.length; ++j) if (positions[j] !== line) {
-        if (positions[j].top < line.top) numerator = positions[j]; else denominator = positions[j];
-      }
-      if (!numerator || !denominator) continue;
-      clear(node); node.className += " ankink-fraction";
-      wrapper = document.createElement("span"); wrapper.className = "ankink-frac-numerator";
-      wrapper.appendChild(numerator.content); node.appendChild(wrapper); numerator = wrapper;
-      wrapper = document.createElement("span"); wrapper.className = "ankink-frac-rule";
-      node.appendChild(wrapper);
-      wrapper = document.createElement("span"); wrapper.className = "ankink-frac-denominator";
-      wrapper.appendChild(denominator.content); node.appendChild(wrapper); denominator = wrapper;
-      width = Math.max(numerator.offsetWidth, denominator.offsetWidth); node.style.width = width + "px";
+  /*
+   * KaTeX represents a vertical stack extending below the baseline as
+   *
+   *   .vlist-t.vlist-t2
+   *       .vlist-r       visible stack
+   *       .vlist-r       encoded depth below the baseline
+   *
+   * Mesquite ignores the second row when deriving the baseline of the
+   * inline-table. KaTeX has already calculated the correct depth, so restore
+   * that baseline explicitly rather than reconstructing each kind of math
+   * object separately.
+   *
+   * This one repair covers fractions, nested scripts, operator limits,
+   * radicals, matrices and other KaTeX constructs that use vlist-t2.
+   */
+  function repairKindleVlistBaselines(root) {
+    var live = root.getElementsByClassName("vlist-t2"), tables = [], i, rows, cells, depth;
+    for (i = 0; i < live.length; ++i) tables.push(live[i]);
+    for (i = 0; i < tables.length; ++i) {
+      // Only inspect direct rows and cells: descendant searches would mix
+      // nested vertical lists with this table's own depth row.
+      rows = directSpansWithClass(tables[i], "vlist-r");
+      if (rows.length < 2) continue;
+      cells = directSpansWithClass(rows[rows.length - 1], "vlist");
+      if (!cells.length) continue;
+      depth = parseFloat(cells[0].style.height || "");
+      if (!isFinite(depth) || depth <= 0) continue;
+      tables[i].style.verticalAlign = "-" + depth + "em";
     }
   }
+  function kindleMathLayout() {
+    // ?mesquite=1 exercises the repair path in the simulator and desktop
+    // browsers without touching the desktop-only rendering path by default.
+    return !!window.kindle ||
+      /[?&]mesquite=1(?:&|$)/.test(window.location.search || "");
+  }
   function repairKindleMath(root) {
-    if (!window.kindle) return;
-    repairKindleScripts(root); repairKindleFractions(root);
+    if (!kindleMathLayout()) return;
+    // Reconstruct only the ordinary scripts Mesquite cannot position, then
+    // restore the baseline of every remaining native two-row KaTeX vlist.
+    repairKindleScripts(root);
+    repairKindleVlistBaselines(root);
   }
   function mathTop(node, root) {
     var top = 0;
