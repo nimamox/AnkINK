@@ -103,6 +103,26 @@ assert.match(frontend, /images\[i\]\.onerror = function/);
 assert.match(mediaLoading, /image\.setAttribute\("src", API \+ "\/api\/media\/"/);
 assert.doesNotMatch(mediaLoading, /api\/media-data/);
 
+// Large optional assets do not block startup. KaTeX has one callback-driven
+// loader, starts after the deck list settles, and can be pulled forward by a
+// card that actually contains math. The About image starts on first use.
+assert.match(frontend, /var katexState = 0/);
+assert.match(frontend, /function loadKatex\(done\)/);
+assert.match(frontend, /function finishKatexLoad\(\)/);
+assert.match(frontend, /katexDeferredTimer = window\.setTimeout\(function \(\) \{[\s\S]*loadKatex\(\);[\s\S]*\}, 500\)/);
+assert.match(loadDecks, /deferKatexLoad\(\)/);
+assert.match(frontend, /loadKatex\(function \(\) \{ renderMath\(root\); \}\)/);
+assert.match(frontend, /function unboxMath\(expression\)/);
+assert.match(frontend, /function renderKindleLimitedSum\(node, expression, boxed, display\)/);
+assert.match(frontend, /function repairKindleScripts\(root\)/);
+assert.match(frontend, /function repairKindleFractions\(root\)/);
+assert.match(frontend, /function repairKindleMath\(root\)/);
+assert.match(frontend, /repairKindleMath\(span\)/);
+assert.match(frontend, /boxed = window\.kindle \? unboxMath\(expression\) : null/);
+assert.match(frontend, /renderKindleLimitedSum\(span, expression, boxed !== null, opening\.delimiter\.display\)/);
+assert.match(frontend, /function loadAboutLogo\(\)[\s\S]*getAttribute\("data-src"\)/);
+assert.match(frontend, /function openAbout\(\)[\s\S]*loadAboutLogo\(\)[\s\S]*playAboutLogoAnimation\(\)/);
+
 // The card font is allowlisted, persistent, and applied only to card faces.
 assert.match(frontend, /cardFont = "Bookerly"/);
 assert.match(frontend, /"Caecilia": '\"Caecilia Regular\"/);

@@ -1,3 +1,4 @@
+/* AnkINK */
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #fff; color: #111; }
 body { padding: 0 4%; font: 24px/1.35 "Bookerly", Georgia, serif; }
@@ -6,19 +7,23 @@ h1, h2, p { margin: 0; }
 h1 { font: bold 50px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: -3px; }
 h1 span { font-weight: normal; }
 h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
-.app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; width: 92%; height: 125px; table-layout: fixed; border-bottom: 4px solid #111; background: #fff; }
-.header-settings { display: table-cell; width: 88px; vertical-align: middle; white-space: nowrap; }
-.brand { display: table-cell; padding: 0; border: 0; background: transparent; text-align: left; vertical-align: middle; white-space: nowrap; }
-.brand-copy { display: inline-block; vertical-align: middle; }
+.app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; width: 92%; height: 85px; table-layout: fixed; border-bottom: 4px solid #111; background: #fff; }
+.header-settings { display: table-cell; width: 88px; vertical-align: top; white-space: nowrap; }
+.brand { display: table-cell; vertical-align: top; white-space: nowrap; }
+.brand-layout { width: 100%;}
+/* Mesquite mispositions absolute children of table cells. The controls' fixed
+   widths put their midpoint 153px left of screen center; another 115px places
+   the 230px logo's left edge on that midpoint. */
+.brand-button { position: fixed; z-index: 101; top: 0px; left: 50%; display: block; margin: 0 0 0 -268px; padding: 0; border: 0; background: transparent; }
 .brand-logo { display: block; width: 230px; height: 50px; }
-#status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
-.header-actions { display: table-cell; width: 370px; vertical-align: middle; text-align: right; white-space: nowrap; }
+#status { position: fixed; z-index: 101;  left: 50%; width: 230px; margin: 0 0 0 -268px; overflow: hidden; color: #444; text-align: center; text-overflow: ellipsis; white-space: nowrap; font: 13px/1.15 "Amazon Ember", Arial, sans-serif; top: 50px;}
+.header-actions { display: table-cell; width: 370px; vertical-align: top; text-align: right; white-space: nowrap; }
 .header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; vertical-align: middle; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .header-button.icon-button { width: 72px; padding: 0; font: 40px/1 Arial, sans-serif; }
-.settings-button { display: inline-block; width: 54px; height: 72px; margin: 0; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 37px/1 "Amazon Ember", Arial, sans-serif; }
-.mode-button { display: inline-block; width: 54px; height: 72px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 30px/1 "Amazon Ember", Arial, sans-serif; }
-.font-controls { display: inline-block; width: 54px; height: 72px; vertical-align: middle; }
-.font-controls button { display: block; width: 54px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
+.settings-button { display: inline-block; width: 72px; height: 72px; margin: 0; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 37px/1 "Amazon Ember", Arial, sans-serif; }
+.mode-button { display: inline-block; width: 72px; height: 72px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 30px/1 "Amazon Ember", Arial, sans-serif; }
+.font-controls { display: inline-block; width: 72px; height: 72px; vertical-align: middle; }
+.font-controls button { display: block; width: 72px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
 .font-controls button + button { border-top: 0; }
 .warning { position: fixed; z-index: 500; top: 137px; right: 4%; left: 4%; border: 3px solid #111; padding: 18px 22px; background: #e8e8e8; font: bold 19px/1.35 "Amazon Ember", Arial, sans-serif; }
 .auth-panel { position: fixed; z-index: 200; top: 153px; right: 17%; bottom: 28px; left: 17%; margin: 0; padding: 34px; overflow-y: auto; border: 4px solid #111; background: #fff; }
@@ -65,7 +70,9 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .settings-actions button + button { margin-top: 14px; }
 .about-dialog { width: 700px; margin: 0 auto 80px; padding: 46px 52px 42px; border: 4px solid #111; background: #fff; text-align: center; }
 #about-dialog { padding-top: 80px; overflow-y: auto; }
-.about-logo { display: block; width: 460px; height: auto; max-width: 100%; margin: 0 auto; }
+.about-logo-stage { width: 460px; max-width: 100%; margin: 0 auto; }
+.about-logo, .about-logo-canvas { display: block; width: 100%; height: auto; margin: 0; }
+.about-logo-canvas { background: #fff; }
 .about-mark { margin: 28px 0; font: 38px/1 "Kindle Symbol", "Amazon Ember", Arial, sans-serif; }
 .about-message { font: 24px/1.4 "Bookerly", Georgia, serif; }
 .about-credit { margin-top: 34px; font: bold 22px/1.3 "Amazon Ember", Arial, sans-serif; }
@@ -73,8 +80,8 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .about-credit + .about-legal { margin-top: 26px; }
 .about-actions { width: 240px; margin: 34px auto 0; }
 .about-actions button { display: block; width: 100%; min-height: 66px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
-.section-heading { padding: 48px 0 25px; }
-#decks-view { position: fixed; top: 125px; right: 1%; bottom: 0; left: 2%; overflow-y: auto; }
+.section-heading { }
+#decks-view { position: fixed; top: 92px; right: 1%; bottom: 0; left: 2%; overflow-y: auto; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }
 .deck-list { border-top: 2px solid #111; }
@@ -95,7 +102,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .scroll-down { bottom: 22px; }
 .scroll-pager.review-scroll .scroll-up { top: 225px; }
 .scroll-pager.review-scroll .scroll-down { bottom: 132px; }
-#review-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow: hidden; }
+#review-view { position: fixed; top: 92px; right: 4%; bottom: 0; left: 4%; overflow: hidden; }
 .review-toolbar { position: absolute; top: 0; right: 0; left: 0; display: table; width: 100%; height: 88px; table-layout: fixed; overflow: hidden; border-bottom: 2px solid #aaa; background: #fff; }
 .review-toolbar > * { display: table-cell; vertical-align: middle; }
 .text-button { width: 150px; height: 64px; border: 2px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
@@ -140,6 +147,30 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .answer { font-size: 26px; }
 .katex { font-size: 1.08em; }
 .katex-display { margin: 0.8em 0; overflow-x: auto; overflow-y: hidden; }
+.ankink-boxed-math > .katex { display: inline-block; padding: 0.3em; border: 0.04em solid; }
+.ankink-boxed-math > .katex-display > .katex { display: inline-block; margin: 0 auto; padding: 0.3em; border: 0.04em solid; }
+.ankink-display-math { display: block; margin: 0.8em 0; text-align: center; }
+.ankink-limited-sum { display: inline-block; vertical-align: middle; }
+.ankink-limited-sum.ankink-display-math { display: block; }
+.card .ankink-sum-table { display: inline-table; width: auto; margin: 0 auto; border-collapse: separate; border-spacing: 0.22em 0.04em; color: inherit; font-size: inherit; }
+.card .ankink-sum-table td { padding: 0; border: 0; background: transparent; color: inherit; white-space: nowrap; }
+.card .ankink-sum-table.ankink-sum-boxed { border: 0.04em solid; }
+.ankink-sum-side { vertical-align: middle; }
+.ankink-sum-limit { vertical-align: middle; text-align: center; font-size: 0.62em; line-height: 1; }
+.ankink-sum-operator { vertical-align: middle; text-align: center; line-height: 1; }
+.ankink-sum-operator .katex { font-size: 1.35em; }
+.ankink-script { display: inline-block; line-height: 1; }
+.ankink-script-sub-only { margin-right: 0.05em; vertical-align: -0.3em; }
+.ankink-script-sup-only { margin-right: 0.05em; vertical-align: 0.55em; }
+.ankink-script-both { position: relative; height: 1em; margin-right: 0.05em; vertical-align: middle; }
+.ankink-script-both .ankink-script-sup, .ankink-script-both .ankink-script-sub { position: absolute; }
+.ankink-script-both .ankink-script-sup { top: -0.45em; }
+.ankink-script-both .ankink-script-sub { top: 0.5em; }
+.ankink-fraction { position: relative; top: 0.2em; display: inline-block; margin: 0 0.04em; vertical-align: middle; text-align: center; line-height: 0.9; }
+.ankink-fraction > span { display: block; }
+.ankink-frac-numerator, .ankink-frac-denominator { line-height: 0.9; }
+.ankink-frac-rule { height: 2px; min-height: 2px; margin: 0.08em 0; background: #111; }
+.night-mode .ankink-frac-rule { background: #eee; }
 .controls { position: absolute; right: 0; bottom: 4px; left: 0; width: 100%; height: 112px; padding: 12px 0; overflow: hidden; background: #fff; }
 .controls button { height: 88px; min-height: 0; padding: 0; border: 3px solid #111; background: #fff; font-family: "Amazon Ember", Arial, sans-serif; vertical-align: top; }
 .controls .primary { width: 100%; background: #111; color: #fff; font-weight: bold; }
@@ -164,7 +195,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .empty-state { color: #bbb; }
 .night-mode .warning { background: #333; color: #eee; border-color: #eee; }
 .night-mode .app-header, .night-mode .review-toolbar { background: #111; }
-.night-mode .brand-logo, .night-mode .about-logo { -webkit-filter: invert(1); filter: invert(1); }
+.night-mode .brand-logo, .night-mode .about-logo, .night-mode .about-logo-canvas { -webkit-filter: invert(1); filter: invert(1); }
 .night-mode .dialog-overlay { background: rgba(17, 17, 17, 0.94); }
 .night-mode .confirm-dialog, .night-mode .settings-dialog, .night-mode .about-dialog { background: #111; color: #eee; border-color: #eee; }
 .night-mode .setting-select select { background: #111; color: #eee; border-color: #eee; }
