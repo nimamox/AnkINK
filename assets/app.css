@@ -8,7 +8,7 @@ h1 span { font-weight: normal; }
 h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; width: 92%; height: 125px; table-layout: fixed; border-bottom: 4px solid #111; background: #fff; }
 .header-settings { display: table-cell; width: 88px; vertical-align: middle; white-space: nowrap; }
-.brand { display: table-cell; vertical-align: middle; white-space: nowrap; }
+.brand { display: table-cell; padding: 0; border: 0; background: transparent; text-align: left; vertical-align: middle; white-space: nowrap; }
 .brand-copy { display: inline-block; vertical-align: middle; }
 .brand-logo { display: block; width: 230px; height: 50px; }
 #status { margin-top: 8px; color: #444; font: 17px/1.2 "Amazon Ember", Arial, sans-serif; }
@@ -60,12 +60,21 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .font-size-choices button.selected { border-color: #111; background: #111; color: #fff; }
 .settings-signout { margin-top: 22px; }
 .settings-signout button { display: block; width: 100%; min-height: 60px; border: 2px solid #777; background: transparent; color: #555; font: 19px "Amazon Ember", Arial, sans-serif; }
-.legal-note { margin-top: 24px; padding-top: 18px; border-top: 2px solid #aaa; color: #555; font: 15px/1.35 "Amazon Ember", Arial, sans-serif; }
-.legal-note p + p { margin-top: 6px; }
 .settings-actions { margin-top: 32px; }
 .settings-actions button { display: block; width: 100%; min-height: 72px; border: 3px solid #111; background: #fff; font: bold 19px "Amazon Ember", Arial, sans-serif; }
+.settings-actions button + button { margin-top: 14px; }
+.about-dialog { width: 700px; margin: 0 auto 80px; padding: 46px 52px 42px; border: 4px solid #111; background: #fff; text-align: center; }
+#about-dialog { padding-top: 80px; overflow-y: auto; }
+.about-logo { display: block; width: 460px; height: auto; max-width: 100%; margin: 0 auto; }
+.about-mark { margin: 28px 0; font: 38px/1 "Kindle Symbol", "Amazon Ember", Arial, sans-serif; }
+.about-message { font: 24px/1.4 "Bookerly", Georgia, serif; }
+.about-credit { margin-top: 34px; font: bold 22px/1.3 "Amazon Ember", Arial, sans-serif; }
+.about-legal { margin-top: 13px; font: 16px/1.32 "Amazon Ember", Arial, sans-serif; }
+.about-credit + .about-legal { margin-top: 26px; }
+.about-actions { width: 240px; margin: 34px auto 0; }
+.about-actions button { display: block; width: 100%; min-height: 66px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .section-heading { padding: 48px 0 25px; }
-#decks-view { position: fixed; top: 125px; right: 4%; bottom: 0; left: 4%; overflow-y: auto; }
+#decks-view { position: fixed; top: 125px; right: 1%; bottom: 0; left: 2%; overflow-y: auto; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }
 .deck-list { border-top: 2px solid #111; }
@@ -155,9 +164,9 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .empty-state { color: #bbb; }
 .night-mode .warning { background: #333; color: #eee; border-color: #eee; }
 .night-mode .app-header, .night-mode .review-toolbar { background: #111; }
-.night-mode .brand-logo { -webkit-filter: invert(1); filter: invert(1); }
+.night-mode .brand-logo, .night-mode .about-logo { -webkit-filter: invert(1); filter: invert(1); }
 .night-mode .dialog-overlay { background: rgba(17, 17, 17, 0.94); }
-.night-mode .confirm-dialog, .night-mode .settings-dialog { background: #111; color: #eee; border-color: #eee; }
+.night-mode .confirm-dialog, .night-mode .settings-dialog, .night-mode .about-dialog { background: #111; color: #eee; border-color: #eee; }
 .night-mode .setting-select select { background: #111; color: #eee; border-color: #eee; }
 .night-mode .font-size-choices button { color: #eee; }
 .night-mode .font-size-choices button.selected { border-color: #eee; background: #eee; color: #111; }
@@ -166,7 +175,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .settings-tooltip { border-color: #eee; background: #111; color: #eee; }
 .night-mode .settings-actions button { background: #111; color: #eee; border-color: #eee; }
 .night-mode .settings-signout button { border-color: #999; color: #ccc; }
-.night-mode .legal-note { border-color: #777; color: #bbb; }
+.night-mode .about-actions button { background: #111; color: #eee; border-color: #eee; }
 .tag {
   display: inline-block;
   padding: 2px 9px;

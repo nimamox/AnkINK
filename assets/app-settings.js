@@ -931,11 +931,13 @@
   function reviewerReadyForInput() {
     return !!state.deck && byId("review-view").className.indexOf("hidden") < 0 &&
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
+      byId("about-dialog").className.indexOf("hidden") >= 0 &&
       !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight;
   }
   function deckListReadyForInput() {
     return !state.deck && byId("decks-view").className.indexOf("hidden") < 0 &&
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
+      byId("about-dialog").className.indexOf("hidden") >= 0 &&
       byId("auth-panel").className.indexOf("hidden") >= 0 &&
       byId("full-sync-panel").className.indexOf("hidden") >= 0 &&
       !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight;
@@ -1012,6 +1014,15 @@
   };
   byId("settings-close").onclick = function () {
     hideSettingsTooltip(); hide(byId("settings-dialog")); resumePageButtonInput();
+  };
+  byId("settings-about").onclick = function () {
+    hideSettingsTooltip(); show(byId("about-dialog"));
+  };
+  byId("about").onclick = function () {
+    hideSettingsTooltip(); show(byId("about-dialog"));
+  };
+  byId("about-done").onclick = function () {
+    hide(byId("about-dialog")); resumePageButtonInput();
   };
   byId("settings-logout").onclick = function () {
     hide(byId("settings-dialog"));

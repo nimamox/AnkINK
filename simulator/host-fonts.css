@@ -1,0 +1,27 @@
+/* Simulator only: prefer Kindle faces installed by the developer.
+   No font files are bundled, and every face has an ordinary fallback. */
+@font-face {
+  font-family: "Amazon Ember";
+  src: local("Amazon Ember Regular"), local("AmazonEmber-Regular"), local("Amazon Ember");
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Kindle Symbol";
+  src: local("Kindle Symbol"), local("KindleSymbol");
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Code2000";
+  src: local("Code2000"), local("code2000");
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* Code2000 supplies many Kindle fallback symbols absent from the first two. */
+.setting-help {
+  font-family: "Kindle Symbol", "Amazon Ember", "Code2000", Arial, sans-serif !important;
+}

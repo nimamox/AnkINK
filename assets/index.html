@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AnkINK</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css">
-  <link rel="stylesheet" href="app.css?v=20260824-brand-logo">
+  <link rel="stylesheet" href="app.css?v=20260824-2-about-dialog">
   <style id="card-template-style"></style>
 </head>
 <body>
   <div class="app-header">
     <div class="header-settings">
-      <button id="settings" class="settings-button" type="button" title="Settings">&#8801;</button>
+      <button id="settings" class="settings-button" type="button" title="Settings">⎈</button>
     </div>
-    <div class="brand">
+    <button id="about" class="brand" type="button" aria-label="About AnkINK">
       <span class="brand-copy"><img class="brand-logo" src="ankink_logo.png" width="230" height="50" alt="AnkINK"><p id="status">Starting AnkINK engine...</p></span>
-    </div>
+    </button>
     <div class="header-actions">
       <span class="font-controls"><button id="font-plus" type="button">+</button><button id="font-minus" type="button">&minus;</button></span>
       <button id="night-mode" class="mode-button" type="button" title="Night mode">&#9789;</button>
@@ -88,13 +88,25 @@
       <div class="settings-signout">
         <button id="settings-logout" type="button">Sign out</button>
       </div>
-      <div class="legal-note">
-        <p>Copyright &copy; 2026 AnkINK contributors. GNU AGPL v3 or later; no warranty.</p>
-        <p>Source and license: github.com/nimamox/AnkINK</p>
-      </div>
       <div class="settings-actions">
+        <button id="settings-about" type="button">About AnkINK</button>
         <button id="settings-close" type="button">Done</button>
       </div>
+    </div>
+  </div>
+
+  <div id="about-dialog" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-label="About AnkINK">
+    <div class="about-dialog">
+      <img class="about-logo" src="ankink_logo_orig_size.png" width="2689" height="585" alt="AnkINK">
+      <p class="about-mark">◈</p>
+      <p class="about-message">What we revisit,<br>we make our own.</p>
+      <p class="about-mark">❦</p>
+      <p class="about-credit">Created by Nima Mohammadi</p>
+      <p class="about-legal">Copyright &copy; 2026 AnkINK contributors &middot; No warranty</p>
+      <p class="about-legal">You may share and modify AnkINK<br>under GNU AGPL v3 or later.</p>
+      <p class="about-legal">AnkINK is an independent project and is not<br>affiliated with or endorsed by Ankitects.</p>
+      <p class="about-legal">Source, license, and third-party notices:<br>github.com/nimamox/AnkINK</p>
+      <div class="about-actions"><button id="about-done" type="button">Done</button></div>
     </div>
   </div>
 
@@ -155,6 +167,6 @@
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
   <script src="vendor/katex/katex.min.js"></script>
-  <script src="app-settings.js?v=20260823-startup-sync-deck-input"></script>
+  <script src="app-settings.js?v=20260824-2-about-dialog"></script>
 </body>
 </html>

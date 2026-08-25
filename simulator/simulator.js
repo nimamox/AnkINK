@@ -50,6 +50,22 @@
     xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
     xhr.send("action=" + encodeURIComponent(action));
   }
+  function installHostFonts() {
+    var documentInFrame;
+    var link;
+    try {
+      documentInFrame = iframe.contentDocument || iframe.contentWindow.document;
+      if (!documentInFrame || !documentInFrame.head ||
+          documentInFrame.getElementById("ankink-simulator-host-fonts")) return;
+      link = documentInFrame.createElement("link");
+      link.id = "ankink-simulator-host-fonts";
+      link.rel = "stylesheet";
+      link.href = "/simulator/host-fonts.css";
+      documentInFrame.head.appendChild(link);
+    } catch (ignored) {
+      /* The normal fallback fonts remain usable if iframe access is unavailable. */
+    }
+  }
   function reload() { iframe.src = "/?simulator=" + new Date().getTime(); }
 
   devices.forEach(function (device) {
@@ -62,6 +78,7 @@
   document.getElementById("backward").onclick = function () { sendInput("backward"); };
   document.getElementById("forward").onclick = function () { sendInput("forward"); };
   document.getElementById("reload").onclick = reload;
+  iframe.onload = installHostFonts;
   document.getElementById("fit").onclick = function () { fit = !fit; layout(); };
   window.onresize = layout;
   document.onkeydown = function (event) {
