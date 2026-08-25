@@ -150,15 +150,6 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .ankink-boxed-math > .katex { display: inline-block; padding: 0.3em; border: 0.04em solid; }
 .ankink-boxed-math > .katex-display > .katex { display: inline-block; margin: 0 auto; padding: 0.3em; border: 0.04em solid; }
 .ankink-display-math { display: block; margin: 0.8em 0; text-align: center; }
-.ankink-limited-sum { display: inline-block; vertical-align: middle; }
-.ankink-limited-sum.ankink-display-math { display: block; }
-.card .ankink-sum-table { display: inline-table; width: auto; margin: 0 auto; border-collapse: separate; border-spacing: 0.22em 0.04em; color: inherit; font-size: inherit; }
-.card .ankink-sum-table td { padding: 0; border: 0; background: transparent; color: inherit; white-space: nowrap; }
-.card .ankink-sum-table.ankink-sum-boxed { border: 0.04em solid; }
-.ankink-sum-side { vertical-align: middle; }
-.ankink-sum-limit { vertical-align: middle; text-align: center; font-size: 0.62em; line-height: 1; }
-.ankink-sum-operator { vertical-align: middle; text-align: center; line-height: 1; }
-.ankink-sum-operator .katex { font-size: 1.35em; }
 .ankink-script { display: inline-block; line-height: 1; }
 .ankink-script-sub-only { margin-right: 0.05em; vertical-align: -0.3em; }
 .ankink-script-sup-only { margin-right: 0.05em; vertical-align: 0.55em; }

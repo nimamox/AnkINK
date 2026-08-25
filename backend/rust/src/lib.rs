@@ -1,6 +1,8 @@
 // Copyright: AnkINK contributors
 // License: GNU AGPL, version 3 or later
 
+mod math;
+
 use std::ffi::{c_char, CStr, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
@@ -15,6 +17,7 @@ use anki::sync::login::{sync_login, SyncAuth};
 use anki::sync::media::progress::MediaSyncProgress;
 use anki::timestamp::{TimestampMillis, TimestampSecs};
 use anki::undo::Op;
+use math::render_card_html;
 use serde_json::{json, Value};
 
 fn flatten_deck_tree(
@@ -153,8 +156,8 @@ impl AnkinkAnkiBackend {
             "deckId": deck_id,
             "id": id.0,
             "reviewToken": review_token,
-            "front": rendered.question(),
-            "back": rendered.answer(),
+            "front": render_card_html(&rendered.question()),
+            "back": render_card_html(&rendered.answer()),
             "css": rendered.css,
             "counts": counts,
             "buttons": [

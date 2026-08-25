@@ -16,11 +16,13 @@ The manifest suppresses Mesquite's otherwise-empty navigation strip; AnkINK
 provides compact Refresh and Close controls in its own header while retaining
 the Kindle status row.
 
-Card mathematics is rendered locally with the ES5-compatible KaTeX 0.13.24
-distribution. Supported delimiters are `\\(...\\)`, `\\[...\\]`, `$$...$$`,
-`[$]...[/$]`, `[$$]...[/$$]`, and `[latex]...[/latex]`. No network connection
-is required for equations or fonts. KaTeX's MIT license is included beside the
-vendored files under `assets/vendor/katex`.
+Card mathematics is rendered by the native Rust `katex-rs` 0.2.4 library in
+`ankinkd`, before the card reaches Mesquite. Mesquite loads only the matching
+KaTeX 0.16.25 CSS and fonts; it neither loads KaTeX JavaScript nor parses TeX.
+Supported delimiters are `\\(...\\)`, `\\[...\\]`, `$$...$$`, `[$]...[/$]`,
+`[$$]...[/$$]`, and `[latex]...[/latex]`. No network connection or target-side
+Rust installation is required. A bounded native cache reuses repeated formulas,
+while small viewport-lazy DOM repairs retain compatibility with old Mesquite.
 
 Kindle release builds use the official Anki 26.08 Rust backend. Card queues,
 template rendering, button intervals, FSRS/legacy scheduling, card updates and
@@ -115,7 +117,8 @@ Linux host or host-side ARM toolchain is required. Then run:
 ```
 
 The first build downloads the pinned Debian ARMEL cross-toolchain, Rust 1.92,
-Protobuf 29.3, and the pinned Anki 26.08 source into the Docker image. Later
+Protobuf 29.3, the pinned Anki 26.08 source, and Rust crates including
+`katex-rs`. Later
 runs reuse Docker layers and the `ankink-kindle-build-cache` Docker volume.
 The container is short lived (`docker run --rm`); source is mounted read-only
 and only `dist/` receives build artifacts.

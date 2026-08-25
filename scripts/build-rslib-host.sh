@@ -24,7 +24,9 @@ if [[ ! -d "$ANKI_DIR/.git" ]]; then
   mkdir -p "$ROOT/third_party"
   git clone https://github.com/ankitects/anki.git "$ANKI_DIR"
 fi
-git -C "$ANKI_DIR" fetch --quiet origin "$ANKI_COMMIT"
+if ! git -C "$ANKI_DIR" cat-file -e "${ANKI_COMMIT}^{commit}" 2>/dev/null; then
+  git -C "$ANKI_DIR" fetch --quiet origin "$ANKI_COMMIT"
+fi
 git -C "$ANKI_DIR" checkout --quiet --detach "$ANKI_COMMIT"
 git -C "$ANKI_DIR" submodule update --init ftl/core-repo ftl/qt-repo
 

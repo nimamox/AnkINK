@@ -5,6 +5,8 @@ const fs = require("node:fs");
 
 const frontend = fs.readFileSync(process.argv[2], "utf8");
 const backend = fs.readFileSync(process.argv[3], "utf8");
+const index = fs.readFileSync(process.argv[4], "utf8");
+const katexJavascript = process.argv[5];
 
 function between(source, start, end) {
   const first = source.indexOf(start);
@@ -103,23 +105,22 @@ assert.match(frontend, /images\[i\]\.onerror = function/);
 assert.match(mediaLoading, /image\.setAttribute\("src", API \+ "\/api\/media\/"/);
 assert.doesNotMatch(mediaLoading, /api\/media-data/);
 
-// Large optional assets do not block startup. KaTeX has one callback-driven
-// loader, starts after the deck list settles, and can be pulled forward by a
-// card that actually contains math. The About image starts on first use.
-assert.match(frontend, /var katexState = 0/);
-assert.match(frontend, /function loadKatex\(done\)/);
-assert.match(frontend, /function finishKatexLoad\(\)/);
-assert.match(frontend, /katexDeferredTimer = window\.setTimeout\(function \(\) \{[\s\S]*loadKatex\(\);[\s\S]*\}, 500\)/);
-assert.match(loadDecks, /deferKatexLoad\(\)/);
-assert.match(frontend, /loadKatex\(function \(\) \{ renderMath\(root\); \}\)/);
-assert.match(frontend, /function unboxMath\(expression\)/);
-assert.match(frontend, /function renderKindleLimitedSum\(node, expression, boxed, display\)/);
+// The backend sends final HTML-only KaTeX markup. Mesquite never loads or
+// executes KaTeX JavaScript; it only lazily repairs nearby legacy layout bugs.
+assert.doesNotMatch(frontend, /window\.katex|katex\.render|loadKatex|katexState|data-expr/);
+assert.match(index, /vendor\/katex\/katex\.min\.css\?v=0\.16\.25-native/);
+assert.equal(fs.existsSync(katexJavascript), false);
+assert.doesNotMatch(loadDecks, /deferKatexLoad/);
 assert.match(frontend, /function repairKindleScripts\(root\)/);
 assert.match(frontend, /function repairKindleFractions\(root\)/);
+assert.doesNotMatch(frontend, /function repairKindleLimits\(root\)/);
 assert.match(frontend, /function repairKindleMath\(root\)/);
-assert.match(frontend, /repairKindleMath\(span\)/);
-assert.match(frontend, /boxed = window\.kindle \? unboxMath\(expression\) : null/);
-assert.match(frontend, /renderKindleLimitedSum\(span, expression, boxed !== null, opening\.delimiter\.display\)/);
+assert.match(frontend, /function repairMathNearViewport\(\)/);
+assert.match(frontend, /root\.scrollTop \+ root\.clientHeight \* 2\.5/);
+assert.match(frontend, /repaired >= 16/);
+assert.match(frontend, /collectCardMath\(\)[\s\S]*scheduleMathRepair\(0\)/);
+assert.match(backend, /"front": render_card_html\(&rendered\.question\(\)\)/);
+assert.match(backend, /"back": render_card_html\(&rendered\.answer\(\)\)/);
 assert.match(frontend, /function loadAboutLogo\(\)[\s\S]*getAttribute\("data-src"\)/);
 assert.match(frontend, /function openAbout\(\)[\s\S]*loadAboutLogo\(\)[\s\S]*playAboutLogoAnimation\(\)/);
 

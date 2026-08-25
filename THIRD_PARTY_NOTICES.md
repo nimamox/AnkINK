@@ -20,7 +20,7 @@ Anki's official logo.
 
 ## Rust dependency closure
 
-The pinned Rust dependency graph is recorded by `THIRD_PARTY/Cargo.lock`.
+The pinned Rust dependency graph is recorded by `backend/rust/Cargo.lock`.
 Anki's generated dependency authors/license inventory is included as
 `THIRD_PARTY/Anki-cargo-licenses.json`. It contains AGPL-3.0-or-later and
 compatible permissive or weak-copyleft components, including Apache-2.0, MIT,
@@ -31,12 +31,16 @@ Corresponding Source described in `SOURCE.md`.
 The bundled SQLite implementation used through `rusqlite` is dedicated to the
 public domain by its upstream authors: <https://www.sqlite.org/copyright.html>.
 
-## KaTeX
+## katex-rs and KaTeX assets
+
+- Native renderer: `katex-rs` 0.2.4, <https://github.com/MinusGix/katex-rs>
+- Renderer license: MIT
 
 - Upstream: <https://github.com/KaTeX/KaTeX>
 - License: MIT, reproduced in `LICENSES/KaTeX-MIT.txt` and in the bundled
   `share/ankink/vendor/katex/LICENSE`
-- Use: bundled JavaScript, CSS, and fonts for local mathematical rendering
+- Use: `katex-rs` is statically linked into `ankinkd`; matching KaTeX 0.16.25
+  CSS and fonts are bundled for local HTML layout. No KaTeX JavaScript ships.
 
 Copyright (C) 2013-2020 Khan Academy and other contributors.
 

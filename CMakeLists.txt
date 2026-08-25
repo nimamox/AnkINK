@@ -133,6 +133,8 @@ if(ANKINK_BUILD_TESTS)
             COMMAND "${ANKINK_NODE_EXECUTABLE}"
                     "${CMAKE_SOURCE_DIR}/tests/reviewer_contract_test.js"
                     "${CMAKE_SOURCE_DIR}/assets/app-settings.js"
-                    "${CMAKE_SOURCE_DIR}/backend/rust/src/lib.rs")
+                    "${CMAKE_SOURCE_DIR}/backend/rust/src/lib.rs"
+                    "${CMAKE_SOURCE_DIR}/assets/index.html"
+                    "${CMAKE_SOURCE_DIR}/assets/vendor/katex/katex.min.js")
     endif()
 endif()

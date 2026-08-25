@@ -9,8 +9,7 @@
   var settingWrites = [], settingWriteInFlight = false, settingsDrainedCallback = null;
   var pendingReviews = 0;
   var aboutLogoTimer = null, aboutLogoReady = false, aboutLogoPending = false;
-  var katexState = 0, katexStyleDone = false, katexScriptDone = false;
-  var katexCallbacks = [], katexDeferredTimer = null;
+  var mathNodes = [], mathRepairTimer = null;
   var fontScales = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
   function nearestFontScale(value) {
     var nearest = fontScales[0], distance = Math.abs(value - nearest), i, candidateDistance;
@@ -392,7 +391,6 @@
     }
     container.innerHTML = html || ("<em>" + fallback + "</em>"); clean(container);
     clear(element); while (container.firstChild) element.appendChild(container.firstChild);
-    renderMath(element);
     prepareImages(element);
   }
   function safeInlineStyle(value) {
@@ -608,98 +606,6 @@
     }
     return source;
   }
-  function finishKatexLoad() {
-    var callbacks, i;
-    if (katexState !== 1 || !katexStyleDone || !katexScriptDone) return;
-    if (!window.katex || !window.katex.render) { katexState = 3; katexCallbacks = []; return; }
-    katexState = 2; callbacks = katexCallbacks; katexCallbacks = [];
-    for (i = 0; i < callbacks.length; ++i) callbacks[i]();
-  }
-  function loadKatex(done) {
-    var head = document.getElementsByTagName("head")[0], style, script;
-    if (katexState === 2) { if (done) done(); return; }
-    if (katexState === 3) return;
-    if (done) katexCallbacks.push(done);
-    if (katexState === 1) return;
-    katexState = 1;
-    if (katexDeferredTimer !== null) {
-      window.clearTimeout(katexDeferredTimer); katexDeferredTimer = null;
-    }
-    style = document.createElement("link"); style.rel = "stylesheet";
-    style.href = "vendor/katex/katex.min.css";
-    style.onload = function () { katexStyleDone = true; finishKatexLoad(); };
-    style.onerror = function () { katexStyleDone = true; finishKatexLoad(); };
-    script = document.createElement("script"); script.src = "vendor/katex/katex.min.js";
-    script.async = true;
-    script.onload = function () { katexScriptDone = true; finishKatexLoad(); };
-    script.onerror = function () { katexState = 3; katexCallbacks = []; };
-    head.appendChild(style); head.appendChild(script);
-    window.setTimeout(function () {
-      if (!katexStyleDone) { katexStyleDone = true; finishKatexLoad(); }
-    }, 1000);
-  }
-  function deferKatexLoad() {
-    if (katexState !== 0 || katexDeferredTimer !== null) return;
-    katexDeferredTimer = window.setTimeout(function () {
-      katexDeferredTimer = null; loadKatex();
-    }, 500);
-  }
-  function unboxMath(expression) {
-    var value = String(expression || "").replace(/^\s+|\s+$/g, ""), i, depth = 0;
-    if (value.substring(0, 7) !== "\\boxed{" || value.charAt(value.length - 1) !== "}") return null;
-    for (i = 6; i < value.length; ++i) {
-      if (value.charAt(i) === "{") depth += 1;
-      else if (value.charAt(i) === "}") {
-        depth -= 1;
-        if (depth === 0 && i !== value.length - 1) return null;
-      }
-    }
-    return depth === 0 ? value.substring(7, value.length - 1) : null;
-  }
-  function texGroup(value, start) {
-    var i, depth = 0;
-    if (value.charAt(start) !== "{") return null;
-    for (i = start; i < value.length; ++i) {
-      if (value.charAt(i) === "{") depth += 1;
-      else if (value.charAt(i) === "}") {
-        depth -= 1;
-        if (depth === 0) return { text: value.substring(start + 1, i), end: i + 1 };
-      }
-    }
-    return null;
-  }
-  function limitedSum(expression) {
-    var at = expression.indexOf("\\sum"), cursor, marker, group;
-    var lower = null, upper = null, count;
-    if (at < 0) return null;
-    cursor = at + 4;
-    for (count = 0; count < 2; ++count) {
-      while (/\s/.test(expression.charAt(cursor))) cursor += 1;
-      marker = expression.charAt(cursor);
-      if (marker !== "_" && marker !== "^") break;
-      cursor += 1;
-      if (expression.charAt(cursor) === "{") {
-        group = texGroup(expression, cursor);
-        if (!group) return null;
-        cursor = group.end;
-      } else {
-        if (!expression.charAt(cursor)) return null;
-        group = { text: expression.charAt(cursor), end: cursor + 1 };
-        cursor = group.end;
-      }
-      if (marker === "_") lower = group.text; else upper = group.text;
-    }
-    return lower !== null || upper !== null ? {
-      before: expression.substring(0, at), lower: lower,
-      upper: upper, after: expression.substring(cursor)
-    } : null;
-  }
-  function renderMathPart(element, expression, displayStyle) {
-    if (!expression) return;
-    window.katex.render((displayStyle ? "\\displaystyle " : "") + expression, element, {
-      displayMode: false, throwOnError: false, strict: "ignore", trust: false
-    });
-  }
   function directSpans(node) {
     var result = [], children = node ? node.childNodes : [], i;
     for (i = 0; i < children.length; ++i) {
@@ -779,106 +685,41 @@
     if (!window.kindle) return;
     repairKindleScripts(root); repairKindleFractions(root);
   }
-  function renderKindleLimitedSum(node, expression, boxed, display) {
-    var sum = limitedSum(expression), table, row1, row2, row3;
-    var left, upper, operator, lower, right;
-    if (!sum || !window.kindle) return false;
-    clear(node);
-    table = document.createElement("table");
-    table.className = "ankink-sum-table" + (boxed ? " ankink-sum-boxed" : "");
-    row1 = document.createElement("tr"); row2 = document.createElement("tr");
-    row3 = document.createElement("tr");
-    left = document.createElement("td"); left.className = "ankink-sum-side"; left.rowSpan = 3;
-    upper = document.createElement("td"); upper.className = "ankink-sum-limit";
-    operator = document.createElement("td"); operator.className = "ankink-sum-operator";
-    lower = document.createElement("td"); lower.className = "ankink-sum-limit";
-    right = document.createElement("td"); right.className = "ankink-sum-side"; right.rowSpan = 3;
-    renderMathPart(left, sum.before, true); renderMathPart(upper, sum.upper, false);
-    renderMathPart(operator, "\\sum\\nolimits", true); renderMathPart(lower, sum.lower, false);
-    renderMathPart(right, sum.after, true);
-    row1.appendChild(left); row1.appendChild(upper); row1.appendChild(right);
-    row2.appendChild(operator); row3.appendChild(lower);
-    table.appendChild(row1); table.appendChild(row2); table.appendChild(row3); node.appendChild(table);
-    node.className += " ankink-limited-sum" + (display ? " ankink-display-math" : "");
-    return true;
+  function mathTop(node, root) {
+    var top = 0;
+    while (node && node !== root) { top += node.offsetTop || 0; node = node.offsetParent; }
+    return top;
   }
-  function renderMath(root) {
-    var delimiters = [
-      { left: "\\[", right: "\\]", display: true },
-      { left: "[$$]", right: "[/$$]", display: true },
-      { left: "[latex]", right: "[/latex]", display: true },
-      { left: "$$", right: "$$", display: true },
-      { left: "\\(", right: "\\)", display: false },
-      { left: "[$]", right: "[/$]", display: false }
-    ];
-    var nodes = [];
-    function collect(node) {
-      var child, className;
-      if (node.nodeType === 3) { nodes.push(node); return; }
-      if (node.nodeType !== 1) return;
-      className = typeof node.className === "string" ? node.className : "";
-      if (node.tagName === "SCRIPT" || node.tagName === "STYLE" || node.tagName === "TEXTAREA" ||
-          node.tagName === "PRE" || node.tagName === "CODE" || className.indexOf("katex") >= 0) return;
-      child = node.firstChild;
-      while (child) { collect(child); child = child.nextSibling; }
+  function resetMathRepair() {
+    if (mathRepairTimer !== null) { window.clearTimeout(mathRepairTimer); mathRepairTimer = null; }
+    mathNodes = [];
+  }
+  function collectCardMath() {
+    var roots = [byId("front"), byId("back-face")], nodes, i, j;
+    resetMathRepair();
+    for (i = 0; i < roots.length; ++i) {
+      nodes = roots[i].getElementsByClassName("math");
+      for (j = 0; j < nodes.length; ++j) mathNodes.push(nodes[j]);
     }
-    function findOpening(text, start) {
-      var best = null, i, position;
-      for (i = 0; i < delimiters.length; ++i) {
-        position = text.indexOf(delimiters[i].left, start);
-        if (position >= 0 && (!best || position < best.position))
-          best = { delimiter: delimiters[i], position: position };
-      }
-      return best;
+  }
+  function repairMathNearViewport() {
+    var root = byId("card"), limit = root.scrollTop + root.clientHeight * 2.5;
+    var i, node, repaired = 0;
+    mathRepairTimer = null;
+    if (byId("review-view").className.indexOf("hidden") >= 0) return;
+    for (i = 0; i < mathNodes.length; ++i) {
+      node = mathNodes[i];
+      if (node._ankinkMathRepaired || node.offsetParent === null) continue;
+      if (mathTop(node, root) > limit) break;
+      node._ankinkMathRepaired = true; repairKindleMath(node); repaired += 1;
+      if (repaired >= 16) { scheduleMathRepair(20); break; }
     }
-    function replace(node) {
-      var text = node.nodeValue, fragment = document.createDocumentFragment();
-      var cursor = 0, opening, contentStart, closing, span, expression, boxed;
-      while ((opening = findOpening(text, cursor))) {
-        contentStart = opening.position + opening.delimiter.left.length;
-        closing = text.indexOf(opening.delimiter.right, contentStart);
-        if (closing < 0) break;
-        if (opening.position > cursor) fragment.appendChild(document.createTextNode(text.substring(cursor, opening.position)));
-        expression = text.substring(contentStart, closing);
-        span = document.createElement("span");
-        boxed = window.kindle ? unboxMath(expression) : null;
-        if (boxed !== null) {
-          expression = boxed;
-          span.className = "ankink-boxed-math" +
-            (opening.delimiter.display ? " ankink-display-math" : "");
-        }
-        try {
-          if (!renderKindleLimitedSum(span, expression, boxed !== null, opening.delimiter.display)) {
-            window.katex.render(expression, span, {
-              displayMode: opening.delimiter.display,
-              throwOnError: false,
-              strict: "ignore",
-              trust: false
-            });
-            repairKindleMath(span);
-          }
-        } catch (error) {
-          span.appendChild(document.createTextNode(opening.delimiter.left + expression + opening.delimiter.right));
-        }
-        fragment.appendChild(span);
-        cursor = closing + opening.delimiter.right.length;
-      }
-      if (cursor === 0) return;
-      if (cursor < text.length) fragment.appendChild(document.createTextNode(text.substring(cursor)));
-      node.parentNode.replaceChild(fragment, node);
-    }
-    collect(root);
-    if (katexState !== 2) {
-      for (var pending = 0; pending < nodes.length; ++pending) {
-        var opening = findOpening(nodes[pending].nodeValue, 0);
-        if (opening && nodes[pending].nodeValue.indexOf(opening.delimiter.right,
-            opening.position + opening.delimiter.left.length) >= 0) {
-          loadKatex(function () { renderMath(root); }); return;
-        }
-      }
-      return;
-    }
-    for (var i = 0; i < nodes.length; ++i) replace(nodes[i]);
+    scheduleScrollButtonUpdate();
+  }
+  function scheduleMathRepair(delay) {
+    if (mathRepairTimer !== null || !mathNodes.length) return;
+    mathRepairTimer = window.setTimeout(repairMathNearViewport,
+      typeof delay === "number" ? delay : 40);
   }
   function applySettings(settings) {
     var parsed;
@@ -945,7 +786,6 @@
         var list = byId("decks"), tree, i;
         clear(list); byId("collection-path").innerHTML = "";
         byId("collection-path").appendChild(document.createTextNode((message && message.path) || status.collection || ""));
-        deferKatexLoad();
         if (deckError || !message || !message.decks || !message.decks.length) {
           var empty = document.createElement("div"); empty.className = "empty-state";
           empty.appendChild(document.createTextNode(deckError || "This collection contains no decks.")); list.appendChild(empty);
@@ -1095,7 +935,8 @@
           resumePageButtonInput(); return;
         }
         state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
-        safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields"); applyNightCardAppearance(); resetCardScroll();
+        safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields");
+        collectCardMath(); applyNightCardAppearance(); resetCardScroll(); scheduleMathRepair(0);
         updateCounts(card.counts);
         if (card.buttons && card.buttons.length === 4) {
           for (var i = 0; i < 4; ++i) {
@@ -1148,7 +989,7 @@
       state.answerShown = true; show(byId("back-face")); show(byId("answer-divider"));
       hide(byId("show-controls")); show(byId("rating-controls"));
       if (byId("answer-divider").scrollIntoView) byId("answer-divider").scrollIntoView(true);
-      scheduleScrollButtonUpdate();
+      scheduleMathRepair(0); scheduleScrollButtonUpdate();
     }
   }
   function undoAnswer() {
@@ -1283,7 +1124,7 @@
   byId("scroll-up").onclick = function () { pageScroll(-1); };
   byId("scroll-down").onclick = function () { pageScroll(1); };
   byId("decks-view").onscroll = updateScrollButtons;
-  byId("card").onscroll = updateScrollButtons;
+  byId("card").onscroll = function () { updateScrollButtons(); scheduleMathRepair(); };
   window.onresize = scheduleScrollButtonUpdate;
   byId("settings").onclick = function () {
     selectedRadio("page-buttons", pageButtonMode);
