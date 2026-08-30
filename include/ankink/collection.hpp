@@ -22,6 +22,7 @@ public:
 
   // All returned values are JSON objects ready for the JavaScript bridge.
   [[nodiscard]] std::string decks_json() const;
+  [[nodiscard]] std::string review_activity_json() const;
   [[nodiscard]] std::string next_card_json(std::int64_t deck_id);
   [[nodiscard]] std::string answer_json(std::int64_t card_id,
                                         std::uint64_t review_token, int rating);

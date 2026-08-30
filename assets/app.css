@@ -85,6 +85,27 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .about-actions button { display: block; width: 100%; min-height: 66px; border: 3px solid #111; background: #fff; font: bold 20px "Amazon Ember", Arial, sans-serif; }
 .section-heading { }
 #decks-view { position: fixed; top: 92px; right: 1%; bottom: 0; left: 2%; overflow-y: auto; }
+.review-activity { padding: 8px 1% 9px 0; border-bottom: 2px solid #aaa; }
+.activity-heading { display: table; width: 100%; height: 20px; table-layout: fixed; }
+.activity-heading .eyebrow, .activity-streak { display: table-cell; vertical-align: top; }
+.activity-streak { text-align: right; font: bold 13px/1.1 "Amazon Ember", Arial, sans-serif; }
+.activity-table-wrap { overflow: hidden; }
+.activity-table { width: auto; margin: 0; border-collapse: separate; border-spacing: 2px 1px; table-layout: fixed; }
+.activity-table th { padding: 0; font: 10px/1 "Amazon Ember", Arial, sans-serif; }
+.activity-table .activity-month { width: 9px; height: 13px; overflow: visible; color: #555; text-align: left; vertical-align: bottom; white-space: nowrap; font-weight: normal; }
+.activity-table .activity-weekday { width: 24px; padding-right: 3px; color: #555; text-align: right; font-weight: normal; }
+.activity-table .activity-day { width: 9px; height: 10px; padding: 0; }
+.activity-square { display: block; width: 9px; height: 9px; border: 1px solid transparent; background: #fff; }
+.activity-level-0 { border-color: #ccc; background: #fff; }
+.activity-level-1 { background: #ddd; }
+.activity-level-2 { background: #aaa; }
+.activity-level-3 { background: #666; }
+.activity-level-4 { background: #111; }
+.activity-square.activity-today { border: 2px solid #111; }
+.activity-summary { display: table; width: 610px; max-width: 100%; margin: 5px 0 0 28px; table-layout: fixed; color: #444; font: bold 12px/1.2 "Amazon Ember", Arial, sans-serif; }
+.activity-summary span { display: table-cell; width: 33.333%; white-space: nowrap; }
+.activity-summary span:nth-child(2) { text-align: center; }
+.activity-summary span:nth-child(3) { text-align: right; }
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }
 .deck-list { border-top: 2px solid #111; }
@@ -181,7 +202,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .app-header, .night-mode .deck-list { border-color: #eee; }
 .night-mode .deck-toggle { background: #000; color: #eee; }
 .night-mode .scroll-button { background: #000; color: #eee; border-color: #eee; }
-.night-mode #status, .night-mode .eyebrow, .night-mode .path,
+.night-mode #status, .night-mode .eyebrow,
 .night-mode .deck-count, .night-mode .session-count, .night-mode .answer-divider,
 .night-mode .empty-state { color: #bbb; }
 .night-mode .warning { background: #333; color: #eee; border-color: #eee; }
@@ -199,6 +220,15 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .settings-signout button { border-color: #999; color: #ccc; }
 .night-mode .about-actions button { background: #000; color: #eee; border-color: #eee; }
 .night-mode .busy-indicator { background: #eee; }
+.night-mode .review-activity { border-color: #777; }
+.night-mode .activity-table .activity-month, .night-mode .activity-table .activity-weekday,
+.night-mode .activity-summary { color: #bbb; }
+.night-mode .activity-level-0 { border-color: #333; background: #111; }
+.night-mode .activity-level-1 { background: #444; }
+.night-mode .activity-level-2 { background: #777; }
+.night-mode .activity-level-3 { background: #aaa; }
+.night-mode .activity-level-4 { background: #eee; }
+.night-mode .activity-square.activity-today { border-color: #eee; }
 .tag {
   display: inline-block;
   padding: 2px 9px;

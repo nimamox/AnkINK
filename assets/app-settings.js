@@ -103,6 +103,173 @@
       }, 0);
   }
   /* ROTATION_LOGIC_END */
+
+  /* HEATMAP_LOGIC_BEGIN */
+  function parseActivityDate(value) {
+    var match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/), date;
+    if (!match) return null;
+    date = new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1,
+      parseInt(match[3], 10), 12, 0, 0, 0);
+    if (date.getFullYear() !== parseInt(match[1], 10) ||
+        date.getMonth() !== parseInt(match[2], 10) - 1 ||
+        date.getDate() !== parseInt(match[3], 10)) return null;
+    return date;
+  }
+  function addActivityDays(date, amount) {
+    var result = new Date(date.getTime());
+    result.setDate(result.getDate() + amount);
+    return result;
+  }
+  function activityDateKey(date) {
+    var month = date.getMonth() + 1, day = date.getDate();
+    return date.getFullYear() + "-" + (month < 10 ? "0" : "") + month +
+      "-" + (day < 10 ? "0" : "") + day;
+  }
+  function activityThresholds(days) {
+    var positive = [], index, quantile;
+    for (index = 0; index < days.length; ++index)
+      if (days[index].count > 0) positive.push(days[index].count);
+    positive.sort(function (left, right) { return left - right; });
+    if (!positive.length) return [0, 0, 0];
+    quantile = function (fraction) {
+      return positive[Math.floor((positive.length - 1) * fraction)];
+    };
+    return [quantile(0.25), quantile(0.5), quantile(0.75)];
+  }
+  function activityLevel(count, thresholds) {
+    var level = count > 0 ? 1 : 0;
+    if (count > thresholds[0]) level = 2;
+    if (count > thresholds[1]) level = 3;
+    if (count > thresholds[2]) level = 4;
+    return level;
+  }
+  function buildActivityModel(activity) {
+    var end = parseActivityDate(activity && activity.endDate), start, counts = {},
+      days = [], thresholds, leading, weeks, months, monthNames,
+      index, source, date, key, count, column, row, weekCount;
+    if (!end) return null;
+    start = addActivityDays(end, -364);
+    source = activity.days || [];
+    for (index = 0; index < source.length; ++index) {
+      if (parseActivityDate(source[index].date))
+        counts[source[index].date] = Math.max(0, parseInt(source[index].count, 10) || 0);
+    }
+    for (index = 0; index < 365; ++index) {
+      date = addActivityDays(start, index);
+      key = activityDateKey(date);
+      days.push({ date: date, key: key, count: counts[key] || 0, level: 0 });
+    }
+    thresholds = activityThresholds(days);
+    leading = start.getDay();
+    weekCount = Math.ceil((leading + days.length) / 7);
+    weeks = [];
+    months = [];
+    for (index = 0; index < weekCount; ++index)
+      weeks.push([null, null, null, null, null, null, null]);
+    monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    months[0] = monthNames[start.getMonth()];
+    for (index = 0; index < days.length; ++index) {
+      column = Math.floor((leading + index) / 7);
+      row = (leading + index) % 7;
+      days[index].level = activityLevel(days[index].count, thresholds);
+      weeks[column][row] = days[index];
+      if (days[index].date.getDate() === 1)
+        months[column] = monthNames[days[index].date.getMonth()];
+    }
+    return {
+      startDate: activityDateKey(start),
+      endDate: activityDateKey(end),
+      days: days,
+      weeks: weeks,
+      months: months,
+      thresholds: thresholds
+    };
+  }
+  /* HEATMAP_LOGIC_END */
+
+  function formattedActivityNumber(value) {
+    return String(Math.max(0, parseInt(value, 10) || 0))
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  function renderReviewActivity(activity) {
+    var model = buildActivityModel(activity), table = byId("activity-table"),
+      heading = byId("activity-streak"), summary = byId("activity-summary"),
+      head, headRow, body, tableRow, cell, square, span, day,
+      row, column, labels = ["", "Mon", "", "Wed", "", "Fri", ""];
+    clear(table); clear(summary);
+    if (!model || !activity || activity.type === "error") {
+      heading.innerHTML = "Activity unavailable";
+      return;
+    }
+    heading.innerHTML = formattedActivityNumber(activity.streak) + " day" +
+      ((parseInt(activity.streak, 10) || 0) === 1 ? "" : "s") + " streak";
+    head = document.createElement("thead");
+    headRow = document.createElement("tr");
+    cell = document.createElement("th");
+    cell.className = "activity-weekday";
+    headRow.appendChild(cell);
+    for (column = 0; column < model.weeks.length; ++column) {
+      cell = document.createElement("th");
+      cell.className = "activity-month";
+      if (model.months[column])
+        cell.appendChild(document.createTextNode(model.months[column]));
+      headRow.appendChild(cell);
+    }
+    head.appendChild(headRow); table.appendChild(head);
+    body = document.createElement("tbody");
+    for (row = 0; row < 7; ++row) {
+      tableRow = document.createElement("tr");
+      cell = document.createElement("th");
+      cell.className = "activity-weekday";
+      if (labels[row]) cell.appendChild(document.createTextNode(labels[row]));
+      tableRow.appendChild(cell);
+      for (column = 0; column < model.weeks.length; ++column) {
+        cell = document.createElement("td");
+        cell.className = "activity-day";
+        day = model.weeks[column][row];
+        if (day) {
+          square = document.createElement("span");
+          square.className = "activity-square activity-level-" + day.level +
+            (day.key === model.endDate ? " activity-today" : "");
+          square.title = day.key + ": " + day.count + " review" +
+            (day.count === 1 ? "" : "s");
+          square.setAttribute("aria-label", square.title);
+          cell.appendChild(square);
+        }
+        tableRow.appendChild(cell);
+      }
+      body.appendChild(tableRow);
+    }
+    table.appendChild(body);
+    span = document.createElement("span");
+    span.appendChild(document.createTextNode("Today " +
+      formattedActivityNumber(activity.todayCount)));
+    summary.appendChild(span);
+    span = document.createElement("span");
+    span.appendChild(document.createTextNode("Streak " +
+      formattedActivityNumber(activity.streak) + " day" +
+      ((parseInt(activity.streak, 10) || 0) === 1 ? "" : "s")));
+    summary.appendChild(span);
+    span = document.createElement("span");
+    span.appendChild(document.createTextNode("365 days " +
+      formattedActivityNumber(activity.total)));
+    summary.appendChild(span);
+  }
+
+  function loadReviewActivity() {
+    setBusy("activity", true);
+    request("GET", "/api/review-activity", null, function (error, activity) {
+      setBusy("activity", false);
+      if (error || !activity || activity.type === "error") {
+        renderReviewActivity(null);
+        return;
+      }
+      renderReviewActivity(activity);
+      scheduleScrollButtonUpdate();
+    }, 0);
+  }
+
   function stopAboutLogoAnimation() {
     if (aboutLogoTimer !== null) {
       window.clearTimeout(aboutLogoTimer); aboutLogoTimer = null;
@@ -882,14 +1049,14 @@
       }
       if (typeof status.pendingReviews === "number")
         storePendingReviews(status.pendingReviews);
+      loadReviewActivity();
       hide(byId("auth-panel")); hide(byId("review-view")); show(byId("decks-view"));
       show(byId("sync"));
       updateSyncStatus();
       request("GET", "/api/decks", null, function (deckError, message) {
         var list = byId("decks"), tree, i;
         setBusy("decks", false);
-        clear(list); byId("collection-path").innerHTML = "";
-        byId("collection-path").appendChild(document.createTextNode((message && message.path) || status.collection || ""));
+        clear(list);
         if (deckError || !message || !message.decks || !message.decks.length) {
           var empty = document.createElement("div"); empty.className = "empty-state";
           empty.appendChild(document.createTextNode(deckError || "This collection contains no decks.")); list.appendChild(empty);

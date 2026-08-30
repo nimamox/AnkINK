@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AnkINK</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.16.25-native">
-  <link rel="stylesheet" href="app.css?v=20260830-1-rotation">
+  <link rel="stylesheet" href="app.css?v=20260830-2-activity">
   <style id="card-template-style"></style>
 </head>
 <body>
@@ -142,9 +142,16 @@
   </div>
 
   <div id="decks-view">
+    <div id="review-activity" class="review-activity">
+      <div class="activity-heading">
+        <p class="eyebrow">ACTIVITY</p>
+        <p id="activity-streak" class="activity-streak">Loading activity...</p>
+      </div>
+      <div class="activity-table-wrap"><table id="activity-table" class="activity-table" aria-label="Review activity over the last 365 days"></table></div>
+      <div id="activity-summary" class="activity-summary"></div>
+    </div>
     <div class="section-heading">
       <p class="eyebrow">COLLECTION</p><h2>Choose a deck</h2>
-      <p id="collection-path" class="path"></p>
     </div>
     <div id="decks" class="deck-list"><div class="empty-state">Loading decks...</div></div>
   </div>
@@ -174,6 +181,6 @@
     <button id="scroll-up" class="scroll-button scroll-up hidden" type="button" title="Scroll up">&#9650;</button>
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
-  <script src="app-settings.js?v=20260830-1-rotation"></script>
+  <script src="app-settings.js?v=20260830-2-activity"></script>
 </body>
 </html>

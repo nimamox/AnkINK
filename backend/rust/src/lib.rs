@@ -113,6 +113,60 @@ impl AnkinkAnkiBackend {
         Ok(json!({"type": "decks", "path": path, "decks": decks}))
     }
 
+    fn review_activity(&mut self) -> Result<Value, String> {
+        // rslib deliberately opens the collection in exclusive locking mode.
+        // Query through its public escape-hatch connection so this remains a
+        // local read and does not contend with the scheduler's own database.
+        let collection = self.collection()?;
+        let mut statement = collection
+            .storage
+            .db()
+            .prepare(
+                "WITH RECURSIVE days(day) AS (\
+                 SELECT date('now','localtime','-364 days') \
+                 UNION ALL SELECT date(day,'+1 day') FROM days \
+                 WHERE day < date('now','localtime')), counts AS (\
+                 SELECT date(id / 1000,'unixepoch','localtime') AS day, \
+                 count(*) AS count FROM revlog \
+                 WHERE id >= strftime('%s',date('now','localtime','-365 days')) * 1000 \
+                 AND type NOT IN (4,5) GROUP BY day) \
+                 SELECT days.day,coalesce(counts.count,0) \
+                 FROM days LEFT JOIN counts ON counts.day=days.day ORDER BY days.day",
+            )
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, u64>(1)?))
+            })
+            .map_err(|error| error.to_string())?;
+        let mut days = Vec::with_capacity(365);
+        for row in rows {
+            days.push(row.map_err(|error| error.to_string())?);
+        }
+        if days.len() != 365 {
+            return Err("Could not construct the 365-day activity range".to_owned());
+        }
+        let total: u64 = days.iter().map(|(_, count)| *count).sum();
+        let streak = days
+            .iter()
+            .rev()
+            .take_while(|(_, count)| *count > 0)
+            .count();
+        let daily: Vec<Value> = days
+            .iter()
+            .map(|(date, count)| json!({"date": date, "count": count}))
+            .collect();
+        Ok(json!({
+            "type": "review-activity",
+            "startDate": &days.first().unwrap().0,
+            "endDate": &days.last().unwrap().0,
+            "days": daily,
+            "todayCount": days.last().unwrap().1,
+            "streak": streak,
+            "total": total
+        }))
+    }
+
     fn next_card(&mut self, deck_id: i64) -> Result<Value, String> {
         self.pending = None;
         let collection = self.collection()?;
@@ -409,6 +463,13 @@ pub extern "C" fn ankink_anki_open(
 #[no_mangle]
 pub extern "C" fn ankink_anki_decks(backend: *mut AnkinkAnkiBackend) -> *mut c_char {
     ffi_json(backend, AnkinkAnkiBackend::decks)
+}
+
+#[no_mangle]
+pub extern "C" fn ankink_anki_review_activity(
+    backend: *mut AnkinkAnkiBackend,
+) -> *mut c_char {
+    ffi_json(backend, AnkinkAnkiBackend::review_activity)
 }
 
 #[no_mangle]

@@ -374,6 +374,17 @@ void HttpServer::handle_client(int client) noexcept {
               result.first ? "OK" : "Service Unavailable",
               "application/json; charset=utf-8", result.second);
     } else if (request.method == "GET" &&
+               request.target == "/api/review-activity") {
+      const auto result = collection_call([this] {
+        const bool open = collection_.is_open();
+        return std::make_pair(
+            open, open ? collection_.review_activity_json()
+                       : R"({"type":"error","message":"No collection is open"})");
+      });
+      respond(client, result.first ? 200 : 503,
+              result.first ? "OK" : "Service Unavailable",
+              "application/json; charset=utf-8", result.second);
+    } else if (request.method == "GET" &&
                request.target.compare(0, 11, "/api/decks/") == 0 &&
                request.target.size() > 16 &&
                request.target.substr(request.target.size() - 5) == "/next") {

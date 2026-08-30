@@ -145,6 +145,10 @@ std::string Collection::decks_json() const {
   return take_json(ankink_anki_decks(impl_->backend_));
 }
 
+std::string Collection::review_activity_json() const {
+  return take_json(ankink_anki_review_activity(impl_->backend_));
+}
+
 std::string Collection::next_card_json(std::int64_t deck_id) {
   return take_json(ankink_anki_next_card(impl_->backend_, deck_id));
 }

@@ -143,6 +143,8 @@ if(ANKINK_BUILD_TESTS)
                     "${CMAKE_SOURCE_DIR}/scripts/run-kindle.sh"
                     "${CMAKE_SOURCE_DIR}/simulator/index.html"
                     "${CMAKE_SOURCE_DIR}/simulator/simulator.js"
-                    "${CMAKE_SOURCE_DIR}/simulator/simulator.css")
+                    "${CMAKE_SOURCE_DIR}/simulator/simulator.css"
+                    "${CMAKE_SOURCE_DIR}/src/http_server.cpp"
+                    "${CMAKE_SOURCE_DIR}/src/collection.cpp")
     endif()
 endif()

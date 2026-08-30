@@ -13,6 +13,7 @@ void ankink_anki_backend_free(AnkinkAnkiBackend *backend);
 
 char *ankink_anki_open(AnkinkAnkiBackend *backend, const char *path);
 char *ankink_anki_decks(AnkinkAnkiBackend *backend);
+char *ankink_anki_review_activity(AnkinkAnkiBackend *backend);
 char *ankink_anki_next_card(AnkinkAnkiBackend *backend, int64_t deck_id);
 char *ankink_anki_answer(AnkinkAnkiBackend *backend, int64_t card_id,
                          uint64_t review_token, int32_t rating);

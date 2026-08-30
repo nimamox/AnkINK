@@ -187,6 +187,59 @@ public:
     return output.str();
   }
 
+  std::string review_activity_json() const {
+    if (!database_)
+      return R"({"type":"error","message":"No collection is open"})";
+
+    try {
+      Statement statement(
+          database_,
+          "WITH RECURSIVE days(day) AS ("
+          " SELECT date('now','localtime','-364 days')"
+          " UNION ALL SELECT date(day,'+1 day') FROM days"
+          " WHERE day < date('now','localtime')"
+          "), counts AS ("
+          " SELECT date(id / 1000,'unixepoch','localtime') AS day,"
+          " count(*) AS count FROM revlog"
+          " WHERE id >= strftime('%s',date('now','localtime','-365 days')) * 1000"
+          " AND type NOT IN (4,5) GROUP BY day"
+          ") SELECT days.day,coalesce(counts.count,0)"
+          " FROM days LEFT JOIN counts ON counts.day=days.day ORDER BY days.day");
+      std::vector<std::pair<std::string, std::uint64_t>> days;
+      std::uint64_t total = 0;
+      while (sqlite3_step(statement.get()) == SQLITE_ROW) {
+        const auto count = static_cast<std::uint64_t>(
+            std::max<sqlite3_int64>(0, sqlite3_column_int64(statement.get(), 1)));
+        days.emplace_back(text_column(statement.get(), 0), count);
+        total += count;
+      }
+      if (days.size() != 365)
+        throw std::runtime_error("Could not construct the 365-day activity range");
+
+      std::size_t streak = 0;
+      for (auto day = days.rbegin(); day != days.rend() && day->second > 0;
+           ++day)
+        ++streak;
+      std::ostringstream output;
+      output << R"({"type":"review-activity","startDate":)"
+             << json_string(days.front().first) << R"(,"endDate":)"
+             << json_string(days.back().first) << R"(,"days":[)";
+      for (std::size_t index = 0; index < days.size(); ++index) {
+        if (index)
+          output << ',';
+        output << R"({"date":)" << json_string(days[index].first)
+               << R"(,"count":)" << days[index].second << '}';
+      }
+      output << R"(],"todayCount":)" << days.back().second
+             << R"(,"streak":)" << streak << R"(,"total":)" << total
+             << '}';
+      return output.str();
+    } catch (const std::exception &error) {
+      return std::string(R"({"type":"error","message":)") +
+             json_string(error.what()) + '}';
+    }
+  }
+
   std::string next_card_json(std::int64_t deck_id) {
     if (!database_)
       return R"({"type":"error","message":"No collection is open"})";
@@ -244,6 +297,9 @@ bool Collection::is_open() const noexcept {
 bool Collection::is_authenticated() const noexcept { return false; }
 std::string Collection::path() const { return impl_->path_; }
 std::string Collection::decks_json() const { return impl_->decks_json(); }
+std::string Collection::review_activity_json() const {
+  return impl_->review_activity_json();
+}
 std::string Collection::next_card_json(std::int64_t deck_id) {
   return impl_->next_card_json(deck_id);
 }

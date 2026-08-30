@@ -15,6 +15,8 @@ const runKindle = fs.readFileSync(process.argv[9], "utf8");
 const simulatorIndex = fs.readFileSync(process.argv[10], "utf8");
 const simulatorJavascript = fs.readFileSync(process.argv[11], "utf8");
 const simulatorCss = fs.readFileSync(process.argv[12], "utf8");
+const httpServer = fs.readFileSync(process.argv[13], "utf8");
+const collectionBackend = fs.readFileSync(process.argv[14], "utf8");
 
 function between(source, start, end) {
   const first = source.indexOf(start);
@@ -121,6 +123,74 @@ assert.doesNotThrow(function () {
 });
 assert.match(frontend, /settings\.rotationMode === "locked"/);
 assert.match(frontend, /key=rotationMode&value=/);
+
+// Review activity is a local, table-based 365-day calendar. Exercise the pure
+// ES5 date/layout/bucketing code independently of the browser DOM.
+const heatmapMatch = frontend.match(
+  /\/\* HEATMAP_LOGIC_BEGIN \*\/([\s\S]*?)\/\* HEATMAP_LOGIC_END \*\//);
+assert.ok(heatmapMatch, "missing heatmap logic test boundary");
+const heatmap = { Date, Math, parseInt, String };
+vm.createContext(heatmap);
+vm.runInContext(heatmapMatch[1], heatmap);
+function model(endDate, days) {
+  return heatmap.buildActivityModel({ endDate, days: days || [] });
+}
+const aligned = model("2026-08-30");
+assert.equal(aligned.days.length, 365);
+assert.equal(aligned.startDate, "2025-08-31");
+assert.equal(aligned.endDate, "2026-08-30");
+assert.equal(aligned.weeks.length, 53);
+assert.equal(aligned.weeks[0][0].key, "2025-08-31");
+assert.equal(aligned.weeks[52][0].key, "2026-08-30");
+
+const partial = model("2026-09-01", [
+  { date: "2025-09-02", count: 2 },
+  { date: "2026-09-01", count: 7 }
+]);
+assert.equal(partial.weeks.length, 53);
+assert.equal(partial.weeks[0][0], null);
+assert.equal(partial.weeks[0][1], null);
+assert.equal(partial.weeks[0][2].key, "2025-09-02");
+assert.equal(partial.days[0].count, 2);
+assert.equal(partial.days[364].count, 7);
+assert.equal(partial.days[1].count, 0, "sparse dates must become empty cells");
+assert.equal(partial.months[0], "Sep");
+assert.ok(partial.months.includes("Jan"), "year boundary must label January");
+
+const leap = model("2024-03-01");
+assert.equal(leap.days.length, 365);
+assert.ok(leap.days.some(function (day) { return day.key === "2024-02-29"; }),
+  "rolling range must retain leap day");
+assert.deepEqual(Array.from(heatmap.activityThresholds(aligned.days)), [0, 0, 0]);
+assert.equal(heatmap.activityLevel(0, [0, 0, 0]), 0);
+const bucketDays = [1, 2, 3, 4, 5, 6, 7, 1000].map(function (count) {
+  return { count };
+});
+const thresholds = Array.from(heatmap.activityThresholds(bucketDays));
+assert.deepEqual(thresholds, [2, 4, 6]);
+assert.equal(heatmap.activityLevel(3, thresholds), 2,
+  "a maximum outlier must not bleach ordinary active days");
+assert.equal(heatmap.activityLevel(1000, thresholds), 4);
+assert.equal(model("not-a-date"), null);
+
+assert.match(index, /id="review-activity"[\s\S]*id="activity-table"[\s\S]*COLLECTION/);
+assert.match(index, /<table id="activity-table"/);
+assert.doesNotMatch(index, /id="collection-path"/);
+assert.doesNotMatch(frontend, /collection-path/);
+assert.doesNotMatch(index, /<canvas[^>]+activity|<svg[^>]+activity/i);
+assert.doesNotMatch(appCss, /\.review-activity[^}]*display:\s*grid/i);
+assert.match(frontend, /labels = \["", "Mon", "", "Wed", "", "Fri", ""\]/);
+assert.match(frontend, /activity-today/);
+assert.match(appCss, /\.activity-today\s*{[^}]*border:\s*2px/);
+assert.match(appCss, /\.night-mode \.activity-level-4/);
+assert.match(frontend, /request\("GET", "\/api\/review-activity"/);
+assert.match(loadDecks, /loadReviewActivity\(\)/);
+assert.match(httpServer, /request\.target == "\/api\/review-activity"/);
+assert.match(collectionBackend, /FROM revlog/);
+assert.match(collectionBackend, /type NOT IN \(4,5\)/);
+assert.match(backend, /fn review_activity\(&mut self\)/);
+assert.match(backend, /storage[\s\S]*\.db\(\)[\s\S]*FROM revlog/);
+assert.match(backend, /type NOT IN \(4,5\)/);
 
 // Deck navigation is local, and physical Undo remains available with no card.
 assert.doesNotMatch(decks, /syncNow\(/);
