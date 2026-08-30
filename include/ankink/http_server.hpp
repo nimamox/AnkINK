@@ -50,6 +50,7 @@ private:
   std::condition_variable input_condition_;
   std::deque<std::string> page_actions_;
   std::uint64_t input_generation_{};
+  std::size_t input_waiters_{};
 
   std::atomic<bool> stopping_{false};
   std::atomic<std::uint16_t> bound_port_{0};

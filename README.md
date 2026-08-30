@@ -37,7 +37,10 @@ font-size and day/night controls. On an Oasis, Forward shows the answer and
 then selects Good; Backward undoes the previous answer before reveal and
 selects Again after reveal. Refresh requests a full flashing update through an
 existing FBInk command (including MRInstaller's PW2 build) without using FBInk
-as AnkINK's rendering path.
+as AnkINK's rendering path. The rotation control switches between automatic
+sensor rotation and locking the Kindle's current orientation; the preference
+is restored on the next launch and the global lock is released when AnkINK
+closes.
 
 The AnkiWeb password is exchanged for a host key and then discarded. The host
 key is stored at `/var/local/ankink/host-key` with mode 0600, outside the
@@ -72,7 +75,9 @@ starts `ankinkd`, opens `http://127.0.0.1:8765/simulator/` in the default
 browser, and stops the daemon when the target is stopped. The wrapper defaults
 to the Kindle Oasis 8th generation and can switch among the supported Kindle
 profiles. Its Backward/Forward buttons and Page Up/Page Down or arrow keys feed
-the same input queue as the Oasis physical buttons.
+the same input queue as the Oasis physical buttons. The orientation selector
+reflows the selected device between portrait and landscape and sends the same
+`orientationchange` event used by Mesquite.
 
 For CLion, create a CMake profile named `Host Simulator` using the local Apple
 Clang toolchain and `cmake-build-simulator` build directory. Add these CMake

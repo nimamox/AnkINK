@@ -8,23 +8,26 @@ h1 { font: bold 50px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: -3px; 
 h1 span { font-weight: normal; }
 h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .app-header { position: fixed; z-index: 100; top: 0; right: 4%; left: 4%; display: table; width: 92%; height: 85px; table-layout: fixed; border-bottom: 4px solid #111; background: #fff; }
-.header-settings { display: table-cell; width: 88px; vertical-align: top; white-space: nowrap; }
+.header-settings { display: table-cell; width: 66px; vertical-align: top; white-space: nowrap; }
 .brand { display: table-cell; vertical-align: top; white-space: nowrap; }
 .brand-layout { width: 100%;}
-/* Mesquite mispositions absolute children of table cells. The controls' fixed
-   widths put their midpoint 153px left of screen center; another 115px places
-   the 230px logo's left edge on that midpoint. */
-.brand-button { position: fixed; z-index: 101; top: 0px; left: 50%; display: block; margin: 0 0 0 -268px; padding: 0; border: 0; background: transparent; }
+/* Mesquite mispositions absolute children of table cells. Center the logo in
+   the space between Settings and seven 66px action buttons with 5px gaps. */
+.brand-button { position: fixed; z-index: 101; top: 0; left: 50%; display: block; margin: 0 0 0 -328px; padding: 0; border: 0; background: transparent; }
 .brand-logo { display: block; width: 230px; height: 50px; }
-#status { position: fixed; z-index: 101;  left: 50%; width: 230px; margin: 0 0 0 -268px; overflow: hidden; color: #444; text-align: center; text-overflow: ellipsis; white-space: nowrap; font: 13px/1.15 "Amazon Ember", Arial, sans-serif; top: 50px;}
-.header-actions { display: table-cell; width: 370px; vertical-align: top; text-align: right; white-space: nowrap; }
-.header-button { display: inline-block; width: 140px; height: 72px; margin-left: 8px; border: 3px solid #111; background: #fff; vertical-align: middle; font: bold 20px "Amazon Ember", Arial, sans-serif; }
-.header-button.icon-button { width: 72px; padding: 0; font: 40px/1 Arial, sans-serif; }
-.settings-button { display: inline-block; width: 72px; height: 72px; margin: 0; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 37px/1 "Amazon Ember", Arial, sans-serif; }
-.mode-button { display: inline-block; width: 72px; height: 72px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: middle; font: 30px/1 "Amazon Ember", Arial, sans-serif; }
-.font-controls { display: inline-block; width: 72px; height: 72px; vertical-align: middle; }
-.font-controls button { display: block; width: 72px; height: 36px; padding: 0; border: 2px solid #111; background: #fff; font: bold 25px/1 "Amazon Ember", Arial, sans-serif; }
-.font-controls button + button { border-top: 0; }
+#status { position: fixed; z-index: 101; top: 50px; left: 50%; width: 230px; margin: 0 0 0 -328px; overflow: hidden; color: #444; text-align: center; text-overflow: ellipsis; white-space: nowrap; font: 13px/1.15 "Amazon Ember", Arial, sans-serif; }
+.busy-indicator { position: fixed; z-index: 102; top: 54px; left: 50%; display: block; width: 9px; height: 9px; margin-left: -324px; background: #111; visibility: hidden; }
+.busy-indicator.active { visibility: visible; }
+.header-actions { display: table-cell; width: 492px; vertical-align: top; text-align: right; white-space: nowrap; font-size: 0; }
+.header-actions > button, .font-controls button { display: inline-block; width: 66px; height: 66px; padding: 0; border: 2px solid #111; background: #fff; vertical-align: top; }
+.header-actions > button { margin-left: 5px; }
+.header-button.icon-button { font: 36px/1 Arial, sans-serif; }
+.settings-button { display: inline-block; width: 66px; height: 66px; margin: 0; padding: 0; border: 2px solid #111; background: #fff; vertical-align: top; font: 34px/1 "Amazon Ember", Arial, sans-serif; }
+.mode-button { font: 28px/1 "Amazon Ember", Arial, sans-serif; }
+.rotation-button { font: 31px/1 "Kindle Symbol", "Amazon Ember", Arial, sans-serif; }
+.font-controls { display: inline-block; width: 137px; height: 66px; font-size: 0; vertical-align: top; }
+.font-controls button { font: bold 24px/1 "Amazon Ember", Arial, sans-serif; }
+.font-controls button + button { margin-left: 5px; }
 .warning { position: fixed; z-index: 500; top: 137px; right: 4%; left: 4%; border: 3px solid #111; padding: 18px 22px; background: #e8e8e8; font: bold 19px/1.35 "Amazon Ember", Arial, sans-serif; }
 .auth-panel { position: fixed; z-index: 200; top: 153px; right: 17%; bottom: 28px; left: 17%; margin: 0; padding: 34px; overflow-y: auto; border: 4px solid #111; background: #fff; }
 .auth-panel h2 { margin-bottom: 28px; }
@@ -195,10 +198,26 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .settings-actions button { background: #000; color: #eee; border-color: #eee; }
 .night-mode .settings-signout button { border-color: #999; color: #ccc; }
 .night-mode .about-actions button { background: #000; color: #eee; border-color: #eee; }
+.night-mode .busy-indicator { background: #eee; }
 .tag {
   display: inline-block;
   padding: 2px 9px;
   border: 2px solid #888;
   border-radius: 8px;
   white-space: nowrap;
+}
+
+/* A PW2 portrait viewport has only a narrow center cell after the controls.
+   Keep the brand readable without allowing it to overlap either button group. */
+@media (max-width: 900px) {
+  .brand-button { margin-left: -273px; }
+  .brand-logo { width: 120px; height: auto; margin-top: 12px; }
+  #status { width: 120px; margin-left: -273px; }
+  .busy-indicator { margin-left: -269px; }
+  .confirm-dialog, .settings-dialog, .about-dialog { max-width: 92%; }
+}
+
+@media (max-width: 700px) {
+  .app-header { right: 1%; left: 1%; width: 98%; }
+  .brand-button, #status, .busy-indicator, .busy-indicator.active { visibility: hidden; }
 }

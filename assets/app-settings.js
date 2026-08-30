@@ -6,6 +6,7 @@
     cardLoading: false, answerInFlight: false, undoInFlight: false,
     syncInFlight: false, inputEpoch: 0 };
   var warningTimer = null;
+  var busyReasons = {};
   var settingWrites = [], settingWriteInFlight = false, settingsDrainedCallback = null;
   var pendingReviews = 0;
   var aboutLogoTimer = null, aboutLogoReady = false, aboutLogoPending = false;
@@ -37,6 +38,7 @@
   var nightCardMode = "standard";
   var brandLogoDaySrc = null;
   var pageButtonMode = "normal";
+  var rotationMode = "auto";
   var fullRefreshMode = "manual";
   var reviewsSinceFullRefresh = 0;
   var collapsedDecks = {};
@@ -44,6 +46,63 @@
   function hide(element) { if (element.className.indexOf("hidden") < 0) element.className += " hidden"; }
   function show(element) { element.className = element.className.replace(/(^|\s)hidden(?=\s|$)/g, ""); }
   function clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
+  function setBusy(reason, active) {
+    var indicator = byId("busy-indicator"), key, busy = false;
+    if (active) busyReasons[reason] = true;
+    else delete busyReasons[reason];
+    for (key in busyReasons) {
+      if (busyReasons[key]) { busy = true; break; }
+    }
+    if (indicator) indicator.className = busy ? "busy-indicator active" : "busy-indicator";
+  }
+
+  /* ROTATION_LOGIC_BEGIN */
+  function currentKindleOrientation() {
+    var angle = typeof window.orientation === "number" ? window.orientation : null;
+    if (angle === 180 || angle === -180) return "portraitDown";
+    if (angle === 90) return "landscapeLeft";
+    if (angle === -90 || angle === 270) return "landscapeRight";
+    if (angle === 0) return "portraitUp";
+    return window.innerWidth > window.innerHeight ? "landscape" : "portrait";
+  }
+  function updateRotationButton() {
+    var button = byId("rotation"), action;
+    if (!button) return;
+    action = rotationMode === "auto" ? "Rotation locked" : "Auto rotation";
+    button.innerHTML = rotationMode === "auto" ? "⌽" : "⟳";
+    button.title = action;
+    button.setAttribute("aria-label", action);
+    button.setAttribute("aria-pressed", rotationMode === "locked" ? "true" : "false");
+  }
+  function applyRotationMode() {
+    var device;
+    if (!window.kindle || !window.kindle.device) return false;
+    device = window.kindle.device;
+    if (typeof device.setOrientation !== "function") return false;
+    try {
+      device.setOrientation(rotationMode === "auto" ? "auto" : currentKindleOrientation());
+      return true;
+    } catch (ignored) {
+      return false;
+    }
+  }
+  function chooseRotationMode(mode, persist) {
+    var previous = rotationMode;
+    rotationMode = mode === "locked" ? "locked" : "auto";
+    updateRotationButton();
+    applyRotationMode();
+    if (!persist) return;
+    request("POST", "/api/settings",
+      "key=rotationMode&value=" + encodeURIComponent(rotationMode),
+      function (error) {
+        if (!error) return;
+        rotationMode = previous;
+        updateRotationButton();
+        applyRotationMode();
+        warning(error);
+      }, 0);
+  }
+  /* ROTATION_LOGIC_END */
   function stopAboutLogoAnimation() {
     if (aboutLogoTimer !== null) {
       window.clearTimeout(aboutLogoTimer); aboutLogoTimer = null;
@@ -272,6 +331,7 @@
     state.closing = true;
     state.inputEpoch += 1;
     state.syncInFlight = true;
+    setBusy("close", true);
     warning("");
     byId("status").innerHTML = "Synchronizing with AnkiWeb...";
     request("POST", "/api/sync", "", function (error, result) {
@@ -280,6 +340,7 @@
         storePendingFromResult(result, 0);
       if (result && result.statePersisted === false) {
         state.closing = false; state.syncInFlight = false;
+        setBusy("close", false);
         warning("Sync succeeded, but AnkINK could not save its local state.");
         return;
       }
@@ -767,6 +828,7 @@
     if (nightCardMode !== "palette" && nightCardMode !== "palette-images")
       nightCardMode = "standard";
     pageButtonMode = settings.pageButtonMode === "reversed" ? "reversed" : "normal";
+    rotationMode = settings.rotationMode === "locked" ? "locked" : "auto";
     fullRefreshMode = settings.fullRefreshMode;
     if (fullRefreshMode !== "every-card" && fullRefreshMode !== "every-five")
       fullRefreshMode = "manual";
@@ -775,11 +837,14 @@
     try { parsed = JSON.parse(settings.collapsedDecks || "{}"); }
     catch (ignored) { parsed = {}; }
     collapsedDecks = parsed && typeof parsed === "object" ? parsed : {};
+    chooseRotationMode(rotationMode, false);
     applyFontScale(false); applyCardFont(false); applyNightMode(false);
     updateSyncStatus();
   }
   function loadSettings() {
+    setBusy("settings", true);
     request("GET", "/api/settings", null, function (error, settings) {
+      setBusy("settings", false);
       if (error) warning(error);
       applySettings(settings);
       startApplication();
@@ -789,9 +854,11 @@
   // interactive.  Reviewing remains offline-first after that; the only other
   // automatic synchronization is the existing close path.
   function startApplication() {
+    setBusy("startup", true);
     hide(byId("decks-view")); hide(byId("review-view")); hide(byId("sync"));
     byId("status").innerHTML = "Connecting to AnkINK engine...";
     request("GET", "/api/status", null, function (error, status) {
+      setBusy("startup", false);
       if (error) { warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
       if (!status.authenticated) {
         byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
@@ -806,11 +873,12 @@
     }, 12);
   }
   function loadDecks() {
+    setBusy("decks", true);
     warning(""); byId("status").innerHTML = "Connecting to AnkINK engine...";
     request("GET", "/api/status", null, function (error, status) {
-      if (error) { warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
+      if (error) { setBusy("decks", false); warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
       if (!status.authenticated) {
-        byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
+        setBusy("decks", false); byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
       }
       if (typeof status.pendingReviews === "number")
         storePendingReviews(status.pendingReviews);
@@ -819,6 +887,7 @@
       updateSyncStatus();
       request("GET", "/api/decks", null, function (deckError, message) {
         var list = byId("decks"), tree, i;
+        setBusy("decks", false);
         clear(list); byId("collection-path").innerHTML = "";
         byId("collection-path").appendChild(document.createTextNode((message && message.path) || status.collection || ""));
         if (deckError || !message || !message.decks || !message.decks.length) {
@@ -917,12 +986,14 @@
       return;
     }
     state.syncInFlight = true;
+    setBusy("sync", true);
     state.inputEpoch += 1;
     warning(""); byId("status").innerHTML = "Synchronizing with AnkiWeb...";
     request("POST", "/api/sync", "", function (error, result) {
       if (error || !result || result.type === "error") {
         var message = error || (result && result.message) || "Sync failed.";
         state.syncInFlight = false;
+        setBusy("sync", false);
         byId("status").innerHTML = "Sync unavailable";
         if (message.indexOf("Sign in") >= 0) showLogin(); else warning(message);
         updateSyncStatus(); if (done) done(false);
@@ -930,6 +1001,7 @@
       }
       if (result.required === "full") {
         state.syncInFlight = false;
+        setBusy("sync", false);
         byId("status").innerHTML = "Full sync required";
         if (result.downloadAllowed && !result.uploadAllowed) {
           downloadFromAnkiWeb(done); return;
@@ -939,11 +1011,12 @@
         window.scrollTo(0, 0); if (done) done(false); return;
       }
       if (result.statePersisted === false) {
-        state.syncInFlight = false; storePendingFromResult(result, pendingReviews);
+        state.syncInFlight = false; setBusy("sync", false); storePendingFromResult(result, pendingReviews);
         warning("Sync succeeded, but AnkINK could not save its local state.");
         if (done) done(false); return;
       }
       state.syncInFlight = false;
+      setBusy("sync", false);
       storePendingFromResult(result, 0);
       if (result.message) warning(result.message);
       if (done) done(true); else loadDecks();
@@ -955,6 +1028,7 @@
     state.inputEpoch += 1;
     loadEpoch = state.inputEpoch;
     state.cardLoading = true;
+    setBusy("card", true);
     state.card = null;
     state.answerShown = false;
     resetCardScroll();
@@ -965,6 +1039,7 @@
       clearPhysicalInput(function () {
         if (loadEpoch !== state.inputEpoch) return;
         state.cardLoading = false;
+        setBusy("card", false);
         if (error) { warning(error); resumePageButtonInput(); return; }
         if (!card || card.type === "error") {
           warning((card && card.message) || "Unable to load card."); resumePageButtonInput(); return;
@@ -1003,6 +1078,7 @@
     state.inputEpoch += 1;
     answerEpoch = state.inputEpoch;
     state.answerInFlight = true;
+    setBusy("answer", true);
     request("POST", "/api/answer", "card=" + encodeURIComponent(cardId) +
       "&token=" + encodeURIComponent(reviewToken) + "&rating=" + rating,
       function (error, result) {
@@ -1013,12 +1089,14 @@
           clearPhysicalInput(function () {
             if (answerEpoch !== state.inputEpoch) return;
             state.answerInFlight = false;
+            setBusy("answer", false);
             if (isReviewStateError(message)) { warning("Reloading card..."); nextCard(); }
             else { warning(message); resumePageButtonInput(); }
           });
           return;
         }
         state.answerInFlight = false;
+        setBusy("answer", false);
         state.reviewed += 1; storePendingFromResult(result, pendingReviews + 1);
         if (result.statePersisted === false)
           warning("Review saved, but AnkINK could not persist its local state.");
@@ -1039,11 +1117,13 @@
     state.inputEpoch += 1;
     undoEpoch = state.inputEpoch;
     state.undoInFlight = true;
+    setBusy("undo", true);
     request("POST", "/api/undo", "", function (error, result) {
       if (undoEpoch !== state.inputEpoch) return;
       clearPhysicalInput(function () {
         if (undoEpoch !== state.inputEpoch) return;
         state.undoInFlight = false;
+        setBusy("undo", false);
         if (error || !result) { warning(error || "Undo failed."); resumePageButtonInput(); return; }
         if (result.type === "undo-empty") { resumePageButtonInput(); return; }
         if (result.type === "error") { warning(result.message); resumePageButtonInput(); return; }
@@ -1159,6 +1239,9 @@
     fullRefresh();
   };
   byId("sync").onclick = function () { syncNow(); };
+  byId("rotation").onclick = function () {
+    chooseRotationMode(rotationMode === "auto" ? "locked" : "auto", true);
+  };
   byId("font-plus").onclick = function () { changeFontScale(1); };
   byId("font-minus").onclick = function () { changeFontScale(-1); };
   byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
@@ -1167,6 +1250,7 @@
   byId("decks-view").onscroll = updateScrollButtons;
   byId("card").onscroll = function () { updateScrollButtons(); scheduleMathRepair(); };
   window.onresize = scheduleScrollButtonUpdate;
+  window.onorientationchange = scheduleScrollButtonUpdate;
   byId("settings").onclick = function () {
     selectedRadio("page-buttons", pageButtonMode);
     selectedRadio("full-refresh", fullRefreshMode);
@@ -1231,8 +1315,10 @@
   }());
   byId("account-cancel").onclick = function () { hide(byId("account-dialog")); };
   byId("account-logout").onclick = function () {
+    setBusy("logout", true);
     byId("status").innerHTML = "Logging out...";
     request("POST", "/api/auth/logout", "", function (error, result) {
+      setBusy("logout", false);
       if (error || !result || result.type === "error") {
         hide(byId("account-dialog")); warning(error || (result && result.message) || "Logout failed."); return;
       }
@@ -1244,9 +1330,11 @@
     var username = byId("ankiweb-username").value;
     var password = byId("ankiweb-password").value;
     if (!username || !password) { warning("Enter your AnkiWeb email and password."); return; }
+    setBusy("login", true);
     byId("status").innerHTML = "Signing into AnkiWeb...";
     request("POST", "/api/auth/login", "username=" + encodeURIComponent(username) + "&password=" + encodeURIComponent(password),
       function (error, result) {
+        setBusy("login", false);
         byId("ankiweb-password").value = "";
         if (error || !result || result.type === "error") { warning(error || (result && result.message) || "Sign-in failed."); return; }
         hide(byId("auth-panel")); syncNow();
@@ -1258,10 +1346,12 @@
   function downloadFromAnkiWeb(done) {
     if (state.syncInFlight) { if (done) done(false); return; }
     state.syncInFlight = true;
+    setBusy("download", true);
     state.inputEpoch += 1;
     hide(byId("full-sync-panel")); byId("status").innerHTML = "Downloading collection from AnkiWeb...";
     request("POST", "/api/sync/full-download", "", function (error, result) {
       state.syncInFlight = false;
+      setBusy("download", false);
       if (error || !result || result.type === "error") {
         warning(error || (result && result.message) || "Download failed.");
         updateSyncStatus(); if (done) done(false); return;

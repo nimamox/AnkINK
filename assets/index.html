@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AnkINK</title>
   <link rel="stylesheet" href="vendor/katex/katex.min.css?v=0.16.25-native">
-  <link rel="stylesheet" href="app.css?v=20260825-4-night-logo">
+  <link rel="stylesheet" href="app.css?v=20260830-1-rotation">
   <style id="card-template-style"></style>
 </head>
 <body>
@@ -15,6 +15,7 @@
     </div>
     <div class="brand">
       <div class="brand-layout">
+        <span id="busy-indicator" class="busy-indicator" aria-hidden="true"></span>
         <button id="about" class="brand-button" type="button" aria-label="About AnkINK"><img id="brand-logo" class="brand-logo" src="ankink_logo.png" data-night-src="ankink_logo_night.png" width="230" height="50" alt="AnkINK"></button>
         <p id="status">Starting AnkINK engine...</p>
       </div>
@@ -23,7 +24,8 @@
       <span class="font-controls"><button id="font-plus" type="button">+</button><button id="font-minus" type="button">&minus;</button></span>
       <button id="night-mode" class="mode-button" type="button" title="Night mode">&#9789;</button>
       <button id="sync" class="header-button icon-button" type="button" title="Sync">&#8651;</button>
-      <button id="refresh" class="header-button icon-button" type="button" title="Full refresh">&#8635;</button>
+      <button id="rotation" class="mode-button rotation-button" type="button" title="Rotation locked" aria-label="Rotation locked">⌽</button>
+      <button id="refresh" class="header-button icon-button" type="button" title="Full refresh">↯</button>
       <button id="close" class="header-button icon-button" type="button" title="Close">&times;</button>
     </div>
   </div>
@@ -172,6 +174,6 @@
     <button id="scroll-up" class="scroll-button scroll-up hidden" type="button" title="Scroll up">&#9650;</button>
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
-  <script src="app-settings.js?v=20260825-4-night-logo"></script>
+  <script src="app-settings.js?v=20260830-1-rotation"></script>
 </body>
 </html>

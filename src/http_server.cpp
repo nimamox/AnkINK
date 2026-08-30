@@ -1,4 +1,5 @@
 #include "ankink/http_server.hpp"
+#include "ankink/orientation.hpp"
 
 #include <arpa/inet.h>
 #include <algorithm>
@@ -202,9 +203,21 @@ int open_page_keys() {
 HttpServer::HttpServer(ServerOptions options)
     : options_(std::move(options)), app_state_(options_.data_dir) {
   collection_.open(options_.collection_path, collection_error_);
+  if (!options_.simulator) {
+    std::string rotation_error;
+    const std::string mode = app_state_.setting("rotationMode");
+    if (!apply_kindle_rotation(mode, rotation_error))
+      std::cerr << "Rotation restore: " << rotation_error << '\n';
+  }
 }
 
-HttpServer::~HttpServer() { stop(); }
+HttpServer::~HttpServer() {
+  stop();
+  if (!options_.simulator) {
+    std::string ignored;
+    apply_kindle_rotation("auto", ignored);
+  }
+}
 
 void HttpServer::request_stop() noexcept { stop_requested = 1; }
 
@@ -296,19 +309,35 @@ void HttpServer::handle_client(int client) noexcept {
     } else if (request.method == "POST" && request.target == "/api/settings") {
       const std::string key = form_value(request.body, "key");
       const std::string value = form_value(request.body, "value");
+      const std::string previous_rotation = app_state_.setting("rotationMode");
       std::string error;
       if (!app_state_.set_setting(key, value, error))
         throw std::runtime_error(error);
+      if (key == "rotationMode" && !options_.simulator &&
+          !apply_kindle_rotation(value, error)) {
+        std::string rollback_error;
+        app_state_.set_setting("rotationMode", previous_rotation,
+                               rollback_error);
+        throw std::runtime_error(error);
+      }
       respond(client, 200, "OK", "application/json; charset=utf-8",
               app_state_.settings_json());
     } else if (request.method == "GET" && request.target == "/api/input") {
       std::string action;
       {
         std::unique_lock<std::mutex> lock(input_mutex_);
-        const std::uint64_t generation = input_generation_;
-        input_condition_.wait_for(lock, options_.input_long_poll_timeout, [this, generation] {
-          return stopping_.load() || input_generation_ != generation || !page_actions_.empty();
-        });
+        const std::size_t maximum_waiters =
+            std::max<std::size_t>(2, options_.worker_count) - 1;
+        if (page_actions_.empty() && input_waiters_ < maximum_waiters) {
+          const std::uint64_t generation = input_generation_;
+          ++input_waiters_;
+          input_condition_.wait_for(
+              lock, options_.input_long_poll_timeout, [this, generation] {
+                return stopping_.load() || input_generation_ != generation ||
+                       !page_actions_.empty();
+              });
+          --input_waiters_;
+        }
         if (!page_actions_.empty()) {
           action = std::move(page_actions_.front());
           page_actions_.pop_front();

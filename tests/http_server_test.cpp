@@ -1,4 +1,5 @@
 #include "ankink/http_server.hpp"
+#include "ankink/orientation.hpp"
 
 #include <arpa/inet.h>
 #include <atomic>
@@ -133,12 +134,17 @@ void settings_are_daemon_persisted() {
             "settings default card font");
     require(defaults.body.find(R"("pendingReviews":0)") != std::string::npos,
             "settings default pending reviews");
+    require(defaults.body.find(R"("rotationMode":"auto")") != std::string::npos,
+            "settings default auto rotation");
     require(request(server.port(), "POST", "/api/settings",
                     "key=cardFont&value=Amazon%20Ember").status == 200,
             "save card font setting");
     require(request(server.port(), "POST", "/api/settings",
                     "key=fontScale&value=1.25").status == 200,
             "save font scale setting");
+    require(request(server.port(), "POST", "/api/settings",
+                    "key=rotationMode&value=locked").status == 200,
+            "save rotation mode setting");
     require(request(server.port(), "POST", "/api/settings",
                     "key=unknown&value=x").status == 400,
             "reject unknown setting");
@@ -150,6 +156,8 @@ void settings_are_daemon_persisted() {
             "restore card font setting");
     require(restored.body.find(R"("fontScale":"1.25")") != std::string::npos,
             "restore font scale setting");
+    require(restored.body.find(R"("rotationMode":"locked")") != std::string::npos,
+            "restore rotation mode setting");
   }
   remove_state_directory(configured.data_dir);
 }
@@ -238,6 +246,27 @@ void input_does_not_block_answer() {
   waiting.get();
 }
 
+void duplicate_input_waiter_leaves_worker_available() {
+  auto configured = options(2s);
+  configured.worker_count = 2;
+  RunningServer server(std::move(configured));
+  auto waiting = std::async(std::launch::async, [&] {
+    return request(server.port(), "GET", "/api/input");
+  });
+  std::this_thread::sleep_for(50ms);
+  const auto start = std::chrono::steady_clock::now();
+  const auto duplicate = request(server.port(), "GET", "/api/input");
+  require(duplicate.status == 200, "duplicate input response status");
+  require(std::chrono::steady_clock::now() - start < 500ms,
+          "duplicate input waiter must return without occupying last worker");
+  require(request(server.port(), "GET", "/api/settings").status == 200,
+          "reserved worker handles normal request");
+  request(server.port(), "POST", "/api/simulator/input", "action=forward");
+  require(waiting.wait_for(500ms) == std::future_status::ready,
+          "original input waiter wakes");
+  waiting.get();
+}
+
 void collection_requests_are_serialized() {
   auto configured = options(1s);
   configured.collection_operation_delay = 150ms;
@@ -277,12 +306,37 @@ int main() {
   std::signal(SIGPIPE, SIG_IGN);
 #endif
   try {
+    {
+      std::vector<std::vector<std::string>> commands;
+      const ankink::OrientationCommandRunner runner =
+          [&commands](const std::vector<std::string> &arguments, std::string &) {
+            commands.push_back(arguments);
+            return true;
+          };
+      std::string error;
+      require(ankink::apply_kindle_rotation("auto", runner, error),
+              "apply Kindle auto rotation");
+      require(commands.size() == 1 && commands[0].size() == 4 &&
+                  commands[0][2] == "orientationLock" &&
+                  commands[0][3] == "off",
+              "auto rotation clears orientation lock");
+      commands.clear();
+      require(ankink::apply_kindle_rotation("locked", runner, error),
+              "apply current-orientation lock");
+      require(commands.size() == 1 && commands[0][3] == "current",
+              "locked rotation captures current direction");
+      commands.clear();
+      require(!ankink::apply_kindle_rotation("sideways", runner, error) &&
+                  commands.empty(),
+              "invalid rotation does not invoke LIPC");
+    }
     settings_are_daemon_persisted();
     app_state_tracks_reviews();
     idle_input_times_out();
     input_wakes_and_is_fifo();
     clearing_input_cancels_stale_waiter();
     input_does_not_block_answer();
+    duplicate_input_waiter_leaves_worker_available();
     collection_requests_are_serialized();
     shutdown_wakes_input_waiter();
     std::cout << "http server tests passed\n";

@@ -83,7 +83,8 @@ endif()
 target_compile_options(ankink_collection PRIVATE -Wall -Wextra -Wpedantic)
 
 if(ANKINK_BUILD_APP)
-    add_library(ankink_http_server src/http_server.cpp src/app_state.cpp)
+    add_library(ankink_http_server src/http_server.cpp src/app_state.cpp
+        src/orientation.cpp)
     target_include_directories(ankink_http_server PUBLIC include)
     target_link_libraries(ankink_http_server PUBLIC ankink_collection Threads::Threads)
     target_compile_definitions(ankink_http_server PRIVATE ANKINK_VERSION="${PROJECT_VERSION}")
@@ -138,6 +139,10 @@ if(ANKINK_BUILD_TESTS)
                     "${CMAKE_SOURCE_DIR}/assets/vendor/katex/katex.min.js"
                     "${CMAKE_SOURCE_DIR}/assets/vendor/katex/katex.min.css"
                     "${CMAKE_SOURCE_DIR}/assets/vendor/katex/fonts"
-                    "${CMAKE_SOURCE_DIR}/assets/app.css")
+                    "${CMAKE_SOURCE_DIR}/assets/app.css"
+                    "${CMAKE_SOURCE_DIR}/scripts/run-kindle.sh"
+                    "${CMAKE_SOURCE_DIR}/simulator/index.html"
+                    "${CMAKE_SOURCE_DIR}/simulator/simulator.js"
+                    "${CMAKE_SOURCE_DIR}/simulator/simulator.css")
     endif()
 endif()

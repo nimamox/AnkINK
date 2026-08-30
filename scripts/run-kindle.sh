@@ -107,7 +107,7 @@ INSERT OR REPLACE INTO properties(handlerId,name,value)
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','command','/usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
-  VALUES('$ANKINK_APP_ID','supportedOrientation','U');
+  VALUES('$ANKINK_APP_ID','supportedOrientation','UDLR');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','unloadPolicy','unloadOnPause');
 COMMIT;

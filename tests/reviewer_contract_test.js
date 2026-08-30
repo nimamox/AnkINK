@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const vm = require("node:vm");
 
 const frontend = fs.readFileSync(process.argv[2], "utf8");
 const backend = fs.readFileSync(process.argv[3], "utf8");
@@ -10,6 +11,10 @@ const katexJavascript = process.argv[5];
 const katexCss = fs.readFileSync(process.argv[6], "utf8");
 const fontDirectory = process.argv[7];
 const appCss = fs.readFileSync(process.argv[8], "utf8");
+const runKindle = fs.readFileSync(process.argv[9], "utf8");
+const simulatorIndex = fs.readFileSync(process.argv[10], "utf8");
+const simulatorJavascript = fs.readFileSync(process.argv[11], "utf8");
+const simulatorCss = fs.readFileSync(process.argv[12], "utf8");
 
 function between(source, start, end) {
   const first = source.indexOf(start);
@@ -43,6 +48,79 @@ assert.match(frontend, /pendingReviews = Math\.max\(0, value\)/);
 assert.equal(Math.max(0, 0 + 1 - 1), 0);
 assert.equal(Math.max(0, 0 + 1 + 1 - 1), 1);
 assert.equal(Math.max(0, 0 - 1), 0);
+
+// Rotation is persistent, uses Mesquite's device API when available, and is
+// harmless in the host simulator. The launcher and simulator expose all four
+// orientations while keeping the seven action buttons uniformly sized.
+assert.match(runKindle, /'supportedOrientation','UDLR'/);
+assert.match(index, /id="sync"[\s\S]*id="rotation"[\s\S]*id="refresh"/);
+const headerActions = index.match(/<div class="header-actions">([\s\S]*?)<\/div>/)[1];
+assert.equal([...headerActions.matchAll(/<button\b/g)].length, 7,
+  "header must contain exactly seven uniformly sized action buttons");
+assert.match(index, /id="busy-indicator" class="busy-indicator"/);
+assert.match(appCss, /\.header-actions > button, \.font-controls button\s*{[^}]*width:\s*66px;[^}]*height:\s*66px;/);
+assert.match(appCss, /\.header-actions\s*{[^}]*width:\s*492px;/);
+for (const width of [758, 1024, 1080, 1440]) {
+  const compact = width <= 900;
+  const inset = width * 0.04;
+  const centerCellLeft = inset + 66;
+  const centerCellRight = width - inset - 492;
+  const logoLeft = width / 2 + (compact ? -273 : -328);
+  const logoRight = logoLeft + (compact ? 120 : 230);
+  assert.ok(logoLeft >= centerCellLeft && logoRight <= centerCellRight,
+    `header brand overlaps controls at ${width}px`);
+}
+assert.match(appCss, /\.busy-indicator\s*{[^}]*visibility:\s*hidden;/);
+assert.match(frontend, /function setBusy\(reason, active\)/);
+assert.doesNotMatch(frontend, /setInterval\([^)]*busy|busy[^\n]*setInterval/);
+assert.match(simulatorIndex, /id="orientation"[\s\S]*value="portrait"[\s\S]*value="landscape"/);
+assert.match(simulatorJavascript, /function dimensions\(\)[\s\S]*orientation === "landscape"/);
+assert.match(simulatorJavascript, /view\.orientation = orientation === "landscape" \? 90 : 0/);
+assert.match(simulatorJavascript, /initEvent\("orientationchange", false, false\)/);
+assert.match(simulatorCss, /#orientation\s*{\s*min-width:\s*110px;/);
+
+const rotationMatch = frontend.match(
+  /\/\* ROTATION_LOGIC_BEGIN \*\/([\s\S]*?)\/\* ROTATION_LOGIC_END \*\//);
+assert.ok(rotationMatch, "missing rotation logic test boundary");
+function rotationContext(options) {
+  const button = { attributes: {}, setAttribute: function (key, value) {
+    this.attributes[key] = value;
+  }};
+  const calls = [];
+  const context = {
+    rotationMode: "auto",
+    window: { innerWidth: 1072, innerHeight: 1448, orientation: options.orientation },
+    byId: function () { return button; },
+    encodeURIComponent,
+    warning: function (error) { calls.push("warning:" + error); },
+    request: function (method, path, body, done) {
+      calls.push(method + " " + path + " " + body);
+      done(options.failure ? "save failed" : null);
+    }
+  };
+  if (options.device) context.window.kindle = { device: {
+    setOrientation: function (value) { calls.push("orientation:" + value); }
+  }};
+  vm.createContext(context);
+  vm.runInContext(rotationMatch[1], context);
+  return { context, button, calls };
+}
+const autoRotation = rotationContext({ device: true, orientation: 0 });
+autoRotation.context.chooseRotationMode("auto", true);
+assert.equal(autoRotation.context.rotationMode, "auto");
+assert.equal(autoRotation.button.innerHTML, "⌽");
+assert.deepEqual(autoRotation.calls,
+  ["orientation:auto", "POST /api/settings key=rotationMode&value=auto"]);
+const lockedRotation = rotationContext({ device: true, orientation: -90 });
+lockedRotation.context.chooseRotationMode("locked", false);
+assert.equal(lockedRotation.context.rotationMode, "locked");
+assert.equal(lockedRotation.button.attributes["aria-label"], "Auto rotation");
+assert.deepEqual(lockedRotation.calls, ["orientation:landscapeRight"]);
+assert.doesNotThrow(function () {
+  rotationContext({ device: false }).context.chooseRotationMode("locked", false);
+});
+assert.match(frontend, /settings\.rotationMode === "locked"/);
+assert.match(frontend, /key=rotationMode&value=/);
 
 // Deck navigation is local, and physical Undo remains available with no card.
 assert.doesNotMatch(decks, /syncNow\(/);

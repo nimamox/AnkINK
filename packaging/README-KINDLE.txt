@@ -41,4 +41,6 @@ source, and third-party notices are included in this directory and at:
 Tap a card image to toggle its full-width view. The moon/sun button toggles
 night mode. Oasis page buttons map Forward to Show Answer/Good and Backward to
 Undo/Again. Refresh performs a full flashing e-ink refresh when FBInk is
-available at /usr/bin/fbink or in MRInstaller's PW2 directory.
+available at /usr/bin/fbink or in MRInstaller's PW2 directory. The rotation
+button switches between automatic sensor rotation and locking the current
+orientation. AnkINK releases the orientation lock when it closes.

@@ -17,7 +17,8 @@ body {
   border-bottom: 1px solid #414449;
 }
 .toolbar strong { font-size: 16px; margin-right: 8px; }
-.toolbar select { min-width: 340px; max-width: 42vw; }
+.toolbar #device { min-width: 300px; max-width: 36vw; }
+.toolbar #orientation { min-width: 110px; }
 .toolbar select, .toolbar button {
   height: 34px;
   border: 1px solid #666b72;
@@ -81,7 +82,7 @@ footer {
 }
 @media (max-width: 850px) {
   .toolbar strong, .toolbar label, #details { display: none; }
-  .toolbar select { min-width: 0; max-width: none; flex: 1; }
+  .toolbar select { min-width: 0 !important; max-width: none; flex: 1; }
   #workspace { gap: 7px; padding: 7px; }
   .page-key { width: 48px; flex-basis: 48px; }
   .page-key small { display: none; }

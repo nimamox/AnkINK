@@ -86,6 +86,7 @@ AppState::AppState(std::string data_directory)
                  {"nightMode", "0"},
                  {"nightCardMode", "standard"},
                  {"pageButtonMode", "normal"},
+                 {"rotationMode", "auto"},
                  {"fullRefreshMode", "manual"},
                  {"reviewsSinceFullRefresh", "0"},
                  {"collapsedDecks", "{}"}}) {
@@ -106,6 +107,8 @@ bool AppState::valid_setting(const std::string &key,
     return one_of(value, {"standard", "palette", "palette-images"});
   if (key == "pageButtonMode")
     return value == "normal" || value == "reversed";
+  if (key == "rotationMode")
+    return value == "auto" || value == "locked";
   if (key == "fullRefreshMode")
     return one_of(value, {"manual", "every-card", "every-five"});
   if (key == "reviewsSinceFullRefresh") return unsigned_number(value, 5);
@@ -162,10 +165,17 @@ std::string AppState::settings_json() const {
          << R"(,"nightMode":)" << (settings_.at("nightMode") == "1" ? "true" : "false")
          << R"(,"nightCardMode":)" << json_string(settings_.at("nightCardMode"))
          << R"(,"pageButtonMode":)" << json_string(settings_.at("pageButtonMode"))
+         << R"(,"rotationMode":)" << json_string(settings_.at("rotationMode"))
          << R"(,"fullRefreshMode":)" << json_string(settings_.at("fullRefreshMode"))
          << R"(,"reviewsSinceFullRefresh":)" << settings_.at("reviewsSinceFullRefresh")
          << R"(,"collapsedDecks":)" << json_string(settings_.at("collapsedDecks")) << '}';
   return output.str();
+}
+
+std::string AppState::setting(const std::string &key) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  const auto found = settings_.find(key);
+  return found == settings_.end() ? std::string{} : found->second;
 }
 
 std::uint64_t AppState::pending_reviews() const {

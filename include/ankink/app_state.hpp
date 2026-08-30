@@ -12,6 +12,7 @@ public:
   explicit AppState(std::string data_directory);
 
   [[nodiscard]] std::string settings_json() const;
+  [[nodiscard]] std::string setting(const std::string &key) const;
   [[nodiscard]] std::uint64_t pending_reviews() const;
   bool set_setting(const std::string &key, const std::string &value,
                    std::string &error);
