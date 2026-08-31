@@ -12,6 +12,10 @@ Mesquite HTML/CSS/ES5 UI -> XMLHttpRequest -> ankinkd (C++17) -> Anki rslib (Rus
 
 There is no bundled WPE WebKit, Mesa, Wayland, DRM, EGL, or FBInk display path.
 Mesquite owns painting, e-ink updates, touch input, and system integration.
+The Kindle launcher marks AnkINK's window Whisper-Touch capable through the
+firmware's window-manager utility, so AwesomeWM delivers Oasis page buttons
+directly to WebKit as Page Up/Page Down key events. `ankinkd` does not monitor
+`/dev/input` or expose an input-polling endpoint.
 The manifest suppresses Mesquite's otherwise-empty navigation strip; AnkINK
 provides compact Refresh and Close controls in its own header while retaining
 the Kindle status row.
@@ -74,10 +78,10 @@ The first build downloads the pinned Anki source and Rust crates. The target
 starts `ankinkd`, opens `http://127.0.0.1:8765/simulator/` in the default
 browser, and stops the daemon when the target is stopped. The wrapper defaults
 to the Kindle Oasis 8th generation and can switch among the supported Kindle
-profiles. Its Backward/Forward buttons and Page Up/Page Down or arrow keys feed
-the same input queue as the Oasis physical buttons. The orientation selector
-reflows the selected device between portrait and landscape and sends the same
-`orientationchange` event used by Mesquite.
+profiles. Its Backward/Forward buttons and Page Up/Page Down or arrow keys call
+a simulator-only front-end hook, without involving the daemon. The orientation
+selector reflows the selected device between portrait and landscape and sends
+the same `orientationchange` event used by Mesquite.
 
 For CLion, create a CMake profile named `Host Simulator` using the local Apple
 Clang toolchain and `cmake-build-simulator` build directory. Add these CMake

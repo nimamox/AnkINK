@@ -19,13 +19,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <utility>
-#ifdef __linux__
-#include <linux/input.h>
-#endif
-
 namespace ankink {
 namespace {
 volatile std::sig_atomic_t stop_requested = 0;
+volatile std::sig_atomic_t stop_wake_fd = -1;
 struct Request { std::string method, target, body; };
 
 std::string trim(const std::string &value) {
@@ -187,17 +184,6 @@ std::string with_app_state(std::string body, std::uint64_t count,
                              (state_persisted ? "true" : "false"));
   return body;
 }
-#ifdef __linux__
-int open_page_keys() {
-  for (int index = 0; index < 16; ++index) {
-    const std::string event = "event" + std::to_string(index);
-    if (trim(read_file("/sys/class/input/" + event + "/device/name")) ==
-        "gpiokey")
-      return ::open(("/dev/input/" + event).c_str(), O_RDONLY | O_NONBLOCK);
-  }
-  return -1;
-}
-#endif
 } // namespace
 
 HttpServer::HttpServer(ServerOptions options)
@@ -219,7 +205,15 @@ HttpServer::~HttpServer() {
   }
 }
 
-void HttpServer::request_stop() noexcept { stop_requested = 1; }
+void HttpServer::request_stop() noexcept {
+  stop_requested = 1;
+  const int fd = stop_wake_fd;
+  if (fd >= 0) {
+    const char byte = 1;
+    const auto ignored = ::write(fd, &byte, 1);
+    (void)ignored;
+  }
+}
 
 std::uint16_t HttpServer::bound_port() const noexcept { return bound_port_.load(); }
 
@@ -231,6 +225,7 @@ void HttpServer::wake_listener() noexcept {
 }
 
 void HttpServer::close_wakeup_pipe() noexcept {
+  stop_wake_fd = -1;
   if (wake_read_ >= 0) ::close(wake_read_);
   if (wake_write_ >= 0) ::close(wake_write_);
   wake_read_ = wake_write_ = -1;
@@ -238,19 +233,10 @@ void HttpServer::close_wakeup_pipe() noexcept {
 
 void HttpServer::stop() noexcept {
   if (stopping_.exchange(true)) return;
-  input_condition_.notify_all();
   pending_clients_condition_.notify_all();
   wake_listener();
   std::lock_guard<std::mutex> lock(clients_mutex_);
   for (const int client : active_clients_) ::shutdown(client, SHUT_RDWR);
-}
-
-void HttpServer::queue_page_action(std::string action) {
-  {
-    std::lock_guard<std::mutex> lock(input_mutex_);
-    page_actions_.push_back(std::move(action));
-  }
-  input_condition_.notify_one();
 }
 
 void HttpServer::worker_loop() noexcept {
@@ -322,46 +308,6 @@ void HttpServer::handle_client(int client) noexcept {
       }
       respond(client, 200, "OK", "application/json; charset=utf-8",
               app_state_.settings_json());
-    } else if (request.method == "GET" && request.target == "/api/input") {
-      std::string action;
-      {
-        std::unique_lock<std::mutex> lock(input_mutex_);
-        const std::size_t maximum_waiters =
-            std::max<std::size_t>(2, options_.worker_count) - 1;
-        if (page_actions_.empty() && input_waiters_ < maximum_waiters) {
-          const std::uint64_t generation = input_generation_;
-          ++input_waiters_;
-          input_condition_.wait_for(
-              lock, options_.input_long_poll_timeout, [this, generation] {
-                return stopping_.load() || input_generation_ != generation ||
-                       !page_actions_.empty();
-              });
-          --input_waiters_;
-        }
-        if (!page_actions_.empty()) {
-          action = std::move(page_actions_.front());
-          page_actions_.pop_front();
-        }
-      }
-      respond(client, 200, "OK", "application/json; charset=utf-8",
-              std::string(R"({"type":"input","action":)") + json_string(action) + "}");
-    } else if (request.method == "POST" && request.target == "/api/input/clear") {
-      {
-        std::lock_guard<std::mutex> lock(input_mutex_);
-        page_actions_.clear();
-        ++input_generation_;
-      }
-      input_condition_.notify_all();
-      respond(client, 200, "OK", "application/json; charset=utf-8",
-              R"({"type":"input-cleared"})");
-    } else if (request.method == "POST" && request.target == "/api/simulator/input") {
-      if (!options_.simulator) throw std::runtime_error("simulator input is disabled");
-      const std::string action = form_value(request.body, "action");
-      if (action != "forward" && action != "backward")
-        throw std::runtime_error("action must be forward or backward");
-      queue_page_action(action);
-      respond(client, 200, "OK", "application/json; charset=utf-8",
-              std::string(R"({"type":"input","action":)") + json_string(action) + "}");
     } else if (request.method == "GET" && request.target == "/api/decks") {
       const auto result = collection_call([this] {
         const bool open = collection_.is_open();
@@ -522,6 +468,7 @@ int HttpServer::run() {
     throw std::runtime_error(std::string("pipe: ") + std::strerror(errno));
   }
   wake_read_ = wake_pipe[0]; wake_write_ = wake_pipe[1];
+  stop_wake_fd = wake_write_;
   ::fcntl(wake_read_, F_SETFL, ::fcntl(wake_read_, F_GETFL) | O_NONBLOCK);
   ::fcntl(wake_write_, F_SETFL, ::fcntl(wake_write_, F_GETFL) | O_NONBLOCK);
 
@@ -556,33 +503,15 @@ int HttpServer::run() {
     throw;
   }
 
-  int page_keys = -1;
-#ifdef __linux__
-  page_keys = open_page_keys();
-  if (page_keys >= 0) std::cout << "AnkINK input: physical page buttons enabled\n";
-#endif
   while (!stopping_.load() && !stop_requested) {
     fd_set set; FD_ZERO(&set); FD_SET(listener, &set); FD_SET(wake_read_, &set);
-    timeval timeout{1, 0};
     int highest = std::max(listener, wake_read_);
-    if (page_keys >= 0) { FD_SET(page_keys, &set); highest = std::max(highest, page_keys); }
-    const int ready = select(highest + 1, &set, nullptr, nullptr, &timeout);
+    const int ready = select(highest + 1, &set, nullptr, nullptr, nullptr);
     if (ready < 0 && errno == EINTR) continue;
     if (ready <= 0) continue;
     if (FD_ISSET(wake_read_, &set)) {
       char bytes[32]; while (::read(wake_read_, bytes, sizeof(bytes)) > 0) {}
     }
-#ifdef __linux__
-    if (page_keys >= 0 && FD_ISSET(page_keys, &set)) {
-      input_event event{};
-      while (::read(page_keys, &event, sizeof(event)) == sizeof(event)) {
-        if (event.type == EV_KEY && event.value == 1) {
-          if (event.code == KEY_PAGEUP) queue_page_action("forward");
-          else if (event.code == KEY_PAGEDOWN) queue_page_action("backward");
-        }
-      }
-    }
-#endif
     if (stopping_.load() || stop_requested || !FD_ISSET(listener, &set)) continue;
     const int client = ::accept(listener, nullptr, nullptr);
     if (client < 0) continue;
@@ -605,10 +534,10 @@ int HttpServer::run() {
   }
 
   stop();
-  if (page_keys >= 0) ::close(page_keys);
   ::close(listener);
   for (auto &worker : workers_) if (worker.joinable()) worker.join();
   workers_.clear();
+  stop_wake_fd = -1;
   close_wakeup_pipe();
   bound_port_.store(0);
   return 0;

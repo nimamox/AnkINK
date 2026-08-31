@@ -105,7 +105,7 @@ INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('$ANKINK_APP_ID');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','lipcId','$ANKINK_APP_ID');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
-  VALUES('$ANKINK_APP_ID','command','/usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/');
+  VALUES('$ANKINK_APP_ID','command','/usr/bin/env LD_PRELOAD=$ANKINK_ROOT/lib/libmesquite-whisper-touch.so /usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','supportedOrientation','UDLR');
 INSERT OR REPLACE INTO properties(handlerId,name,value)

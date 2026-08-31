@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(AnkINK VERSION 0.3.0 LANGUAGES CXX)
+project(AnkINK VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -83,6 +83,13 @@ endif()
 target_compile_options(ankink_collection PRIVATE -Wall -Wextra -Wpedantic)
 
 if(ANKINK_BUILD_APP)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_library(ankink_mesquite_whisper_touch SHARED
+            src/mesquite_whisper_touch.c)
+        set_target_properties(ankink_mesquite_whisper_touch PROPERTIES
+            OUTPUT_NAME mesquite-whisper-touch)
+    endif()
+
     add_library(ankink_http_server src/http_server.cpp src/app_state.cpp
         src/orientation.cpp)
     target_include_directories(ankink_http_server PUBLIC include)
@@ -94,6 +101,10 @@ if(ANKINK_BUILD_APP)
     target_link_libraries(ankinkd PRIVATE ankink_http_server)
     target_compile_options(ankinkd PRIVATE -Wall -Wextra -Wpedantic)
     set_target_properties(ankinkd PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+
+    if(TARGET ankink_mesquite_whisper_touch)
+        add_dependencies(ankinkd ankink_mesquite_whisper_touch)
+    endif()
 
     install(TARGETS ankinkd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     install(FILES assets/index.html assets/app.css assets/app-settings.js assets/config.xml
@@ -145,6 +156,7 @@ if(ANKINK_BUILD_TESTS)
                     "${CMAKE_SOURCE_DIR}/simulator/simulator.js"
                     "${CMAKE_SOURCE_DIR}/simulator/simulator.css"
                     "${CMAKE_SOURCE_DIR}/src/http_server.cpp"
-                    "${CMAKE_SOURCE_DIR}/src/collection.cpp")
+                    "${CMAKE_SOURCE_DIR}/src/collection.cpp"
+                    "${CMAKE_SOURCE_DIR}/src/mesquite_whisper_touch.c")
     endif()
 endif()

@@ -77,10 +77,10 @@
     window.setTimeout(notifyOrientation, 0);
   }
   function sendInput(action) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/simulator/input", true);
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    xhr.send("action=" + encodeURIComponent(action));
+    var view;
+    try { view = iframe.contentWindow; } catch (ignored) { return; }
+    if (view && typeof view.ankinkSimulatorPageButton === "function")
+      view.ankinkSimulatorPageButton(action);
   }
   function installHostFonts() {
     var documentInFrame;

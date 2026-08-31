@@ -21,7 +21,6 @@ struct ServerOptions {
   std::uint16_t port{8765};
   bool simulator{};
   std::size_t worker_count{4};
-  std::chrono::milliseconds input_long_poll_timeout{25000};
   // A zero-cost production default and a deterministic integration-test seam.
   std::chrono::milliseconds collection_operation_delay{};
 };
@@ -36,7 +35,6 @@ public:
 private:
   void handle_client(int client) noexcept;
   void worker_loop() noexcept;
-  void queue_page_action(std::string action);
   void wake_listener() noexcept;
   void close_wakeup_pipe() noexcept;
 
@@ -45,12 +43,6 @@ private:
   Collection collection_;
   std::string collection_error_;
   std::mutex collection_mutex_;
-
-  std::mutex input_mutex_;
-  std::condition_variable input_condition_;
-  std::deque<std::string> page_actions_;
-  std::uint64_t input_generation_{};
-  std::size_t input_waiters_{};
 
   std::atomic<bool> stopping_{false};
   std::atomic<std::uint16_t> bound_port_{0};

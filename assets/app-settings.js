@@ -2,9 +2,9 @@
   "use strict";
   var API = "http://127.0.0.1:8765";
   var MEDIA_VERSION = String(new Date().getTime());
-  var state = { deck: null, card: null, reviewed: 0, answerShown: false, inputBusy: false,
+  var state = { deck: null, card: null, reviewed: 0, answerShown: false,
     cardLoading: false, answerInFlight: false, undoInFlight: false,
-    syncInFlight: false, inputEpoch: 0 };
+    syncInFlight: false, operationEpoch: 0 };
   var warningTimer = null;
   var busyReasons = {};
   var settingWrites = [], settingWriteInFlight = false, settingsDrainedCallback = null;
@@ -145,7 +145,7 @@
   }
   function buildActivityModel(activity) {
     var end = parseActivityDate(activity && activity.endDate), start, counts = {},
-      days = [], thresholds, leading, weeks, months, monthNames,
+      days = [], thresholds, leading, weeks, monthSegments, monthNames,
       index, source, date, key, count, column, row, weekCount;
     if (!end) return null;
     start = addActivityDays(end, -364);
@@ -163,26 +163,36 @@
     leading = start.getDay();
     weekCount = Math.ceil((leading + days.length) / 7);
     weeks = [];
-    months = [];
     for (index = 0; index < weekCount; ++index)
       weeks.push([null, null, null, null, null, null, null]);
     monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    months[0] = monthNames[start.getMonth()];
+    monthSegments = [{ name: monthNames[start.getMonth()], startColumn: 0, span: 0 }];
     for (index = 0; index < days.length; ++index) {
       column = Math.floor((leading + index) / 7);
       row = (leading + index) % 7;
       days[index].level = activityLevel(days[index].count, thresholds);
       weeks[column][row] = days[index];
-      if (days[index].date.getDate() === 1)
-        months[column] = monthNames[days[index].date.getMonth()];
+      if (days[index].date.getDate() === 1) {
+        if (monthSegments[monthSegments.length - 1].startColumn === column)
+          monthSegments[monthSegments.length - 1].name =
+            monthNames[days[index].date.getMonth()];
+        else
+          monthSegments.push({ name: monthNames[days[index].date.getMonth()],
+            startColumn: column, span: 0 });
+      }
+    }
+    for (index = 0; index < monthSegments.length; ++index) {
+      monthSegments[index].span =
+        (index + 1 < monthSegments.length ? monthSegments[index + 1].startColumn : weekCount) -
+        monthSegments[index].startColumn;
     }
     return {
       startDate: activityDateKey(start),
       endDate: activityDateKey(end),
       days: days,
       weeks: weeks,
-      months: months,
+      monthSegments: monthSegments,
       thresholds: thresholds
     };
   }
@@ -195,8 +205,8 @@
   function renderReviewActivity(activity) {
     var model = buildActivityModel(activity), table = byId("activity-table"),
       heading = byId("activity-streak"), summary = byId("activity-summary"),
-      head, headRow, body, tableRow, cell, square, span, day,
-      row, column, labels = ["", "Mon", "", "Wed", "", "Fri", ""];
+      columns, columnElement, head, headRow, body, tableRow, cell, square, span, day, segment,
+      monthStarts = {}, row, column, labels = ["", "Mon", "", "Wed", "", "Fri", ""];
     clear(table); clear(summary);
     if (!model || !activity || activity.type === "error") {
       heading.innerHTML = "Activity unavailable";
@@ -204,16 +214,39 @@
     }
     heading.innerHTML = formattedActivityNumber(activity.streak) + " day" +
       ((parseInt(activity.streak, 10) || 0) === 1 ? "" : "s") + " streak";
+    columns = document.createElement("colgroup");
+    columnElement = document.createElement("col");
+    columnElement.className = "activity-weekday-column";
+    columns.appendChild(columnElement);
+    for (column = 1; column < model.monthSegments.length; ++column)
+      monthStarts[model.monthSegments[column].startColumn] = true;
+    for (column = 0; column < model.weeks.length; ++column) {
+      if (monthStarts[column]) {
+        columnElement = document.createElement("col");
+        columnElement.className = "activity-month-spacer-column";
+        columns.appendChild(columnElement);
+      }
+      columnElement = document.createElement("col");
+      columnElement.className = "activity-week-column";
+      columns.appendChild(columnElement);
+    }
+    table.appendChild(columns);
     head = document.createElement("thead");
     headRow = document.createElement("tr");
     cell = document.createElement("th");
-    cell.className = "activity-weekday";
+    cell.className = "activity-weekday-header";
     headRow.appendChild(cell);
-    for (column = 0; column < model.weeks.length; ++column) {
+    for (column = 0; column < model.monthSegments.length; ++column) {
+      segment = model.monthSegments[column];
+      if (column > 0) {
+        cell = document.createElement("th");
+        cell.className = "activity-month-spacer";
+        headRow.appendChild(cell);
+      }
       cell = document.createElement("th");
       cell.className = "activity-month";
-      if (model.months[column])
-        cell.appendChild(document.createTextNode(model.months[column]));
+      cell.setAttribute("colspan", String(segment.span));
+      cell.appendChild(document.createTextNode(segment.name));
       headRow.appendChild(cell);
     }
     head.appendChild(headRow); table.appendChild(head);
@@ -221,10 +254,15 @@
     for (row = 0; row < 7; ++row) {
       tableRow = document.createElement("tr");
       cell = document.createElement("th");
-      cell.className = "activity-weekday";
+      cell.className = "activity-weekday-label";
       if (labels[row]) cell.appendChild(document.createTextNode(labels[row]));
       tableRow.appendChild(cell);
       for (column = 0; column < model.weeks.length; ++column) {
+        if (monthStarts[column]) {
+          cell = document.createElement("td");
+          cell.className = "activity-month-spacer";
+          tableRow.appendChild(cell);
+        }
         cell = document.createElement("td");
         cell.className = "activity-day";
         day = model.weeks[column][row];
@@ -333,7 +371,7 @@
   function closeAbout() {
     aboutLogoPending = false; stopAboutLogoAnimation();
     if (aboutLogoReady) drawAboutLogoClean();
-    hide(byId("about-dialog")); resumePageButtonInput();
+    hide(byId("about-dialog"));
   }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
   function activeScrollTarget() {
@@ -496,7 +534,7 @@
       return;
     }
     state.closing = true;
-    state.inputEpoch += 1;
+    state.operationEpoch += 1;
     state.syncInFlight = true;
     setBusy("close", true);
     warning("");
@@ -577,11 +615,6 @@
   function afterSettingsSaved(callback) {
     if (!settingWriteInFlight && !settingWrites.length) callback();
     else { settingsDrainedCallback = callback; flushSettingWrites(); }
-  }
-  function clearPhysicalInput(done) {
-    request("POST", "/api/input/clear", "", function () {
-      if (done) done();
-    }, 0);
   }
   function safeHtml(element, html, fallback) {
     var container = document.createElement("div");
@@ -1065,7 +1098,6 @@
         tree = buildDeckTree(message.decks);
         for (i = 0; i < tree.length; ++i) renderDeckNode(tree[i], list);
         scheduleScrollButtonUpdate();
-        clearPhysicalInput(resumePageButtonInput);
       }, 0);
     }, 12);
   }
@@ -1140,7 +1172,7 @@
     updateCounts(deck); hide(byId("decks-view")); hide(byId("sync")); show(byId("review-view")); nextCard(); scheduleScrollButtonUpdate();
   }
   function showLogin() {
-    state.inputEpoch += 1; state.deck = null; state.card = null; warning("");
+    state.operationEpoch += 1; state.deck = null; state.card = null; warning("");
     hide(byId("review-view")); hide(byId("decks-view")); hide(byId("sync")); hide(byId("account-dialog"));
     show(byId("auth-panel")); hide(byId("full-sync-panel"));
     byId("ankiweb-password").value = ""; window.scrollTo(0, 0); scheduleScrollButtonUpdate();
@@ -1154,7 +1186,7 @@
     }
     state.syncInFlight = true;
     setBusy("sync", true);
-    state.inputEpoch += 1;
+    state.operationEpoch += 1;
     warning(""); byId("status").innerHTML = "Synchronizing with AnkiWeb...";
     request("POST", "/api/sync", "", function (error, result) {
       if (error || !result || result.type === "error") {
@@ -1192,8 +1224,8 @@
   function nextCard() {
     var loadEpoch;
     if (!state.deck || state.syncInFlight) return;
-    state.inputEpoch += 1;
-    loadEpoch = state.inputEpoch;
+    state.operationEpoch += 1;
+    loadEpoch = state.operationEpoch;
     state.cardLoading = true;
     setBusy("card", true);
     state.card = null;
@@ -1202,20 +1234,18 @@
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
     hide(byId("rating-controls")); show(byId("show-controls"));
     request("GET", "/api/decks/" + state.deck.id + "/next", null, function (error, card) {
-      if (loadEpoch !== state.inputEpoch) return;
-      clearPhysicalInput(function () {
-        if (loadEpoch !== state.inputEpoch) return;
+      if (loadEpoch !== state.operationEpoch) return;
         state.cardLoading = false;
         setBusy("card", false);
-        if (error) { warning(error); resumePageButtonInput(); return; }
+        if (error) { warning(error); return; }
         if (!card || card.type === "error") {
-          warning((card && card.message) || "Unable to load card."); resumePageButtonInput(); return;
+          warning((card && card.message) || "Unable to load card."); return;
         }
         if (card.type === "complete") {
           applyCardCss("");
           state.card = null; byId("front").innerHTML = "<h2>Session complete</h2><p>You reviewed " + state.reviewed + " cards.</p>";
           hide(byId("show-controls")); runScheduledRefresh(); scheduleScrollButtonUpdate();
-          resumePageButtonInput(); return;
+          return;
         }
         state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
         safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields");
@@ -1228,8 +1258,6 @@
         }
         runScheduledRefresh();
         scheduleScrollButtonUpdate();
-        resumePageButtonInput();
-      });
     }, 1);
   }
   function isReviewStateError(message) {
@@ -1242,24 +1270,21 @@
     if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
     cardId = state.card.id; reviewToken = state.card.reviewToken;
     if (!reviewToken) { warning("Reloading card..."); nextCard(); return; }
-    state.inputEpoch += 1;
-    answerEpoch = state.inputEpoch;
+    state.operationEpoch += 1;
+    answerEpoch = state.operationEpoch;
     state.answerInFlight = true;
     setBusy("answer", true);
     request("POST", "/api/answer", "card=" + encodeURIComponent(cardId) +
       "&token=" + encodeURIComponent(reviewToken) + "&rating=" + rating,
       function (error, result) {
         var message;
-        if (answerEpoch !== state.inputEpoch) return;
+        if (answerEpoch !== state.operationEpoch) return;
         if (error || !result || result.type === "error") {
           message = error || (result && result.message) || "Answer failed.";
-          clearPhysicalInput(function () {
-            if (answerEpoch !== state.inputEpoch) return;
-            state.answerInFlight = false;
-            setBusy("answer", false);
-            if (isReviewStateError(message)) { warning("Reloading card..."); nextCard(); }
-            else { warning(message); resumePageButtonInput(); }
-          });
+          state.answerInFlight = false;
+          setBusy("answer", false);
+          if (isReviewStateError(message)) { warning("Reloading card..."); nextCard(); }
+          else warning(message);
           return;
         }
         state.answerInFlight = false;
@@ -1281,26 +1306,23 @@
   function undoAnswer() {
     var undoEpoch;
     if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
-    state.inputEpoch += 1;
-    undoEpoch = state.inputEpoch;
+    state.operationEpoch += 1;
+    undoEpoch = state.operationEpoch;
     state.undoInFlight = true;
     setBusy("undo", true);
     request("POST", "/api/undo", "", function (error, result) {
-      if (undoEpoch !== state.inputEpoch) return;
-      clearPhysicalInput(function () {
-        if (undoEpoch !== state.inputEpoch) return;
+      if (undoEpoch !== state.operationEpoch) return;
         state.undoInFlight = false;
         setBusy("undo", false);
-        if (error || !result) { warning(error || "Undo failed."); resumePageButtonInput(); return; }
-        if (result.type === "undo-empty") { resumePageButtonInput(); return; }
-        if (result.type === "error") { warning(result.message); resumePageButtonInput(); return; }
+        if (error || !result) { warning(error || "Undo failed."); return; }
+        if (result.type === "undo-empty") return;
+        if (result.type === "error") { warning(result.message); return; }
         if (state.reviewed > 0) state.reviewed -= 1;
         storePendingFromResult(result, pendingReviews - 1);
         if (result.statePersisted === false)
           warning("Undo succeeded, but AnkINK could not persist its local state.");
         else warning("");
         nextCard();
-      });
     }, 0);
   }
   function cardCanScrollDown() {
@@ -1337,7 +1359,8 @@
     state.refreshAfterCard = false;
     fullRefresh();
   }
-  var inputWaitTimer = null;
+  var pageButtonDownCode = 0;
+  var pageButtonDownAt = 0;
   function reviewerReadyForInput() {
     return !!state.deck && byId("review-view").className.indexOf("hidden") < 0 &&
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
@@ -1355,39 +1378,47 @@
   function pageButtonInputReady() {
     return reviewerReadyForInput() || deckListReadyForInput();
   }
-  function resumePageButtonInput(delay) {
-    if (!pageButtonInputReady() || state.inputBusy || inputWaitTimer !== null) return;
-    inputWaitTimer = window.setTimeout(function () {
-      inputWaitTimer = null; pollPageButtons();
-    }, delay || 0);
+  function handlePageButtonAction(action) {
+    var advance;
+    if (!pageButtonInputReady()) return;
+    advance = (pageButtonMode === "normal" && action === "forward") ||
+      (pageButtonMode === "reversed" && action === "backward");
+    if (deckListReadyForInput()) {
+      pageScroll(advance ? 1 : -1);
+      return;
+    }
+    if (advance) {
+      if (!state.card) return;
+      if (cardCanScrollDown()) scrollCardForward();
+      else if (state.answerShown) answer(3); else showAnswer();
+    } else undoAnswer();
   }
-  function pollPageButtons() {
-    var pollEpoch;
-    if (state.inputBusy || !pageButtonInputReady()) return;
-    pollEpoch = state.inputEpoch;
-    state.inputBusy = true;
-    request("GET", "/api/input", null, function (error, input) {
-      var advance;
-      state.inputBusy = false;
-      if (pollEpoch !== state.inputEpoch) { resumePageButtonInput(); return; }
-      if (!pageButtonInputReady()) return;
-      if (error || !input) { resumePageButtonInput(500); return; }
-      if (!input.action) { resumePageButtonInput(); return; }
-      if (deckListReadyForInput()) {
-        pageScroll(input.action === "forward" ? 1 : -1);
-        resumePageButtonInput();
-        return;
-      }
-      advance = (pageButtonMode === "normal" && input.action === "forward") ||
-        (pageButtonMode === "reversed" && input.action === "backward");
-      if (advance) {
-        if (!state.card) { resumePageButtonInput(); return; }
-        if (cardCanScrollDown()) scrollCardForward();
-        else if (state.answerShown) answer(3); else showAnswer();
-      } else undoAnswer();
-      resumePageButtonInput();
-    }, 0);
+  function pageButtonKeyDown(event) {
+    var code, now;
+    event = event || window.event;
+    code = event.keyCode || event.which;
+    if (code !== 33 && code !== 34) return;
+    if (event.preventDefault) event.preventDefault();
+    event.returnValue = false;
+    if (event.stopPropagation) event.stopPropagation();
+    event.cancelBubble = true;
+    now = new Date().getTime();
+    if (pageButtonDownCode === code && now - pageButtonDownAt < 1000) return false;
+    pageButtonDownCode = code;
+    pageButtonDownAt = now;
+    handlePageButtonAction(code === 34 ? "forward" : "backward");
+    return false;
   }
+  function pageButtonKeyUp(event) {
+    var code;
+    event = event || window.event;
+    code = event.keyCode || event.which;
+    if (code === pageButtonDownCode) pageButtonDownCode = 0;
+  }
+  document.addEventListener("keydown", pageButtonKeyDown, false);
+  document.addEventListener("keyup", pageButtonKeyUp, false);
+  if (window.location.protocol === "http:")
+    window.ankinkSimulatorPageButton = handlePageButtonAction;
   byId("show-answer").onclick = showAnswer;
   byId("rating-1").onclick = function () { answer(1); }; byId("rating-2").onclick = function () { answer(2); };
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
@@ -1395,12 +1426,12 @@
     if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) {
       warning("Please wait for the current operation to finish."); return;
     }
-    state.inputEpoch += 1;
+    state.operationEpoch += 1;
     hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null;
     show(byId("sync"));
     byId("decks-view").scrollTop = 0;
     scheduleScrollButtonUpdate();
-    clearPhysicalInput(function () { loadDecks(); });
+    loadDecks();
   };
   byId("refresh").onclick = function () {
     fullRefresh();
@@ -1427,7 +1458,7 @@
     show(byId("settings-dialog"));
   };
   byId("settings-close").onclick = function () {
-    hideSettingsTooltip(); hide(byId("settings-dialog")); resumePageButtonInput();
+    hideSettingsTooltip(); hide(byId("settings-dialog"));
   };
   byId("settings-about").onclick = openAbout;
   byId("about").onclick = openAbout;
@@ -1514,7 +1545,7 @@
     if (state.syncInFlight) { if (done) done(false); return; }
     state.syncInFlight = true;
     setBusy("download", true);
-    state.inputEpoch += 1;
+    state.operationEpoch += 1;
     hide(byId("full-sync-panel")); byId("status").innerHTML = "Downloading collection from AnkiWeb...";
     request("POST", "/api/sync/full-download", "", function (error, result) {
       state.syncInFlight = false;

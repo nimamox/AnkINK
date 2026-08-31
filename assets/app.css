@@ -90,12 +90,17 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .activity-heading .eyebrow, .activity-streak { display: table-cell; vertical-align: top; }
 .activity-streak { text-align: right; font: bold 13px/1.1 "Amazon Ember", Arial, sans-serif; }
 .activity-table-wrap { overflow: hidden; }
-.activity-table { width: auto; margin: 0; border-collapse: separate; border-spacing: 2px 1px; table-layout: fixed; }
+.activity-table { width: 100%; margin: 0; border-collapse: separate; border-spacing: 1px 1px; table-layout: fixed; }
 .activity-table th { padding: 0; font: 10px/1 "Amazon Ember", Arial, sans-serif; }
-.activity-table .activity-month { width: 9px; height: 13px; overflow: visible; color: #555; text-align: left; vertical-align: bottom; white-space: nowrap; font-weight: normal; }
-.activity-table .activity-weekday { width: 24px; padding-right: 3px; color: #555; text-align: right; font-weight: normal; }
-.activity-table .activity-day { width: 9px; height: 10px; padding: 0; }
-.activity-square { display: block; width: 9px; height: 9px; border: 1px solid transparent; background: #fff; }
+.activity-table .activity-weekday-column { width: 28px; }
+.activity-table .activity-week-column { width: auto; }
+.activity-table .activity-month-spacer-column, .activity-table .activity-month-spacer { width: 2px; padding: 0; }
+.activity-table .activity-weekday-header { width: 28px; height: 13px; }
+.activity-table .activity-month { height: 14px; color: #555; text-align: center; vertical-align: bottom; white-space: nowrap; font-size: 11px; font-weight: normal; }
+.activity-table tbody tr { height: 11px; }
+.activity-table .activity-weekday-label { width: 28px; height: 11px; padding: 0 3px 0 0; color: #555; text-align: right; vertical-align: middle; font-weight: normal; line-height: 11px; }
+.activity-table .activity-day { width: auto; height: 11px; padding: 0; vertical-align: middle; }
+.activity-square { display: block; box-sizing: border-box; width: 11px; height: 11px; margin: 0 auto; border: 1px solid transparent; background: #fff; }
 .activity-level-0 { border-color: #ccc; background: #fff; }
 .activity-level-1 { background: #ddd; }
 .activity-level-2 { background: #aaa; }
@@ -106,6 +111,20 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .activity-summary span { display: table-cell; width: 33.333%; white-space: nowrap; }
 .activity-summary span:nth-child(2) { text-align: center; }
 .activity-summary span:nth-child(3) { text-align: right; }
+@media (max-width: 620px) {
+  .activity-table .activity-weekday-column, .activity-table .activity-weekday-header,
+  .activity-table .activity-weekday-label { width: 26px; }
+  .activity-table .activity-month-spacer-column, .activity-table .activity-month-spacer { width: 1px; }
+  .activity-table .activity-month { font-size: 9px; }
+  .activity-table tbody tr, .activity-table .activity-weekday-label,
+  .activity-table .activity-day { height: 8px; line-height: 8px; }
+  .activity-square { width: 8px; height: 8px; }
+}
+@media (min-width: 900px) {
+  .activity-table tbody tr, .activity-table .activity-weekday-label,
+  .activity-table .activity-day { height: 13px; line-height: 13px; }
+  .activity-square { width: 13px; height: 13px; }
+}
 .eyebrow { margin-bottom: 7px; color: #444; font: bold 14px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: 4px; }
 .path { margin-top: 12px; color: #777; font: 13px/1.25 monospace; word-wrap: break-word; }
 .deck-list { border-top: 2px solid #111; }
@@ -221,7 +240,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .about-actions button { background: #000; color: #eee; border-color: #eee; }
 .night-mode .busy-indicator { background: #eee; }
 .night-mode .review-activity { border-color: #777; }
-.night-mode .activity-table .activity-month, .night-mode .activity-table .activity-weekday,
+.night-mode .activity-table .activity-month, .night-mode .activity-table .activity-weekday-label,
 .night-mode .activity-summary { color: #bbb; }
 .night-mode .activity-level-0 { border-color: #333; background: #111; }
 .night-mode .activity-level-1 { background: #444; }

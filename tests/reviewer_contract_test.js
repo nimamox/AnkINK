@@ -17,6 +17,7 @@ const simulatorJavascript = fs.readFileSync(process.argv[11], "utf8");
 const simulatorCss = fs.readFileSync(process.argv[12], "utf8");
 const httpServer = fs.readFileSync(process.argv[13], "utf8");
 const collectionBackend = fs.readFileSync(process.argv[14], "utf8");
+const whisperTouch = fs.readFileSync(process.argv[15], "utf8");
 
 function between(source, start, end) {
   const first = source.indexOf(start);
@@ -27,8 +28,7 @@ function between(source, start, end) {
 }
 
 const undo = between(frontend, "function undoAnswer()", "function cardCanScrollDown()");
-const polling = between(frontend, "function pollPageButtons()", 'byId("show-answer")');
-const inputWaiting = between(frontend, "var inputWaitTimer", 'byId("show-answer")');
+const pageButtons = between(frontend, "var pageButtonDownCode", 'byId("show-answer")');
 const decks = between(frontend, 'byId("back").onclick', 'byId("refresh").onclick');
 const answer = between(frontend, "function answer(rating)", "function showAnswer()");
 const loading = between(frontend, "function nextCard()", "function isReviewStateError");
@@ -55,6 +55,11 @@ assert.equal(Math.max(0, 0 - 1), 0);
 // harmless in the host simulator. The launcher and simulator expose all four
 // orientations while keeping the seven action buttons uniformly sized.
 assert.match(runKindle, /'supportedOrientation','UDLR'/);
+assert.match(runKindle, /LD_PRELOAD=.*libmesquite-whisper-touch\.so \/usr\/bin\/mesquite/);
+assert.match(whisperTouch, /win_mgr_utils_new_application_name/);
+assert.match(whisperTouch, /win_mgr_utils_add_is_wisper_touch_supported/);
+assert.match(whisperTouch, /win_mgr_utils_new_name\(0, "application"\)/);
+assert.match(whisperTouch, /win_mgr_utils_add_is_wisper_touch_supported\(name, 1\)/);
 assert.match(index, /id="sync"[\s\S]*id="rotation"[\s\S]*id="refresh"/);
 const headerActions = index.match(/<div class="header-actions">([\s\S]*?)<\/div>/)[1];
 assert.equal([...headerActions.matchAll(/<button\b/g)].length, 7,
@@ -131,7 +136,7 @@ const heatmapMatch = frontend.match(
 assert.ok(heatmapMatch, "missing heatmap logic test boundary");
 const heatmap = { Date, Math, parseInt, String };
 vm.createContext(heatmap);
-vm.runInContext(heatmapMatch[1], heatmap);
+vm.runInContext('"use strict";\n' + heatmapMatch[1], heatmap);
 function model(endDate, days) {
   return heatmap.buildActivityModel({ endDate, days: days || [] });
 }
@@ -142,6 +147,21 @@ assert.equal(aligned.endDate, "2026-08-30");
 assert.equal(aligned.weeks.length, 53);
 assert.equal(aligned.weeks[0][0].key, "2025-08-31");
 assert.equal(aligned.weeks[52][0].key, "2026-08-30");
+assert.deepEqual(Object.assign({}, aligned.monthSegments[0]),
+  { name: "Sep", startColumn: 0, span: 4 });
+assert.deepEqual(Object.assign({}, aligned.monthSegments[aligned.monthSegments.length - 1]),
+  { name: "Aug", startColumn: 47, span: 6 });
+assert.equal(aligned.monthSegments.reduce(function (total, segment) {
+  return total + segment.span;
+}, 0), aligned.weeks.length, "month colspans must cover every week column");
+const december = aligned.monthSegments.find(function (segment) {
+  return segment.name === "Dec";
+});
+const january = aligned.monthSegments.find(function (segment) {
+  return segment.name === "Jan";
+});
+assert.deepEqual(Object.assign({}, december), { name: "Dec", startColumn: 13, span: 4 });
+assert.deepEqual(Object.assign({}, january), { name: "Jan", startColumn: 17, span: 5 });
 
 const partial = model("2026-09-01", [
   { date: "2025-09-02", count: 2 },
@@ -154,13 +174,21 @@ assert.equal(partial.weeks[0][2].key, "2025-09-02");
 assert.equal(partial.days[0].count, 2);
 assert.equal(partial.days[364].count, 7);
 assert.equal(partial.days[1].count, 0, "sparse dates must become empty cells");
-assert.equal(partial.months[0], "Sep");
-assert.ok(partial.months.includes("Jan"), "year boundary must label January");
+assert.equal(partial.monthSegments[0].name, "Sep");
+assert.equal(partial.monthSegments[0].startColumn, 0,
+  "first partial month must begin at the first week column");
+assert.deepEqual(Object.assign({}, partial.monthSegments[partial.monthSegments.length - 1]),
+  { name: "Sep", startColumn: 52, span: 1 });
+assert.ok(partial.monthSegments.some(function (segment) { return segment.name === "Jan"; }),
+  "year boundary must label January");
 
 const leap = model("2024-03-01");
 assert.equal(leap.days.length, 365);
 assert.ok(leap.days.some(function (day) { return day.key === "2024-02-29"; }),
   "rolling range must retain leap day");
+assert.equal(leap.monthSegments[leap.monthSegments.length - 1].startColumn +
+  leap.monthSegments[leap.monthSegments.length - 1].span, leap.weeks.length,
+  "final month must reach the final visible week after leap day");
 assert.deepEqual(Array.from(heatmap.activityThresholds(aligned.days)), [0, 0, 0]);
 assert.equal(heatmap.activityLevel(0, [0, 0, 0]), 0);
 const bucketDays = [1, 2, 3, 4, 5, 6, 7, 1000].map(function (count) {
@@ -180,6 +208,19 @@ assert.doesNotMatch(frontend, /collection-path/);
 assert.doesNotMatch(index, /<canvas[^>]+activity|<svg[^>]+activity/i);
 assert.doesNotMatch(appCss, /\.review-activity[^}]*display:\s*grid/i);
 assert.match(frontend, /labels = \["", "Mon", "", "Wed", "", "Fri", ""\]/);
+assert.match(frontend, /document\.createElement\("colgroup"\)/);
+assert.match(frontend, /columnElement\.className = "activity-weekday-column"/);
+assert.match(frontend, /columnElement\.className = "activity-week-column"/);
+assert.match(frontend, /cell\.setAttribute\("colspan", String\(segment\.span\)\)/);
+assert.match(frontend, /for \(row = 0; row < 7; \+\+row\)[\s\S]*cell\.className = "activity-weekday-label"[\s\S]*for \(column = 0; column < model\.weeks\.length; \+\+column\)[\s\S]*tableRow\.appendChild\(cell\)/);
+assert.match(appCss, /\.activity-table \.activity-month\s*{[^}]*text-align:\s*center;[^}]*white-space:\s*nowrap;/);
+assert.doesNotMatch(appCss, /\.activity-table \.activity-month\s*{[^}]*overflow:\s*visible;/);
+assert.match(appCss, /\.activity-table \.activity-weekday-label\s*{[^}]*height:\s*11px;[^}]*text-align:\s*right;[^}]*vertical-align:\s*middle;/);
+assert.match(appCss, /\.activity-square\s*{[^}]*box-sizing:\s*border-box;[^}]*width:\s*11px;[^}]*height:\s*11px;/);
+assert.match(appCss, /@media \(max-width:\s*620px\)[\s\S]*\.activity-table \.activity-month-spacer-column, \.activity-table \.activity-month-spacer\s*{\s*width:\s*1px;[\s\S]*\.activity-square\s*{\s*width:\s*8px;\s*height:\s*8px;/);
+const narrowHeatmapWidth = 26 + 53 * 8 + 55 * 1;
+assert.ok(narrowHeatmapWidth < 600,
+  "all 53 week columns, including today, must fit a 600px Kindle profile");
 assert.match(frontend, /activity-today/);
 assert.match(appCss, /\.activity-today\s*{[^}]*border:\s*2px/);
 assert.match(appCss, /\.night-mode \.activity-level-4/);
@@ -204,26 +245,74 @@ assert.match(close, /state\.syncInFlight = true;/);
 assert.ok(close.indexOf('"/api/sync"') < close.indexOf('"/api/quit"'));
 assert.match(close, /"\/api\/quit", "", function \(\) \{ closeInterface\(\); \}/);
 assert.doesNotMatch(close, /setTimeout\(closeInterface/);
-assert.doesNotMatch(polling, /!state\.card\s*\|\|\s*!input\.action/);
-assert.match(polling, /pageButtonMode === "normal" && input\.action === "forward"/);
-assert.match(polling, /pageButtonMode === "reversed" && input\.action === "backward"/);
-assert.match(polling, /if \(!state\.card\)[\s\S]*return;[\s\S]*else undoAnswer\(\)/);
+assert.match(pageButtons, /pageButtonMode === "normal" && action === "forward"/);
+assert.match(pageButtons, /pageButtonMode === "reversed" && action === "backward"/);
+assert.match(pageButtons, /if \(!state\.card\) return;[\s\S]*else undoAnswer\(\)/);
 
 // Rapid input cannot overlap answer/undo/loading transitions.
-assert.match(inputWaiting, /function reviewerReadyForInput\(\)[\s\S]*state\.cardLoading[\s\S]*state\.answerInFlight[\s\S]*state\.undoInFlight[\s\S]*state\.syncInFlight/);
-assert.match(polling, /if \(state\.inputBusy \|\| !pageButtonInputReady\(\)\) return;[\s\S]*state\.inputBusy = true;/);
-assert.match(polling, /pollEpoch !== state\.inputEpoch/);
-assert.match(polling, /request\("GET", "\/api\/input"/);
-assert.match(polling, /resumePageButtonInput\(\)/);
-assert.doesNotMatch(frontend, /setInterval\(pollPageButtons/);
-assert.match(inputWaiting, /function deckListReadyForInput\(\)/);
-assert.match(inputWaiting, /function pageButtonInputReady\(\)/);
-assert.match(polling, /if \(deckListReadyForInput\(\)\)[\s\S]*pageScroll\(input\.action === "forward" \? 1 : -1\)/);
+assert.match(frontend, /function reviewerReadyForInput\(\)[\s\S]*state\.cardLoading[\s\S]*state\.answerInFlight[\s\S]*state\.undoInFlight[\s\S]*state\.syncInFlight/);
+assert.match(frontend, /function deckListReadyForInput\(\)/);
+assert.match(frontend, /function pageButtonInputReady\(\)/);
+assert.match(pageButtons, /if \(deckListReadyForInput\(\)\)[\s\S]*pageScroll\(advance \? 1 : -1\)/);
+assert.match(pageButtons, /code === 34 \? "forward" : "backward"/);
+assert.match(pageButtons, /document\.addEventListener\("keydown", pageButtonKeyDown, false\)/);
+assert.match(pageButtons, /document\.addEventListener\("keyup", pageButtonKeyUp, false\)/);
+assert.match(pageButtons, /event\.preventDefault/);
+assert.match(pageButtons, /event\.stopPropagation/);
+assert.match(pageButtons, /pageButtonDownCode === code/);
+assert.doesNotMatch(frontend, /\/api\/input|\/api\/simulator\/input|pollPageButtons|clearPhysicalInput/);
+assert.match(simulatorJavascript, /ankinkSimulatorPageButton/);
+assert.doesNotMatch(httpServer,
+  /\/api\/input|\/api\/simulator\/input|gpiokey|\/dev\/input|input_event/);
+assert.match(httpServer,
+  /select\(highest \+ 1, &set, nullptr, nullptr, nullptr\)/);
+{
+  const calls = [];
+  const listeners = {};
+  const context = {
+    Date,
+    pageButtonMode: "normal",
+    state: {deck: {}, card: {}, answerShown: false, cardLoading: false,
+      answerInFlight: false, undoInFlight: false, syncInFlight: false},
+    byId: function (name) {
+      return {className: name === "review-view" ? "" : "hidden"};
+    },
+    cardCanScrollDown: function () { return false; },
+    scrollCardForward: function () { calls.push("scroll-card"); },
+    showAnswer: function () { calls.push("show-answer"); },
+    answer: function () { calls.push("answer"); },
+    undoAnswer: function () { calls.push("undo"); },
+    pageScroll: function (direction) { calls.push("scroll:" + direction); },
+    document: {addEventListener: function (name, listener) { listeners[name] = listener; }},
+    window: {event: null, location: {protocol: "file:"}}
+  };
+  function key(code) {
+    return {keyCode: code, prevented: 0, stopped: 0,
+      preventDefault: function () { this.prevented += 1; },
+      stopPropagation: function () { this.stopped += 1; }};
+  }
+  vm.createContext(context);
+  vm.runInContext(pageButtons, context);
+  const forward = key(34);
+  listeners.keydown(forward);
+  listeners.keydown(key(34));
+  assert.deepEqual(calls, ["show-answer"], "held/repeated keydown activates once");
+  assert.equal(forward.prevented, 1);
+  assert.equal(forward.stopped, 1);
+  listeners.keyup(key(34));
+  listeners.keydown(key(33));
+  assert.deepEqual(calls, ["show-answer", "undo"]);
+  listeners.keyup(key(33));
+  context.pageButtonMode = "reversed";
+  listeners.keydown(key(33));
+  assert.deepEqual(calls, ["show-answer", "undo", "show-answer"],
+    "reversed mode maps backward to the forward review action");
+}
 assert.match(frontend, /hide\(byId\("sync"\)\).*show\(byId\("review-view"\)\)/);
 assert.match(loadDecks, /show\(byId\("sync"\)\)/);
 assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.syncInFlight\) return;/);
 assert.match(undo, /state\.undoInFlight = true;/);
-assert.match(loading, /clearPhysicalInput\(function/);
+assert.match(loading, /state\.cardLoading = false/);
 
 // Review commands are generation-bound and recover from stale UI/backend state.
 assert.match(answer, /state\.card\.reviewToken/);

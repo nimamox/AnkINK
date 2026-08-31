@@ -105,7 +105,7 @@ private:
   std::exception_ptr failure_;
 };
 
-ankink::ServerOptions options(std::chrono::milliseconds input_timeout = 250ms) {
+ankink::ServerOptions options() {
   static std::atomic<unsigned> sequence{0};
   ankink::ServerOptions result;
   result.port = 0;
@@ -114,7 +114,6 @@ ankink::ServerOptions options(std::chrono::milliseconds input_timeout = 250ms) {
   result.data_dir = "/tmp/ankink-http-server-test-" +
     std::to_string(static_cast<long long>(::getpid())) + "-" +
     std::to_string(sequence.fetch_add(1));
-  result.input_long_poll_timeout = input_timeout;
   return result;
 }
 
@@ -181,94 +180,19 @@ void app_state_tracks_reviews() {
   remove_state_directory(configured.data_dir);
 }
 
-void idle_input_times_out() {
-  RunningServer server(options(120ms));
-  const auto start = std::chrono::steady_clock::now();
-  const auto response = request(server.port(), "GET", "/api/input");
-  const auto elapsed = std::chrono::steady_clock::now() - start;
-  require(response.status == 200, "idle input response status");
-  require(response.body.find(R"("action":"")") != std::string::npos,
-          "idle input response should have an empty action");
-  require(elapsed >= 80ms && elapsed < 1s, "idle input timeout duration");
-}
-
-void input_wakes_and_is_fifo() {
-  RunningServer server(options(2s));
-  auto waiting = std::async(std::launch::async, [&] {
-    return request(server.port(), "GET", "/api/input");
-  });
-  std::this_thread::sleep_for(50ms);
-  require(request(server.port(), "POST", "/api/simulator/input", "action=forward").status == 200,
-          "queue forward input");
-  require(waiting.wait_for(500ms) == std::future_status::ready, "input waiter should wake");
-  require(waiting.get().body.find(R"("action":"forward")") != std::string::npos,
-          "woken input action");
-
-  request(server.port(), "POST", "/api/simulator/input", "action=backward");
-  request(server.port(), "POST", "/api/simulator/input", "action=forward");
-  const auto first = request(server.port(), "GET", "/api/input");
-  const auto second = request(server.port(), "GET", "/api/input");
-  require(first.body.find(R"("action":"backward")") != std::string::npos,
-          "FIFO first action");
-  require(second.body.find(R"("action":"forward")") != std::string::npos,
-          "FIFO second action");
-}
-
-void clearing_input_cancels_stale_waiter() {
-  RunningServer server(options(2s));
-  auto waiting = std::async(std::launch::async, [&] {
-    return request(server.port(), "GET", "/api/input");
-  });
-  std::this_thread::sleep_for(50ms);
-  require(request(server.port(), "POST", "/api/input/clear").status == 200,
-          "clear input response");
-  require(waiting.wait_for(500ms) == std::future_status::ready,
-          "clear should cancel stale long-poll");
-  require(waiting.get().body.find(R"("action":"")") != std::string::npos,
-          "cancelled long-poll should return an empty action");
-}
-
-void input_does_not_block_answer() {
-  RunningServer server(options(2s));
-  auto waiting = std::async(std::launch::async, [&] {
-    return request(server.port(), "GET", "/api/input");
-  });
-  std::this_thread::sleep_for(50ms);
-  const auto start = std::chrono::steady_clock::now();
-  const auto answer = request(server.port(), "POST", "/api/answer", "card=1&token=1&rating=3");
-  const auto elapsed = std::chrono::steady_clock::now() - start;
-  require(answer.status == 200, "answer should be handled while input waits");
-  require(elapsed < 500ms, "answer must not wait for input long-poll");
-  require(waiting.wait_for(20ms) == std::future_status::timeout,
-          "input should still be waiting after answer");
-  request(server.port(), "POST", "/api/simulator/input", "action=forward");
-  require(waiting.wait_for(500ms) == std::future_status::ready, "wake input after answer");
-  waiting.get();
-}
-
-void duplicate_input_waiter_leaves_worker_available() {
-  auto configured = options(2s);
-  configured.worker_count = 2;
-  RunningServer server(std::move(configured));
-  auto waiting = std::async(std::launch::async, [&] {
-    return request(server.port(), "GET", "/api/input");
-  });
-  std::this_thread::sleep_for(50ms);
-  const auto start = std::chrono::steady_clock::now();
-  const auto duplicate = request(server.port(), "GET", "/api/input");
-  require(duplicate.status == 200, "duplicate input response status");
-  require(std::chrono::steady_clock::now() - start < 500ms,
-          "duplicate input waiter must return without occupying last worker");
-  require(request(server.port(), "GET", "/api/settings").status == 200,
-          "reserved worker handles normal request");
-  request(server.port(), "POST", "/api/simulator/input", "action=forward");
-  require(waiting.wait_for(500ms) == std::future_status::ready,
-          "original input waiter wakes");
-  waiting.get();
+void removed_input_endpoints_are_not_registered() {
+  RunningServer server(options());
+  require(request(server.port(), "GET", "/api/input").status == 404,
+          "removed input endpoint must not be registered");
+  require(request(server.port(), "POST", "/api/input/clear").status == 404,
+          "removed input clear endpoint must not be registered");
+  require(request(server.port(), "POST", "/api/simulator/input",
+                  "action=forward").status == 404,
+          "removed simulator input endpoint must not be registered");
 }
 
 void collection_requests_are_serialized() {
-  auto configured = options(1s);
+  auto configured = options();
   configured.collection_operation_delay = 150ms;
   RunningServer server(std::move(configured));
   std::promise<void> start;
@@ -285,20 +209,6 @@ void collection_requests_are_serialized() {
   require(elapsed >= 250ms, "collection operations must not overlap");
 }
 
-void shutdown_wakes_input_waiter() {
-  auto configured = options(10s);
-  RunningServer server(std::move(configured));
-  auto waiting = std::async(std::launch::async, [&] {
-    return request(server.port(), "GET", "/api/input");
-  });
-  std::this_thread::sleep_for(50ms);
-  const auto start = std::chrono::steady_clock::now();
-  server.shutdown();
-  require(std::chrono::steady_clock::now() - start < 1s, "server shutdown duration");
-  require(waiting.wait_for(500ms) == std::future_status::ready,
-          "shutdown should release input waiter");
-  waiting.get();
-}
 } // namespace
 
 int main() {
@@ -332,13 +242,8 @@ int main() {
     }
     settings_are_daemon_persisted();
     app_state_tracks_reviews();
-    idle_input_times_out();
-    input_wakes_and_is_fifo();
-    clearing_input_cancels_stale_waiter();
-    input_does_not_block_answer();
-    duplicate_input_waiter_leaves_worker_available();
+    removed_input_endpoints_are_not_registered();
     collection_requests_are_serialized();
-    shutdown_wakes_input_waiter();
     std::cout << "http server tests passed\n";
     return 0;
   } catch (const std::exception &error) {

@@ -15,12 +15,16 @@ ANKINK_STRIP=${CROSS_COMPILE:-arm-linux-gnueabi-}strip
 if [ ! -x "$ANKINK_BUILD_DIR/ankinkd" ]; then
   echo "Missing target executable: $ANKINK_BUILD_DIR/ankinkd" >&2; exit 1
 fi
+if [ ! -f "$ANKINK_BUILD_DIR/libmesquite-whisper-touch.so" ]; then
+  echo "Missing target library: $ANKINK_BUILD_DIR/libmesquite-whisper-touch.so" >&2; exit 1
+fi
 if [ -e "$ANKINK_OUTPUT" ]; then
   echo "Output already exists: $ANKINK_OUTPUT" >&2; exit 1
 fi
 mkdir -p "$ANKINK_OUTPUT/bin" "$ANKINK_OUTPUT/lib" "$ANKINK_OUTPUT/share/ankink" \
   "$ANKINK_OUTPUT/kual-extension/AnkINK" "$ANKINK_OUTPUT/library-launcher"
 cp "$ANKINK_BUILD_DIR/ankinkd" "$ANKINK_OUTPUT/bin/ankinkd"
+cp "$ANKINK_BUILD_DIR/libmesquite-whisper-touch.so" "$ANKINK_OUTPUT/lib/"
 cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
   "$ANKINK_ROOT/assets/app-settings.js" "$ANKINK_ROOT/assets/config.xml" \
   "$ANKINK_ROOT/assets/ankink_logo.png" "$ANKINK_ROOT/assets/ankink_logo_night.png" "$ANKINK_ROOT/logo/ankink_logo_orig_size.png" \
