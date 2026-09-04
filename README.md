@@ -119,11 +119,28 @@ installation is required; SQLite and Rustls are linked into `ankinkd`.
 ### Docker cross-build (macOS or Linux)
 
 Install and start Docker Desktop on macOS, or Docker Engine on Linux. No remote
-Linux host or host-side ARM toolchain is required. Then run:
+Linux host or host-side ARM toolchain is required. To build with local Docker,
+run:
 
 ```sh
 ./build_on_docker.sh
 ```
+
+Docker can optionally run on a remote machine instead. The Mac needs `ssh` and
+`rsync`; the remote machine needs `rsync`, Docker, and access to a working Docker
+daemon. Pass its SSH target to the same script:
+
+```sh
+./build_on_docker.sh user@build-host
+```
+
+Remote mode synchronizes the working tree to the reusable
+`/tmp/kindle-build-$USER/AnkINK` directory, excluding Git data, credentials,
+`dist/`, simulator state, and local build artifacts. It then runs
+`bash build_on_docker.sh` without arguments on that machine and copies the
+completed remote `dist/` back only if the build succeeds. The remote directory,
+fingerprinted Docker image layers, and named Docker cache volume remain
+available for later builds; the Docker caches are not stored under `/tmp`.
 
 The first build downloads the pinned Debian ARMEL cross-toolchain, Rust 1.92,
 Protobuf 29.3, the pinned Anki 26.08 source, and Rust crates including

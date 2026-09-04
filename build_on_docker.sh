@@ -5,6 +5,52 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 IMAGE=${KINDLE_DOCKER_IMAGE:-kindle-dev-builder:local}
 CACHE_VOLUME=${KINDLE_DOCKER_CACHE_VOLUME:-ankink-kindle-build-cache}
 
+if [ "$#" -gt 1 ]; then
+  echo "Usage: bash build_on_docker.sh [user@host]" >&2
+  exit 2
+fi
+
+if [ "$#" -eq 1 ]; then
+  REMOTE_TARGET=$1
+  [ -n "$REMOTE_TARGET" ] || { echo "Remote SSH target must not be empty." >&2; exit 2; }
+  command -v ssh >/dev/null || { echo "ssh is required for a remote build." >&2; exit 127; }
+  command -v rsync >/dev/null || { echo "rsync is required for a remote build." >&2; exit 127; }
+
+  if ! REMOTE_USER=$(ssh "$REMOTE_TARGET" '
+    command -v rsync >/dev/null 2>&1 || { echo "Remote rsync is required." >&2; exit 127; }
+    command -v docker >/dev/null 2>&1 || { echo "Remote Docker is required." >&2; exit 127; }
+    docker info >/dev/null 2>&1 || { echo "Remote Docker is not running or is not accessible." >&2; exit 1; }
+    id -un
+  '); then
+    echo "Remote build prerequisite check failed on $REMOTE_TARGET." >&2
+    exit 1
+  fi
+  case "$REMOTE_USER" in
+    ''|*[!A-Za-z0-9._-]*) echo "Remote user name is not safe for a build path: $REMOTE_USER" >&2; exit 1 ;;
+  esac
+  REMOTE_ROOT="/tmp/kindle-build-$REMOTE_USER/AnkINK"
+
+  echo "Synchronizing AnkINK to $REMOTE_TARGET:$REMOTE_ROOT"
+  ssh "$REMOTE_TARGET" "mkdir -p '$REMOTE_ROOT'"
+  rsync --archive --delete \
+    --exclude='.git/' \
+    --exclude='dist/' \
+    --exclude='target/' \
+    --exclude='build/' \
+    --exclude='cmake-build-*/' \
+    --exclude='.ankink-simulator/' \
+    --exclude-from="$ROOT/.gitignore" \
+    "$ROOT/" "$REMOTE_TARGET:$REMOTE_ROOT/"
+
+  echo "Building AnkINK with Docker on $REMOTE_TARGET"
+  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && bash build_on_docker.sh"
+
+  echo "Copying AnkINK dist back to $ROOT/dist"
+  mkdir -p "$ROOT/dist"
+  rsync --archive --delete "$REMOTE_TARGET:$REMOTE_ROOT/dist/" "$ROOT/dist/"
+  exit 0
+fi
+
 command -v docker >/dev/null || { echo "Docker is required." >&2; exit 127; }
 docker info >/dev/null || { echo "Docker is not running or is not accessible." >&2; exit 1; }
 
