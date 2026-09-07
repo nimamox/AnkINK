@@ -84,10 +84,13 @@ target_compile_options(ankink_collection PRIVATE -Wall -Wextra -Wpedantic)
 
 if(ANKINK_BUILD_APP)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # This preload runs inside system Mesquite, not under our bundled loader.
+        # Leave its external references for the Kindle's native ABI.
         add_library(ankink_mesquite_whisper_touch SHARED
             src/mesquite_whisper_touch.c)
         set_target_properties(ankink_mesquite_whisper_touch PROPERTIES
-            OUTPUT_NAME mesquite-whisper-touch)
+            OUTPUT_NAME mesquite-whisper-touch
+            LINK_FLAGS "-nostdlib")
     endif()
 
     add_library(ankink_http_server src/http_server.cpp src/app_state.cpp
