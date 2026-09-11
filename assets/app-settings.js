@@ -11,6 +11,9 @@
   var pendingReviews = 0;
   var aboutLogoTimer = null, aboutLogoReady = false, aboutLogoPending = false;
   var mathNodes = [], mathRepairTimer = null;
+  var showAnswerControlTimer = null;
+  var ratingEraseStartedAt = 0;
+  var RATING_ERASE_MS = 400;
   var fontScales = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
   function nearestFontScale(value) {
     var nearest = fontScales[0], distance = Math.abs(value - nearest), i, candidateDistance;
@@ -1229,6 +1232,47 @@
       if (done) done(true); else loadDecks();
     }, 0);
   }
+  function removeRatingEraseClass() {
+    var ratings = byId("rating-controls");
+    ratings.className = ratings.className.replace(
+      /(^|\s)rating-erasing(?=\s|$)/g, "");
+  }
+  function beginRatingErase() {
+    var ratings = byId("rating-controls");
+    if (ratings.className.indexOf("hidden") >= 0) {
+      ratingEraseStartedAt = 0;
+      return;
+    }
+    if (ratings.className.indexOf("rating-erasing") < 0)
+      ratings.className += " rating-erasing";
+    ratings.offsetHeight;
+    ratingEraseStartedAt = new Date().getTime();
+  }
+  function prepareShowAnswerControl() {
+    var controls = byId("show-controls"), button = byId("show-answer"),
+      ratings = byId("rating-controls"), elapsed, remaining;
+    if (showAnswerControlTimer !== null) {
+      window.clearTimeout(showAnswerControlTimer);
+      showAnswerControlTimer = null;
+    }
+    show(controls);
+    hide(button);
+    if (!ratingEraseStartedAt) {
+      hide(ratings);
+      removeRatingEraseClass();
+      show(button);
+      return;
+    }
+    elapsed = new Date().getTime() - ratingEraseStartedAt;
+    remaining = Math.max(0, RATING_ERASE_MS - elapsed);
+    showAnswerControlTimer = window.setTimeout(function () {
+      showAnswerControlTimer = null;
+      hide(ratings);
+      removeRatingEraseClass();
+      ratingEraseStartedAt = 0;
+      show(button);
+    }, remaining);
+  }
   function nextCard() {
     var loadEpoch;
     if (!state.deck || state.syncInFlight) return;
@@ -1243,7 +1287,7 @@
     hide(byId("card-actions-button"));
     resetCardScroll();
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
-    hide(byId("rating-controls")); show(byId("show-controls"));
+    prepareShowAnswerControl();
     request("GET", "/api/decks/" + state.deck.id + "/next", null, function (error, card) {
       if (loadEpoch !== state.operationEpoch) return;
         state.cardLoading = false;
@@ -1285,6 +1329,7 @@
     if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight || state.syncInFlight) return;
     cardId = state.card.id; reviewToken = state.card.reviewToken;
     if (!reviewToken) { warning("Reloading card..."); nextCard(); return; }
+    beginRatingErase();
     state.operationEpoch += 1;
     answerEpoch = state.operationEpoch;
     state.answerInFlight = true;
@@ -1298,6 +1343,9 @@
           message = error || (result && result.message) || "Answer failed.";
           state.answerInFlight = false;
           setBusy("answer", false);
+          ratingEraseStartedAt = 0;
+          removeRatingEraseClass();
+          show(byId("rating-controls"));
           if (isReviewStateError(message)) { warning("Reloading card..."); nextCard(); }
           else warning(message);
           return;

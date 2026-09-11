@@ -32,6 +32,7 @@ const pageButtons = between(frontend, "var pageButtonDownCode", 'byId("show-answ
 const decks = between(frontend, 'byId("back").onclick', 'byId("refresh").onclick');
 const answer = between(frontend, "function answer(rating)", "function showAnswer()");
 const loading = between(frontend, "function nextCard()", "function isReviewStateError");
+const controlRepaint = between(frontend, "function prepareShowAnswerControl()", "function nextCard()");
 const loadDecks = between(frontend, "function loadDecks()", "function applyFontScale(");
 const startup = between(frontend, "function startApplication()", "function loadDecks()");
 const sync = between(frontend, "function syncNow(done)", "function nextCard()");
@@ -321,13 +322,22 @@ assert.match(loadDecks, /show\(byId\("sync"\)\)/);
 assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.cardActionInFlight \|\| state\.syncInFlight\) return;/);
 assert.match(undo, /state\.undoInFlight = true;/);
 assert.match(loading, /state\.cardLoading = false/);
+assert.match(loading, /prepareShowAnswerControl\(\)/);
+assert.match(frontend, /var RATING_ERASE_MS = 400;/);
+assert.match(frontend, /function beginRatingErase\(\)[\s\S]*ratings\.className \+= " rating-erasing";[\s\S]*ratings\.offsetHeight;[\s\S]*ratingEraseStartedAt = new Date\(\)\.getTime\(\)/);
+assert.match(answer, /beginRatingErase\(\);[\s\S]*state\.operationEpoch \+= 1/);
+assert.match(answer, /if \(error \|\| !result \|\| result\.type === "error"\)[\s\S]*ratingEraseStartedAt = 0;[\s\S]*removeRatingEraseClass\(\);[\s\S]*show\(byId\("rating-controls"\)\)/);
+assert.match(controlRepaint, /show\(controls\);[\s\S]*hide\(button\);[\s\S]*if \(!ratingEraseStartedAt\)/);
+assert.match(controlRepaint, /remaining = Math\.max\(0, RATING_ERASE_MS - elapsed\);[\s\S]*window\.setTimeout\(function \(\)[\s\S]*hide\(ratings\)[\s\S]*removeRatingEraseClass\(\)[\s\S]*show\(button\)[\s\S]*}, remaining\)/);
+assert.match(appCss, /\.ratings\.rating-erasing button\s*{[^}]*background:\s*#fff;[^}]*border-color:\s*#fff;[^}]*color:\s*#fff;/);
+assert.match(appCss, /\.night-mode \.ratings\.rating-erasing button\s*{[^}]*background:\s*#000;[^}]*border-color:\s*#000;[^}]*color:\s*#000;/);
 
 // A fixed 88px card-actions button sits beside either equal-width review
 // control bar. Its ES5 menu dispatches official, generation-bound card actions.
 assert.match(index, /id="card-actions-button"[^>]*>&#xE6FA;<\/button>/);
 assert.match(index, /id="card-actions-menu"[\s\S]*>Undo<\/button>[\s\S]*>Bury card<\/button>[\s\S]*>Suspend card<\/button>[\s\S]*>Flag \(Red\)<\/button>/);
 assert.match(index, /class="review-title"[\s\S]*id="card-flag"[^>]*>&#x2691;<\/div>[\s\S]*id="session-count"/);
-assert.match(appCss, /\.controls\s*{[^}]*left:\s*100px;[^}]*width:\s*auto;[^}]*height:\s*112px;/);
+assert.match(appCss, /\.controls\s*{[^}]*left:\s*0;[^}]*width:\s*100%;[^}]*height:\s*112px;[^}]*padding:\s*12px 0 12px 100px;/);
 assert.match(appCss, /\.card-actions-button\s*{[^}]*width:\s*88px;[^}]*height:\s*88px;[^}]*font:[^}]*"Code2000"/);
 assert.match(appCss, /\.card-flag\s*{[^}]*width:\s*46px;[^}]*font:[^}]*"Code2000"/);
 assert.match(cardActions, /request\("POST", "\/api\/card-action"/);

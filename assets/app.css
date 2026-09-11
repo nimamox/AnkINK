@@ -1,8 +1,8 @@
 /* AnkINK */
 * { box-sizing: border-box; }
-html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #fff; color: #111; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #fff; color: #000; }
 body { padding: 0 4%; font: 24px/1.35 "Bookerly", Georgia, serif; }
-button { color: #111; font: inherit; }
+button { color: #000; font: inherit; }
 h1, h2, p { margin: 0; }
 h1 { font: bold 50px/1 "Amazon Ember", Arial, sans-serif; letter-spacing: -3px; }
 h1 span { font-weight: normal; }
@@ -203,14 +203,16 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .ankink-script-both .ankink-script-sub { top: 0.5em; }
 /* Do not let KaTeX fraction rules collapse onto fractional device pixels. */
 .katex .mfrac .frac-line { border-bottom-width: 2px; }
-.controls { position: absolute; right: 0; bottom: 4px; left: 100px; width: auto; height: 112px; padding: 12px 0; overflow: hidden; background: #fff; }
+.controls { position: absolute; right: 0; bottom: 4px; left: 0; width: 100%; height: 112px; padding: 12px 0 12px 100px; overflow: hidden; background: #fff; }
 .controls button { height: 88px; min-height: 0; padding: 0; border: 3px solid #111; background: #fff; font-family: "Amazon Ember", Arial, sans-serif; vertical-align: top; }
-.controls .primary { width: 100%; background: #111; color: #fff; font-weight: bold; }
+.controls .primary { width: 100%; background: #000; color: #fff; font-weight: bold; }
 .ratings { display: block; padding-right: 15px; white-space: nowrap; font-size: 0; }
 .ratings button { display: inline-block; width: 24%; margin-left: 1.333%; }
 .ratings button:first-child { margin-left: 0; }
 .ratings strong, .ratings small { display: block; }
 .ratings strong { font-size: 17px; } .ratings small { margin-top: 6px; font-size: 14px; }
+.ratings.rating-erasing button { background: #fff; border-color: #fff; color: #fff; }
+.ratings.rating-erasing strong, .ratings.rating-erasing small { color: #fff; }
 .card-actions-button { position: absolute; z-index: 360; bottom: 16px; left: 0; width: 88px; height: 88px; padding: 0; border: 3px solid #111; background: #fff; font: 72px/1 "Code2000", "Kindle Symbol", sans-serif; }
 .card-actions-menu { position: absolute; z-index: 370; bottom: 116px; left: 0; width: 260px; border: 3px solid #111; background: #fff; }
 .card-actions-menu button { display: block; width: 100%; height: 64px; padding: 0 18px; border: 0; border-bottom: 2px solid #aaa; background: #fff; text-align: left; font: bold 20px/1 "Amazon Ember", Arial, sans-serif; }
@@ -225,6 +227,8 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .night-mode .card-actions-button, .night-mode .card-actions-menu,
 .night-mode .card-actions-menu button { background: #000; color: #eee; border-color: #eee; }
 .night-mode .controls .primary, .night-mode .auth-actions .dark-button { background: #eee; color: #000; }
+.night-mode .ratings.rating-erasing button { background: #000; border-color: #000; color: #000; }
+.night-mode .ratings.rating-erasing strong, .night-mode .ratings.rating-erasing small { color: #000; }
 .night-mode .app-header, .night-mode .deck-list { border-color: #eee; }
 .night-mode .deck-toggle { background: #000; color: #eee; }
 .night-mode .scroll-button { background: #000; color: #eee; border-color: #eee; }
