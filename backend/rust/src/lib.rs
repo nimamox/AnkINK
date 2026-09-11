@@ -12,11 +12,13 @@ use anki::collection::{Collection, CollectionBuilder};
 use anki::decks::DeckId;
 use anki::scheduler::answering::{CardAnswer, Rating};
 use anki::scheduler::states::{CardState, SchedulingStates};
+use anki::services::CardsService;
 use anki::sync::collection::normal::SyncActionRequired;
 use anki::sync::login::{sync_login, SyncAuth};
 use anki::sync::media::progress::MediaSyncProgress;
 use anki::timestamp::{TimestampMillis, TimestampSecs};
 use anki::undo::Op;
+use anki_proto::scheduler::bury_or_suspend_cards_request::Mode as BuryOrSuspendMode;
 use math::render_card_html;
 use serde_json::{json, Value};
 
@@ -194,6 +196,11 @@ impl AnkinkAnkiBackend {
             .describe_next_states(&queued.states)
             .map_err(|error| error.to_string())?;
         let id = queued.card.id();
+        let flag = collection
+            .get_card(anki_proto::cards::CardId { cid: id.0 })
+            .map_err(|error| error.to_string())?
+            .flags
+            & 0b111;
         self.next_review_token = self.next_review_token.wrapping_add(1);
         if self.next_review_token == 0 {
             self.next_review_token = 1;
@@ -209,6 +216,7 @@ impl AnkinkAnkiBackend {
             "type": "card",
             "deckId": deck_id,
             "id": id.0,
+            "flag": flag,
             "reviewToken": review_token,
             "front": render_card_html(&rendered.question()),
             "back": render_card_html(&rendered.answer()),
@@ -266,6 +274,63 @@ impl AnkinkAnkiBackend {
             .map_err(|error| error.to_string())?;
         self.pending = None;
         Ok(json!({"type": "answered", "id": card_id, "reviewToken": review_token, "rating": rating_number}))
+    }
+
+    fn card_action(
+        &mut self,
+        card_id: i64,
+        review_token: u64,
+        action: &str,
+    ) -> Result<Value, String> {
+        let pending_id = {
+            let pending = self
+                .pending
+                .as_ref()
+                .ok_or_else(|| "No queued card is awaiting an action".to_owned())?;
+            if pending.id.0 != card_id || pending.token != review_token {
+                return Err("Stale card action; reloading the current card".to_owned());
+            }
+            pending.id
+        };
+
+        let resulting_flag = match action {
+            "bury" => {
+                self.collection()?
+                    .bury_or_suspend_cards(&[pending_id], BuryOrSuspendMode::BuryUser)
+                    .map_err(|error| error.to_string())?;
+                self.pending = None;
+                None
+            }
+            "suspend" => {
+                self.collection()?
+                    .bury_or_suspend_cards(&[pending_id], BuryOrSuspendMode::Suspend)
+                    .map_err(|error| error.to_string())?;
+                self.pending = None;
+                None
+            }
+            "flag-red" => {
+                let current_flag = self
+                    .collection()?
+                    .get_card(anki_proto::cards::CardId { cid: pending_id.0 })
+                    .map_err(|error| error.to_string())?
+                    .flags
+                    & 0b111;
+                let flag = if current_flag == 1 { 0 } else { 1 };
+                self.collection()?
+                    .set_card_flag(&[pending_id], flag)
+                    .map_err(|error| error.to_string())?;
+                Some(flag)
+            }
+            _ => return Err("Unknown card action".to_owned()),
+        };
+
+        Ok(json!({
+            "type": "card-action",
+            "action": action,
+            "id": card_id,
+            "flag": resulting_flag,
+            "reviewToken": review_token
+        }))
     }
 
     fn undo(&mut self) -> Result<Value, String> {
@@ -488,6 +553,19 @@ pub extern "C" fn ankink_anki_answer(
     rating: i32,
 ) -> *mut c_char {
     ffi_json(backend, |backend| backend.answer(card_id, review_token, rating))
+}
+
+#[no_mangle]
+pub extern "C" fn ankink_anki_card_action(
+    backend: *mut AnkinkAnkiBackend,
+    card_id: i64,
+    review_token: u64,
+    action: *const c_char,
+) -> *mut c_char {
+    ffi_json(backend, |backend| {
+        let action = required_string(action, "card action")?;
+        backend.card_action(card_id, review_token, &action)
+    })
 }
 
 #[no_mangle]

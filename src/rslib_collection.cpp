@@ -159,6 +159,13 @@ std::string Collection::answer_json(std::int64_t card_id,
       ankink_anki_answer(impl_->backend_, card_id, review_token, rating));
 }
 
+std::string Collection::card_action_json(std::int64_t card_id,
+                                         std::uint64_t review_token,
+                                         const std::string &action) {
+  return take_json(ankink_anki_card_action(
+      impl_->backend_, card_id, review_token, action.c_str()));
+}
+
 std::string Collection::undo_json() {
   return take_json(ankink_anki_undo(impl_->backend_));
 }

@@ -63,13 +63,13 @@ int main() {
     execute(database,
             "CREATE TABLE notes(id INTEGER PRIMARY KEY, flds TEXT NOT NULL)");
     execute(database, "CREATE TABLE cards(id INTEGER PRIMARY KEY, nid INTEGER, "
-                      "did INTEGER, queue INTEGER, due INTEGER)");
+                      "did INTEGER, queue INTEGER, due INTEGER, flags INTEGER)");
     execute(database,
             "CREATE TABLE revlog(id INTEGER PRIMARY KEY, type INTEGER NOT NULL)");
     execute(database, "INSERT INTO decks VALUES(42, 'Languages')");
     execute(database,
             "INSERT INTO notes VALUES(100, 'bonjour' || char(31) || 'hello')");
-    execute(database, "INSERT INTO cards VALUES(200, 100, 42, 2, 1)");
+    execute(database, "INSERT INTO cards VALUES(200, 100, 42, 2, 1, 1)");
     sqlite3_close(database);
 
     ankink::Collection collection;
@@ -80,6 +80,9 @@ int main() {
             "deck is missing from JSON");
     require(collection.next_card_json(42).find("bonjour") != std::string::npos,
             "front is missing from card JSON");
+    require(collection.next_card_json(42).find("\"flag\":1") !=
+                std::string::npos,
+            "flag value is missing from card JSON");
 
     const auto empty_activity = collection.review_activity_json();
     require(empty_activity.find("\"todayCount\":0") != std::string::npos,
@@ -116,6 +119,21 @@ int main() {
             "365-day total is incorrect");
     require(occurrences(activity, "\"date\":") == 365,
             "populated activity range must remain exactly 365 days");
+
+    const auto flag = collection.card_action_json(200, 0, "flag-red");
+    require(flag.find("\"flag\":0") != std::string::npos,
+            "existing red flag was not cleared");
+    require(collection.next_card_json(42).find("\"flag\":0") !=
+                std::string::npos,
+            "cleared red flag was not persisted");
+    require(collection.card_action_json(200, 0, "flag-red")
+                .find("\"flag\":1") != std::string::npos,
+            "unflagged card was not flagged red");
+    require(collection.next_card_json(42).find("bonjour") != std::string::npos,
+            "toggling the flag unexpectedly retired the current card");
+    require(collection.card_action_json(200, 0, "unknown")
+                .find("Unknown card action") != std::string::npos,
+            "unknown card action was accepted");
 
     const auto answer = collection.answer_json(200, 0, 3);
     require(answer.find("answered") != std::string::npos,

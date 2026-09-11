@@ -12,12 +12,12 @@ SIMULATOR_ASSETS=$3
 STATE=$4
 COLLECTION="$STATE/collection.anki2"
 LOG="$STATE/ankinkd.log"
-URL=http://127.0.0.1:8765/simulator/
+URL=http://127.0.0.1:9257/simulator/
 
 mkdir -p "$STATE"
 chmod 700 "$STATE"
-if curl --silent --fail http://127.0.0.1:8765/health >/dev/null 2>&1; then
-  echo "Port 8765 is already occupied by an AnkINK daemon. Stop it and run again." >&2
+if curl --silent --fail http://127.0.0.1:9257/health >/dev/null 2>&1; then
+  echo "Port 9257 is already occupied by an AnkINK daemon. Stop it and run again." >&2
   exit 1
 fi
 
@@ -32,7 +32,7 @@ trap cleanup EXIT
 trap 'exit 0' INT TERM HUP
 
 for _ in {1..60}; do
-  if curl --silent --fail http://127.0.0.1:8765/health >/dev/null 2>&1; then break; fi
+  if curl --silent --fail http://127.0.0.1:9257/health >/dev/null 2>&1; then break; fi
   if ! kill -0 "$PID" >/dev/null 2>&1; then
     echo "AnkINK failed to start:" >&2
     tail -n 40 "$LOG" >&2
@@ -40,7 +40,7 @@ for _ in {1..60}; do
   fi
   sleep 0.1
 done
-curl --silent --fail http://127.0.0.1:8765/health >/dev/null || {
+curl --silent --fail http://127.0.0.1:9257/health >/dev/null || {
   echo "AnkINK did not become ready; see $LOG" >&2
   exit 1
 }

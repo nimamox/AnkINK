@@ -1,9 +1,9 @@
 (function () {
   "use strict";
-  var API = "http://127.0.0.1:8765";
+  var API = "http://127.0.0.1:9257";
   var MEDIA_VERSION = String(new Date().getTime());
   var state = { deck: null, card: null, reviewed: 0, answerShown: false,
-    cardLoading: false, answerInFlight: false, undoInFlight: false,
+    cardLoading: false, answerInFlight: false, undoInFlight: false, cardActionInFlight: false,
     syncInFlight: false, operationEpoch: 0 };
   var warningTimer = null;
   var busyReasons = {};
@@ -100,7 +100,7 @@
         updateRotationButton();
         applyRotationMode();
         warning(error);
-      }, 0);
+    }, 0);
   }
   /* ROTATION_LOGIC_END */
 
@@ -529,7 +529,7 @@
       afterSettingsSaved(closeApplication);
       return;
     }
-    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) {
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight || state.syncInFlight) {
       warning("Please wait for the current operation to finish.");
       return;
     }
@@ -629,7 +629,7 @@
             for (i = child.attributes.length - 1; i >= 0; --i) {
               attribute = child.attributes[i]; name = attribute.name.toLowerCase();
               value = attribute.value.toLowerCase();
-              if (name === "src" && child.tagName === "IMG" && value.indexOf("data:image/") !== 0 && value.indexOf("http://127.0.0.1:8765/api/media/") !== 0) {
+              if (name === "src" && child.tagName === "IMG" && value.indexOf("data:image/") !== 0 && value.indexOf("http://127.0.0.1:9257/api/media/") !== 0) {
                 if (value.indexOf("..") < 0 && value.indexOf(":") < 0 && value.indexOf("/") < 0) {
                   child.setAttribute("data-ankink-media", attribute.value);
                   child.setAttribute("src", "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=");
@@ -641,7 +641,7 @@
                 if (value) child.setAttribute("style", value); else child.removeAttribute("style");
               } else if (name.indexOf("on") === 0 || name === "srcset" ||
                   (name === "src" && value.indexOf("data:image/") !== 0 &&
-                    value.indexOf("http://127.0.0.1:8765/api/media/") !== 0) ||
+                    value.indexOf("http://127.0.0.1:9257/api/media/") !== 0) ||
                   (name === "href" && value.indexOf("#") !== 0))
                 child.removeAttribute(attribute.name);
             }
@@ -1165,8 +1165,16 @@
     byId("session-count").innerHTML = counts["new"] + " new &middot; " +
       counts.learning + " learn &middot; " + counts.review + " review";
   }
+  function updateCardFlag(flag) {
+    var marker = byId("card-flag");
+    flag = parseInt(flag, 10) || 0;
+    if (flag > 0) {
+      marker.innerHTML = flag === 1 ? "&#x2691;" : "&#x2690;";
+      show(marker);
+    } else hide(marker);
+  }
   function openDeck(deck) {
-    if (state.syncInFlight || state.cardLoading || state.answerInFlight || state.undoInFlight) return;
+    if (state.syncInFlight || state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight) return;
     state.deck = deck; state.reviewed = 0; byId("review-title").innerHTML = "";
     byId("review-title").appendChild(document.createTextNode(deckName(deck.name)));
     updateCounts(deck); hide(byId("decks-view")); hide(byId("sync")); show(byId("review-view")); nextCard(); scheduleScrollButtonUpdate();
@@ -1179,7 +1187,7 @@
   }
   function syncNow(done) {
     if (state.syncInFlight) { if (done) done(false); return; }
-    if (state.deck || state.cardLoading || state.answerInFlight || state.undoInFlight) {
+    if (state.deck || state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight) {
       warning("Return to Decks before synchronizing.");
       if (done) done(false);
       return;
@@ -1230,6 +1238,9 @@
     setBusy("card", true);
     state.card = null;
     state.answerShown = false;
+    updateCardFlag(0);
+    hideCardActionsMenu();
+    hide(byId("card-actions-button"));
     resetCardScroll();
     byId("front").innerHTML = "Loading..."; hide(byId("back-face")); hide(byId("answer-divider"));
     hide(byId("rating-controls")); show(byId("show-controls"));
@@ -1248,6 +1259,7 @@
           return;
         }
         state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
+        updateCardFlag(card.flag);
         safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields");
         collectCardMath(); applyNightCardAppearance(); resetCardScroll(); scheduleMathRepair(0);
         updateCounts(card.counts);
@@ -1256,18 +1268,21 @@
             byId("rating-" + (i + 1)).getElementsByTagName("small")[0].innerHTML = card.buttons[i].interval;
           }
         }
+        show(byId("card-actions-button"));
         runScheduledRefresh();
         scheduleScrollButtonUpdate();
     }, 1);
   }
   function isReviewStateError(message) {
     return message === "No queued card is awaiting an answer" ||
+      message === "No queued card is awaiting an action" ||
       message.indexOf("Stale review command") === 0 ||
+      message.indexOf("Stale card action") === 0 ||
       message.indexOf("not the current queued card") >= 0;
   }
   function answer(rating) {
     var cardId, reviewToken, answerEpoch;
-    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
+    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight || state.syncInFlight) return;
     cardId = state.card.id; reviewToken = state.card.reviewToken;
     if (!reviewToken) { warning("Reloading card..."); nextCard(); return; }
     state.operationEpoch += 1;
@@ -1296,7 +1311,8 @@
       }, 0);
   }
   function showAnswer() {
-    if (state.card && !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight) {
+    if (state.card && !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.cardActionInFlight && !state.syncInFlight) {
+      hideCardActionsMenu();
       state.answerShown = true; show(byId("back-face")); show(byId("answer-divider"));
       hide(byId("show-controls")); show(byId("rating-controls"));
       if (byId("answer-divider").scrollIntoView) byId("answer-divider").scrollIntoView(true);
@@ -1305,26 +1321,81 @@
   }
   function undoAnswer() {
     var undoEpoch;
-    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) return;
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight || state.syncInFlight) return;
     state.operationEpoch += 1;
     undoEpoch = state.operationEpoch;
     state.undoInFlight = true;
     setBusy("undo", true);
     request("POST", "/api/undo", "", function (error, result) {
       if (undoEpoch !== state.operationEpoch) return;
-        state.undoInFlight = false;
-        setBusy("undo", false);
-        if (error || !result) { warning(error || "Undo failed."); return; }
-        if (result.type === "undo-empty") return;
-        if (result.type === "error") { warning(result.message); return; }
-        if (state.reviewed > 0) state.reviewed -= 1;
-        storePendingFromResult(result, pendingReviews - 1);
-        if (result.statePersisted === false)
-          warning("Undo succeeded, but AnkINK could not persist its local state.");
-        else warning("");
-        nextCard();
+      state.undoInFlight = false;
+      setBusy("undo", false);
+      if (error || !result) { warning(error || "Undo failed."); return; }
+      if (result.type === "undo-empty") return;
+      if (result.type === "error") { warning(result.message); return; }
+      if (state.reviewed > 0) state.reviewed -= 1;
+      storePendingFromResult(result, pendingReviews - 1);
+      if (result.statePersisted === false)
+        warning("Undo succeeded, but AnkINK could not persist its local state.");
+      else warning("");
+      nextCard();
     }, 0);
   }
+  /* CARD_ACTIONS_BEGIN */
+  function hideCardActionsMenu() {
+    hide(byId("card-actions-menu"));
+    byId("card-actions-button").setAttribute("aria-expanded", "false");
+  }
+  function toggleCardActionsMenu(event) {
+    var menu = byId("card-actions-menu");
+    event = event || window.event;
+    if (event && event.stopPropagation) event.stopPropagation();
+    else if (event) event.cancelBubble = true;
+    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight ||
+        state.cardActionInFlight || state.syncInFlight) return false;
+    if (menu.className.indexOf("hidden") >= 0) {
+      show(menu);
+      byId("card-actions-button").setAttribute("aria-expanded", "true");
+    } else hideCardActionsMenu();
+    return false;
+  }
+  function performCardAction(action) {
+    var cardId, reviewToken, actionEpoch;
+    hideCardActionsMenu();
+    if (action === "undo") { undoAnswer(); return; }
+    if (!state.card || state.cardLoading || state.answerInFlight || state.undoInFlight ||
+        state.cardActionInFlight || state.syncInFlight) return;
+    cardId = state.card.id;
+    reviewToken = state.card.reviewToken;
+    if (!reviewToken) { warning("Reloading card..."); nextCard(); return; }
+    state.operationEpoch += 1;
+    actionEpoch = state.operationEpoch;
+    state.cardActionInFlight = true;
+    setBusy("card-action", true);
+    request("POST", "/api/card-action", "card=" + encodeURIComponent(cardId) +
+      "&token=" + encodeURIComponent(reviewToken) +
+      "&action=" + encodeURIComponent(action), function (error, result) {
+        var message;
+        if (actionEpoch !== state.operationEpoch) return;
+        state.cardActionInFlight = false;
+        setBusy("card-action", false);
+        if (error || !result || result.type === "error") {
+          message = error || (result && result.message) || "Card action failed.";
+          if (isReviewStateError(message)) { warning("Reloading card..."); nextCard(); }
+          else warning(message);
+          return;
+        }
+        if (action === "flag-red") {
+          state.card.flag = parseInt(result.flag, 10) || 0;
+          updateCardFlag(state.card.flag);
+          warning(state.card.flag === 1 ? "Card flagged red." : "Card unflagged.");
+          return;
+        }
+        warning("");
+        nextCard();
+      }, 0);
+  }
+  /* CARD_ACTIONS_END */
   function cardCanScrollDown() {
     var card = byId("card");
     return card.scrollTop + card.clientHeight < card.scrollHeight - 8;
@@ -1365,7 +1436,7 @@
     return !!state.deck && byId("review-view").className.indexOf("hidden") < 0 &&
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
       byId("about-dialog").className.indexOf("hidden") >= 0 &&
-      !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight;
+      !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.cardActionInFlight && !state.syncInFlight;
   }
   function deckListReadyForInput() {
     return !state.deck && byId("decks-view").className.indexOf("hidden") < 0 &&
@@ -1373,7 +1444,7 @@
       byId("about-dialog").className.indexOf("hidden") >= 0 &&
       byId("auth-panel").className.indexOf("hidden") >= 0 &&
       byId("full-sync-panel").className.indexOf("hidden") >= 0 &&
-      !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.syncInFlight;
+      !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.cardActionInFlight && !state.syncInFlight;
   }
   function pageButtonInputReady() {
     return reviewerReadyForInput() || deckListReadyForInput();
@@ -1422,11 +1493,22 @@
   byId("show-answer").onclick = showAnswer;
   byId("rating-1").onclick = function () { answer(1); }; byId("rating-2").onclick = function () { answer(2); };
   byId("rating-3").onclick = function () { answer(3); }; byId("rating-4").onclick = function () { answer(4); };
+  byId("card-actions-button").onclick = toggleCardActionsMenu;
+  byId("card-actions-menu").onclick = function (event) {
+    event = event || window.event;
+    if (event && event.stopPropagation) event.stopPropagation();
+    else if (event) event.cancelBubble = true;
+  };
+  byId("card-action-undo").onclick = function () { performCardAction("undo"); };
+  byId("card-action-bury").onclick = function () { performCardAction("bury"); };
+  byId("card-action-suspend").onclick = function () { performCardAction("suspend"); };
+  byId("card-action-flag-red").onclick = function () { performCardAction("flag-red"); };
   byId("back").onclick = function () {
-    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.syncInFlight) {
+    if (state.cardLoading || state.answerInFlight || state.undoInFlight || state.cardActionInFlight || state.syncInFlight) {
       warning("Please wait for the current operation to finish."); return;
     }
     state.operationEpoch += 1;
+    hideCardActionsMenu(); hide(byId("card-actions-button"));
     hide(byId("review-view")); show(byId("decks-view")); state.deck = null; state.card = null;
     show(byId("sync"));
     byId("decks-view").scrollTop = 0;
@@ -1454,7 +1536,7 @@
     selectedRadio("full-refresh", fullRefreshMode);
     selectedRadio("night-card-mode", nightCardMode);
     byId("card-font").value = cardFont;
-    hideSettingsTooltip();
+    hideSettingsTooltip(); hideCardActionsMenu();
     show(byId("settings-dialog"));
   };
   byId("settings-close").onclick = function () {
@@ -1489,7 +1571,7 @@
     };
     byId("settings-tooltip").onclick = hideSettingsTooltip;
     byId("settings-dialog").onscroll = hideSettingsTooltip;
-    document.onclick = hideSettingsTooltip;
+    document.onclick = function () { hideSettingsTooltip(); hideCardActionsMenu(); };
   }());
   (function () {
     var pageButtons = document.getElementsByName("page-buttons");

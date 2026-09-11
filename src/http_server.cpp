@@ -350,6 +350,16 @@ void HttpServer::handle_client(int client) noexcept {
                               persisted);
       });
       respond(client, 200, "OK", "application/json; charset=utf-8", body);
+    } else if (request.method == "POST" &&
+               request.target == "/api/card-action") {
+      const auto card = integer(form_value(request.body, "card"), "card");
+      const auto token = integer(form_value(request.body, "token"), "review token");
+      const std::string action = form_value(request.body, "action");
+      const std::string body = collection_call([this, card, token, action] {
+        return collection_.card_action_json(
+            card, static_cast<std::uint64_t>(token), action);
+      });
+      respond(client, 200, "OK", "application/json; charset=utf-8", body);
     } else if (request.method == "POST" && request.target == "/api/undo") {
       const std::string body = collection_call([this] {
         std::string result = collection_.undo_json();

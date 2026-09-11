@@ -38,7 +38,14 @@ const sync = between(frontend, "function syncNow(done)", "function nextCard()");
 const close = between(frontend, "function closeApplication()", "function warning(message)");
 const mediaLoading = between(frontend, "function loadMediaImage", "function answerOnly");
 const rustAnswer = between(backend, "fn answer(&mut self", "fn undo(&mut self)");
+const rustCardAction = between(backend, "fn card_action(", "fn undo(&mut self)");
 const rustUndo = between(backend, "fn undo(&mut self)", "fn login(&mut self");
+const cardActions = between(frontend, "/* CARD_ACTIONS_BEGIN */", "/* CARD_ACTIONS_END */");
+
+// The Mesquite frontend and Kindle launcher share AnkINK's dedicated loopback port.
+assert.match(frontend, /var API = "http:\/\/127\.0\.0\.1:9257"/);
+assert.doesNotMatch(frontend, /8765/);
+assert.match(runKindle, /--port 9257/);
 
 // The daemon owns durable state; the frontend only mirrors returned counts.
 assert.doesNotMatch(frontend, /localStorage|sessionStorage/);
@@ -273,7 +280,8 @@ assert.match(httpServer,
     Date,
     pageButtonMode: "normal",
     state: {deck: {}, card: {}, answerShown: false, cardLoading: false,
-      answerInFlight: false, undoInFlight: false, syncInFlight: false},
+      answerInFlight: false, undoInFlight: false, cardActionInFlight: false,
+      syncInFlight: false},
     byId: function (name) {
       return {className: name === "review-view" ? "" : "hidden"};
     },
@@ -310,9 +318,31 @@ assert.match(httpServer,
 }
 assert.match(frontend, /hide\(byId\("sync"\)\).*show\(byId\("review-view"\)\)/);
 assert.match(loadDecks, /show\(byId\("sync"\)\)/);
-assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.syncInFlight\) return;/);
+assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.cardActionInFlight \|\| state\.syncInFlight\) return;/);
 assert.match(undo, /state\.undoInFlight = true;/);
 assert.match(loading, /state\.cardLoading = false/);
+
+// A fixed 88px card-actions button sits beside either equal-width review
+// control bar. Its ES5 menu dispatches official, generation-bound card actions.
+assert.match(index, /id="card-actions-button"[^>]*>&#xE6FA;<\/button>/);
+assert.match(index, /id="card-actions-menu"[\s\S]*>Undo<\/button>[\s\S]*>Bury card<\/button>[\s\S]*>Suspend card<\/button>[\s\S]*>Flag \(Red\)<\/button>/);
+assert.match(index, /class="review-title"[\s\S]*id="card-flag"[^>]*>&#x2691;<\/div>[\s\S]*id="session-count"/);
+assert.match(appCss, /\.controls\s*{[^}]*left:\s*100px;[^}]*width:\s*auto;[^}]*height:\s*112px;/);
+assert.match(appCss, /\.card-actions-button\s*{[^}]*width:\s*88px;[^}]*height:\s*88px;[^}]*font:[^}]*"Code2000"/);
+assert.match(appCss, /\.card-flag\s*{[^}]*width:\s*46px;[^}]*font:[^}]*"Code2000"/);
+assert.match(cardActions, /request\("POST", "\/api\/card-action"/);
+assert.match(cardActions, /card=" \+ encodeURIComponent\(cardId\)[\s\S]*&token=" \+ encodeURIComponent\(reviewToken\)[\s\S]*&action=" \+ encodeURIComponent\(action\)/);
+assert.match(frontend, /function updateCardFlag\(flag\)[\s\S]*flag === 1 \? "&#x2691;" : "&#x2690;"/);
+assert.match(cardActions, /if \(action === "flag-red"\)[\s\S]*state\.card\.flag = parseInt\(result\.flag, 10\) \|\| 0;[\s\S]*updateCardFlag\(state\.card\.flag\)[\s\S]*"Card unflagged\."[\s\S]*return;[\s\S]*nextCard\(\)/);
+assert.match(loading, /updateCardFlag\(0\)[\s\S]*updateCardFlag\(card\.flag\)/);
+assert.match(httpServer, /request\.target == "\/api\/card-action"/);
+assert.match(rustCardAction, /pending\.id\.0 != card_id \|\| pending\.token != review_token/);
+assert.match(rustCardAction, /BuryOrSuspendMode::BuryUser/);
+assert.match(rustCardAction, /BuryOrSuspendMode::Suspend/);
+assert.match(rustCardAction, /let flag = if current_flag == 1 \{ 0 \} else \{ 1 \};[\s\S]*set_card_flag\(&\[pending_id\], flag\)[\s\S]*Some\(flag\)/);
+assert.match(backend, /get_card\(anki_proto::cards::CardId \{ cid: id\.0 \}\)[\s\S]*\.flags[\s\S]*& 0b111[\s\S]*"flag": flag/);
+assert.equal((rustCardAction.match(/self\.pending = None/g) || []).length, 2,
+  "bury and suspend must retire the pending card, while flagging must not");
 
 // Review commands are generation-bound and recover from stale UI/backend state.
 assert.match(answer, /state\.card\.reviewToken/);
@@ -418,6 +448,6 @@ assert.match(frontend, /function showSettingsTooltip\(button\)/);
 assert.match(frontend, /button\.getAttribute\("data-help"\)/);
 assert.match(frontend, /byId\("settings-dialog"\)\.onscroll = hideSettingsTooltip/);
 assert.match(frontend, /event\.stopPropagation\(\)/);
-assert.match(frontend, /document\.onclick = hideSettingsTooltip/);
+assert.match(frontend, /document\.onclick = function \(\) \{ hideSettingsTooltip\(\); hideCardActionsMenu\(\); \};/);
 
 console.log("reviewer contract tests passed");

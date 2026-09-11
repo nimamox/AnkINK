@@ -18,7 +18,7 @@ struct ServerOptions {
   std::string data_dir{"/var/local/ankink"};
   std::string asset_dir{"assets"};
   std::string simulator_asset_dir{"simulator"};
-  std::uint16_t port{8765};
+  std::uint16_t port{9257};
   bool simulator{};
   std::size_t worker_count{4};
   // A zero-cost production default and a deterministic integration-test seam.

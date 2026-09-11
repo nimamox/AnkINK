@@ -75,7 +75,7 @@ cmake --build cmake-build-simulator --target ankink_simulator
 ```
 
 The first build downloads the pinned Anki source and Rust crates. The target
-starts `ankinkd`, opens `http://127.0.0.1:8765/simulator/` in the default
+starts `ankinkd`, opens `http://127.0.0.1:9257/simulator/` in the default
 browser, and stops the daemon when the target is stopped. The wrapper defaults
 to the Kindle Oasis 8th generation and can switch among the supported Kindle
 profiles. Its Backward/Forward buttons and Page Up/Page Down or arrow keys call
@@ -176,7 +176,7 @@ tar -C dist -czf AnkINK-kindle.tar.gz ankink extensions documents
 To install the result over SSH instead of USB:
 
 ```sh
-./push_over_ssh.sh root@192.168.15.244
+./push_over_ssh.sh root@192.168.8.195
 ```
 
 The deployment script prefers `rsync` and falls back to `scp`. It updates

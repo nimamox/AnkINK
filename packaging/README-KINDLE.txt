@@ -24,7 +24,7 @@ On first launch, sign into AnkiWeb. AnkINK stores only
    the returned host key under /var/local/ankink; it does not save the password.
 
 The launcher first closes any old AnkINK UI/backend, starts the bundled ankinkd
-backend on 127.0.0.1:8765, installs the HTML application at a content-versioned
+backend on 127.0.0.1:9257, installs the HTML application at a content-versioned
 path under /var/local/mesquite, registers org.ankink.app, and launches it through
 Amazon's app manager. The UI Close button exits both the UI and backend.
 The UI removes the otherwise-empty native navigation strip and renders Anki

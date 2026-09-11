@@ -26,6 +26,9 @@ public:
   [[nodiscard]] std::string next_card_json(std::int64_t deck_id);
   [[nodiscard]] std::string answer_json(std::int64_t card_id,
                                         std::uint64_t review_token, int rating);
+  [[nodiscard]] std::string card_action_json(std::int64_t card_id,
+                                             std::uint64_t review_token,
+                                             const std::string &action);
   [[nodiscard]] std::string undo_json();
   [[nodiscard]] std::string login_json(const std::string &username,
                                        const std::string &password);

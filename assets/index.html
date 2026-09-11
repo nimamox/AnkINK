@@ -160,12 +160,20 @@
     <div class="review-toolbar">
       <button id="back" class="text-button" type="button" style="margin-top: 10px;">«  Decks</button>
       <div class="review-title"><h2 id="review-title">Deck</h2></div>
+      <div id="card-flag" class="card-flag hidden" title="Flagged card" aria-label="Flagged card">&#x2691;</div>
       <div id="session-count" class="session-count">0 new &middot; 0 learn &middot; 0 review</div>
     </div>
     <div id="card" class="card">
       <div id="front" class="card-face">Loading...</div>
       <div id="answer-divider" class="answer-divider hidden">ANSWER</div>
       <div id="back-face" class="card-face answer hidden"></div>
+    </div>
+    <button id="card-actions-button" class="card-actions-button hidden" type="button" title="Card actions" aria-label="Card actions" aria-expanded="false">&#xE6FA;</button>
+    <div id="card-actions-menu" class="card-actions-menu hidden" role="menu" aria-label="Card actions">
+      <button id="card-action-undo" type="button" role="menuitem">Undo</button>
+      <button id="card-action-bury" type="button" role="menuitem">Bury card</button>
+      <button id="card-action-suspend" type="button" role="menuitem">Suspend card</button>
+      <button id="card-action-flag-red" type="button" role="menuitem">Flag (Red)</button>
     </div>
     <div id="show-controls" class="controls">
       <button id="show-answer" class="primary" type="button">Show answer</button>
@@ -181,6 +189,6 @@
     <button id="scroll-up" class="scroll-button scroll-up hidden" type="button" title="Scroll up">&#9650;</button>
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
-  <script src="app-settings.js?v=20260830-4-activity-wide"></script>
+  <script src="app-settings.js?v=20260910-2-port9257"></script>
 </body>
 </html>

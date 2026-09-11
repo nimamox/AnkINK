@@ -8,6 +8,7 @@
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -127,6 +128,7 @@ public:
       database_ = nullptr;
     }
     reviewed_.clear();
+    flag_overrides_.clear();
     const int result =
         sqlite3_open_v2(path.c_str(), &database_,
                         SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nullptr);
@@ -246,7 +248,7 @@ public:
 
     Statement statement(
         database_,
-        "SELECT c.id, n.flds FROM cards c JOIN notes n ON n.id = c.nid "
+        "SELECT c.id, n.flds, c.flags FROM cards c JOIN notes n ON n.id = c.nid "
         "WHERE c.did = ?1 AND c.queue >= 0 ORDER BY c.due, c.id LIMIT 256");
     sqlite3_bind_int64(statement.get(), 1, deck_id);
     while (sqlite3_step(statement.get()) == SQLITE_ROW) {
@@ -254,6 +256,10 @@ public:
       if (reviewed_.count(card_id))
         continue;
       auto fields = split_fields(text_column(statement.get(), 1));
+      const auto override = flag_overrides_.find(card_id);
+      const int flag = override == flag_overrides_.end()
+                           ? sqlite3_column_int(statement.get(), 2) & 7
+                           : override->second;
       const std::string front = fields.empty() ? std::string{} : fields.front();
       std::ostringstream back;
       for (std::size_t index = 1; index < fields.size(); ++index) {
@@ -263,6 +269,7 @@ public:
       }
       return std::string(R"({"type":"card","deckId":)") +
              std::to_string(deck_id) + R"(,"id":)" + std::to_string(card_id) +
+             R"(,"flag":)" + std::to_string(flag) +
              R"(,"front":)" + json_string(front) + R"(,"back":)" +
              json_string(back.str()) + "}";
     }
@@ -281,9 +288,40 @@ public:
            "}";
   }
 
+  std::string card_action_json(std::int64_t card_id,
+                               const std::string &action) {
+    if (!database_)
+      return R"({"type":"error","message":"No collection is open"})";
+    if (action != "bury" && action != "suspend" && action != "flag-red")
+      return R"({"type":"error","message":"Unknown card action"})";
+    if (action == "flag-red") {
+      int current_flags = 0;
+      {
+        Statement select(database_, "SELECT flags FROM cards WHERE id = ?1");
+        sqlite3_bind_int64(select.get(), 1, card_id);
+        if (sqlite3_step(select.get()) != SQLITE_ROW)
+          return R"({"type":"error","message":"Card was not found"})";
+        current_flags = sqlite3_column_int(select.get(), 0);
+      }
+      const auto override = flag_overrides_.find(card_id);
+      const int current_flag = override == flag_overrides_.end()
+                                   ? current_flags & 7
+                                   : override->second;
+      const int flag = current_flag == 1 ? 0 : 1;
+      flag_overrides_[card_id] = flag;
+      return std::string(R"({"type":"card-action","action":"flag-red","id":)") +
+             std::to_string(card_id) + R"(,"flag":)" + std::to_string(flag) +
+             "}";
+    }
+    reviewed_.insert(card_id);
+    return std::string(R"({"type":"card-action","action":")") + action +
+           R"(","id":)" + std::to_string(card_id) + "}";
+  }
+
   sqlite3 *database_{};
   std::string path_;
   std::unordered_set<std::int64_t> reviewed_;
+  std::unordered_map<std::int64_t, int> flag_overrides_;
 };
 
 Collection::Collection() : impl_(std::make_unique<Impl>()) {}
@@ -306,6 +344,12 @@ std::string Collection::next_card_json(std::int64_t deck_id) {
 std::string Collection::answer_json(std::int64_t card_id,
                                     std::uint64_t, int rating) {
   return impl_->answer_json(card_id, rating);
+}
+
+std::string Collection::card_action_json(std::int64_t card_id,
+                                         std::uint64_t,
+                                         const std::string &action) {
+  return impl_->card_action_json(card_id, action);
 }
 
 std::string Collection::undo_json() {

@@ -17,6 +17,8 @@ char *ankink_anki_review_activity(AnkinkAnkiBackend *backend);
 char *ankink_anki_next_card(AnkinkAnkiBackend *backend, int64_t deck_id);
 char *ankink_anki_answer(AnkinkAnkiBackend *backend, int64_t card_id,
                          uint64_t review_token, int32_t rating);
+char *ankink_anki_card_action(AnkinkAnkiBackend *backend, int64_t card_id,
+                              uint64_t review_token, const char *action);
 char *ankink_anki_undo(AnkinkAnkiBackend *backend);
 char *ankink_anki_login(AnkinkAnkiBackend *backend, const char *username,
                         const char *password);
