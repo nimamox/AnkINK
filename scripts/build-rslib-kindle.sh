@@ -36,9 +36,36 @@ cargo "+$RUST_TOOLCHAIN" build --release --target "$RUST_TARGET" \
   --manifest-path "$RUST_MANIFEST"
 
 RSLIB="${CARGO_TARGET_DIR:-$(dirname "$RUST_MANIFEST")/target}/$RUST_TARGET/release/libankink_anki_backend.a"
+
+# The Docker build directory lives in a reusable named volume, while /workspace
+# may be populated by rsync with preserved (and therefore older) mtimes. Ninja
+# cannot detect changed source content when a cached object happens to be newer
+# than that source. Clean only the small CMake build when its input content has
+# changed; Cargo and Docker caches remain intact.
+CMAKE_INPUT_FINGERPRINT=$(
+  {
+    printf '%s\n' "$ANKINK_ROOT/CMakeLists.txt"
+    find "$ANKINK_ROOT/cmake" "$ANKINK_ROOT/include" "$ANKINK_ROOT/src" \
+      -type f -print
+  } | LC_ALL=C sort | while IFS= read -r ANKINK_INPUT; do
+    sha256sum "$ANKINK_INPUT"
+  done | sha256sum | awk '{print $1}'
+)
+CMAKE_FINGERPRINT_FILE="$KINDLE_BUILD_DIR/.ankink-cmake-input-fingerprint"
+CMAKE_INPUTS_CHANGED=1
+if [ -f "$CMAKE_FINGERPRINT_FILE" ] &&
+   [ "$(cat "$CMAKE_FINGERPRINT_FILE")" = "$CMAKE_INPUT_FINGERPRINT" ]; then
+  CMAKE_INPUTS_CHANGED=0
+fi
+
 KINDLE_ABI="$KINDLE_ABI" cmake -S "$ANKINK_ROOT" -B "$KINDLE_BUILD_DIR" \
   -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel \
   -DCMAKE_TOOLCHAIN_FILE="$ANKINK_ROOT/cmake/kindle-debian-toolchain.cmake" \
   -DANKINK_BUILD_APP=ON -DANKINK_BUILD_TESTS=OFF -DANKINK_USE_RSLIB=ON \
   -DANKINK_RSLIB_LIBRARY="$RSLIB"
+if [ "$CMAKE_INPUTS_CHANGED" -eq 1 ]; then
+  echo "AnkINK CMake inputs changed; invalidating cached C++ objects."
+  KINDLE_ABI="$KINDLE_ABI" cmake --build "$KINDLE_BUILD_DIR" --target clean
+fi
 KINDLE_ABI="$KINDLE_ABI" cmake --build "$KINDLE_BUILD_DIR"
+printf '%s\n' "$CMAKE_INPUT_FINGERPRINT" > "$CMAKE_FINGERPRINT_FILE"

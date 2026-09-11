@@ -1448,10 +1448,18 @@
     var card = byId("card");
     return card.scrollTop + card.clientHeight < card.scrollHeight - 8;
   }
+  function cardCanScrollUp() {
+    return byId("card").scrollTop > 8;
+  }
   function scrollCardForward() {
     var card = byId("card");
     card.scrollTop = Math.min(card.scrollHeight - card.clientHeight,
       card.scrollTop + Math.max(1, Math.floor(card.clientHeight * 0.85)));
+  }
+  function scrollCardBackward() {
+    var card = byId("card");
+    card.scrollTop = Math.max(0,
+      card.scrollTop - Math.max(1, Math.floor(card.clientHeight * 0.85)));
   }
   function fullRefresh() {
     if (state.refreshInFlight) return;
@@ -1510,7 +1518,11 @@
       if (!state.card) return;
       if (cardCanScrollDown()) scrollCardForward();
       else if (state.answerShown) answer(3); else showAnswer();
-    } else undoAnswer();
+    } else {
+      if (!state.card) return;
+      if (cardCanScrollUp()) scrollCardBackward();
+      else undoAnswer();
+    }
   }
   function pageButtonKeyDown(event) {
     var code, now;

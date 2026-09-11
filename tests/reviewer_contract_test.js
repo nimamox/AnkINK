@@ -68,13 +68,14 @@ assert.match(whisperTouch, /win_mgr_utils_new_application_name/);
 assert.match(whisperTouch, /win_mgr_utils_add_is_wisper_touch_supported/);
 assert.match(whisperTouch, /win_mgr_utils_new_name\(0, "application"\)/);
 assert.match(whisperTouch, /win_mgr_utils_add_is_wisper_touch_supported\(name, 1\)/);
-assert.match(index, /id="sync"[\s\S]*id="rotation"[\s\S]*id="refresh"/);
+assert.match(index, /class="header-actions"[\s\S]*id="close"[\s\S]*id="refresh"[\s\S]*id="rotation"[\s\S]*id="sync"[\s\S]*id="night-mode"[\s\S]*class="font-controls"/);
 const headerActions = index.match(/<div class="header-actions">([\s\S]*?)<\/div>/)[1];
 assert.equal([...headerActions.matchAll(/<button\b/g)].length, 7,
   "header must contain exactly seven uniformly sized action buttons");
 assert.match(index, /id="busy-indicator" class="busy-indicator"/);
 assert.match(appCss, /\.header-actions > button, \.font-controls button\s*{[^}]*width:\s*66px;[^}]*height:\s*66px;/);
-assert.match(appCss, /\.header-actions\s*{[^}]*width:\s*492px;/);
+assert.match(appCss, /\.header-actions\s*{[^}]*position:\s*fixed;[^}]*right:\s*4%;[^}]*width:\s*492px;/);
+assert.match(appCss, /\.header-actions > button, \.header-actions > \.font-controls\s*{[^}]*float:\s*right;/);
 for (const width of [758, 1024, 1080, 1440]) {
   const compact = width <= 900;
   const inset = width * 0.04;
@@ -255,7 +256,9 @@ assert.match(close, /"\/api\/quit", "", function \(\) \{ closeInterface\(\); \}/
 assert.doesNotMatch(close, /setTimeout\(closeInterface/);
 assert.match(pageButtons, /pageButtonMode === "normal" && action === "forward"/);
 assert.match(pageButtons, /pageButtonMode === "reversed" && action === "backward"/);
-assert.match(pageButtons, /if \(!state\.card\) return;[\s\S]*else undoAnswer\(\)/);
+assert.match(frontend, /function cardCanScrollUp\(\)[\s\S]*scrollTop > 8/);
+assert.match(frontend, /function scrollCardBackward\(\)[\s\S]*scrollTop = Math\.max\(0,/);
+assert.match(pageButtons, /if \(cardCanScrollUp\(\)\) scrollCardBackward\(\);[\s\S]*else undoAnswer\(\)/);
 
 // Rapid input cannot overlap answer/undo/loading transitions.
 assert.match(frontend, /function reviewerReadyForInput\(\)[\s\S]*state\.cardLoading[\s\S]*state\.answerInFlight[\s\S]*state\.undoInFlight[\s\S]*state\.syncInFlight/);
@@ -287,13 +290,16 @@ assert.match(httpServer,
       return {className: name === "review-view" ? "" : "hidden"};
     },
     cardCanScrollDown: function () { return false; },
+    cardCanScrollUp: function () { return context.canScrollUp; },
     scrollCardForward: function () { calls.push("scroll-card"); },
+    scrollCardBackward: function () { calls.push("scroll-card-backward"); },
     showAnswer: function () { calls.push("show-answer"); },
     answer: function () { calls.push("answer"); },
     undoAnswer: function () { calls.push("undo"); },
     pageScroll: function (direction) { calls.push("scroll:" + direction); },
     document: {addEventListener: function (name, listener) { listeners[name] = listener; }},
-    window: {event: null, location: {protocol: "file:"}}
+    window: {event: null, location: {protocol: "file:"}},
+    canScrollUp: true
   };
   function key(code) {
     return {keyCode: code, prevented: 0, stopped: 0,
@@ -310,15 +316,22 @@ assert.match(httpServer,
   assert.equal(forward.stopped, 1);
   listeners.keyup(key(34));
   listeners.keydown(key(33));
-  assert.deepEqual(calls, ["show-answer", "undo"]);
+  assert.deepEqual(calls, ["show-answer", "scroll-card-backward"],
+    "backward scrolls toward the top before undoing");
+  listeners.keyup(key(33));
+  context.canScrollUp = false;
+  listeners.keydown(key(33));
+  assert.deepEqual(calls, ["show-answer", "scroll-card-backward", "undo"],
+    "backward undoes once the card is at the top");
   listeners.keyup(key(33));
   context.pageButtonMode = "reversed";
   listeners.keydown(key(33));
-  assert.deepEqual(calls, ["show-answer", "undo", "show-answer"],
+  assert.deepEqual(calls, ["show-answer", "scroll-card-backward", "undo", "show-answer"],
     "reversed mode maps backward to the forward review action");
 }
 assert.match(frontend, /hide\(byId\("sync"\)\).*show\(byId\("review-view"\)\)/);
 assert.match(loadDecks, /show\(byId\("sync"\)\)/);
+assert.match(appCss, /#sync\.hidden\s*{[^}]*display:\s*none;/);
 assert.match(undo, /if \(state\.cardLoading \|\| state\.answerInFlight \|\| state\.undoInFlight \|\| state\.cardActionInFlight \|\| state\.syncInFlight\) return;/);
 assert.match(undo, /state\.undoInFlight = true;/);
 assert.match(loading, /state\.cardLoading = false/);

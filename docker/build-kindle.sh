@@ -42,6 +42,13 @@ rm -rf "$STAGE" "$OUTPUT/ankink" "$OUTPUT/extensions" "$OUTPUT/documents"
 qemu-arm -r 3.0.35 "$STAGE/lib/ld-linux.so.3" \
   --library-path "$STAGE/lib" "$STAGE/bin/ankinkd" --help >/dev/null
 
+# Catch a stale CMake object/package before a UI that calls this endpoint can
+# be paired with a daemon that silently falls through to its generic 404.
+if ! grep -a -F '/api/card-action' "$STAGE/bin/ankinkd" >/dev/null; then
+  echo "Packaged ankinkd is stale: /api/card-action is missing." >&2
+  exit 1
+fi
+
 mkdir -p "$OUTPUT/extensions" "$OUTPUT/documents"
 mv "$STAGE" "$OUTPUT/ankink"
 mv "$OUTPUT/ankink/kual-extension/AnkINK" "$OUTPUT/extensions/AnkINK"

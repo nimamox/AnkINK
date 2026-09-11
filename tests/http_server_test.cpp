@@ -191,6 +191,15 @@ void removed_input_endpoints_are_not_registered() {
           "removed simulator input endpoint must not be registered");
 }
 
+void card_action_endpoint_is_registered() {
+  RunningServer server(options());
+  const auto response = request(server.port(), "POST", "/api/card-action",
+                                "card=0&token=0&action=flag-red");
+  require(response.status == 200, "card action endpoint status");
+  require(response.body.find("No collection is open") != std::string::npos,
+          "card action endpoint did not reach the collection handler");
+}
+
 void collection_requests_are_serialized() {
   auto configured = options();
   configured.collection_operation_delay = 150ms;
@@ -243,6 +252,7 @@ int main() {
     settings_are_daemon_persisted();
     app_state_tracks_reviews();
     removed_input_endpoints_are_not_registered();
+    card_action_endpoint_is_registered();
     collection_requests_are_serialized();
     std::cout << "http server tests passed\n";
     return 0;
