@@ -1,5 +1,5 @@
-AnkINK for PW2-compatible ARMEL Kindles
-=======================================
+AnkINK universal Kindle release (ARMEL + ARMHF)
+================================================
 
 USB installation
 ----------------
@@ -27,8 +27,12 @@ The launcher first closes any old AnkINK UI/backend, starts the bundled ankinkd
 backend on 127.0.0.1:9257, installs the HTML application at a content-versioned
 path under /var/local/mesquite, registers org.ankink.app, and launches it through
 Amazon's app manager. The UI Close button exits both the UI and backend.
+The same installation contains isolated ARMEL and ARMHF native runtimes. The
+launcher detects the firmware userspace ABI and selects the matching executable,
+dynamic loader, libraries, and Mesquite preload automatically; users do not need
+to choose an architecture.
 The UI removes the otherwise-empty native navigation strip and renders Anki
-TeX equations locally using the bundled KaTeX fonts and JavaScript.
+TeX equations locally using the bundled KaTeX fonts and native renderer.
 Reviews use Anki 26.08's official scheduler and are written to the collection.
 Normal collection/media sync and guarded full download are supported. Full
 upload is not included in this release.

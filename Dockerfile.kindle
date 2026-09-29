@@ -18,7 +18,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update >/dev/null && apt-get install -y --no-install-recommends \
         ca-certificates build-essential cmake curl file g++-arm-linux-gnueabi \
-        gcc-arm-linux-gnueabi git libc6-dev-armel-cross make ninja-build perl \
+        g++-arm-linux-gnueabihf gcc-arm-linux-gnueabi gcc-arm-linux-gnueabihf \
+        git libc6-dev-armel-cross libc6-dev-armhf-cross make ninja-build perl \
         pkg-config qemu-user unzip util-linux xz-utils \
     >/dev/null && rm -rf /var/lib/apt/lists/*
 
@@ -30,41 +31,22 @@ RUN case "$(dpkg --print-architecture)" in \
     && unzip -q /tmp/protoc.zip -d /usr/local && rm /tmp/protoc.zip
 
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
-    && rustup target add armv7-unknown-linux-gnueabi --toolchain "$RUST_TOOLCHAIN"
+    && rustup target add armv7-unknown-linux-gnueabi \
+         armv7-unknown-linux-gnueabihf --toolchain "$RUST_TOOLCHAIN"
 
 RUN git clone https://github.com/ankitects/anki.git /opt/anki \
     && git -C /opt/anki checkout --detach "$ANKI_COMMIT" \
     && git -C /opt/anki submodule update --init ftl/core-repo ftl/qt-repo \
     && git config --system --add safe.directory /opt/anki
 
-COPY docker/create-sdk.sh /usr/local/bin/create-sdk
-RUN chmod 755 /usr/local/bin/create-sdk && create-sdk
+COPY scripts/kindle-abi.sh /usr/local/lib/kindle-abi.sh
+COPY docker/create-sdk.sh docker/build-native-deps.sh /usr/local/bin/
+RUN chmod 755 /usr/local/bin/create-sdk.sh /usr/local/bin/build-native-deps.sh \
+    && /usr/local/bin/create-sdk.sh
 
 # Static target TLS/HTTP libraries keep Potion’s Kindle runtime closure small
 # and avoid depending on the Kindle firmware’s old SSL stack.
-RUN curl -fsSL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" -o /tmp/openssl.tar.gz \
-    && tar -xzf /tmp/openssl.tar.gz -C /tmp \
-    && cd "/tmp/openssl-${OPENSSL_VERSION}" \
-    && CFLAGS="-Os -march=armv7-a -mfpu=neon -mfloat-abi=softfp" \
-       ./Configure linux-armv4 no-shared no-tests no-module \
-         --cross-compile-prefix=arm-linux-gnueabi- --prefix=/opt/kindle-sdk/armel/usr \
-    && make -j"$(nproc)" && make install_sw \
-    && rm -rf /tmp/openssl.tar.gz "/tmp/openssl-${OPENSSL_VERSION}"
-
-RUN curl -fsSL "https://curl.se/download/curl-${CURL_VERSION}.tar.xz" -o /tmp/curl.tar.xz \
-    && tar -xJf /tmp/curl.tar.xz -C /tmp \
-    && cd "/tmp/curl-${CURL_VERSION}" \
-    && PKG_CONFIG_LIBDIR=/opt/kindle-sdk/armel/usr/lib/pkgconfig \
-       CPPFLAGS="-I/opt/kindle-sdk/armel/usr/include" \
-       LDFLAGS="-L/opt/kindle-sdk/armel/usr/lib" \
-       CFLAGS="-Os -march=armv7-a -mfpu=neon -mfloat-abi=softfp" \
-       ./configure --host=arm-linux-gnueabi --prefix=/opt/kindle-sdk/armel/usr \
-         --disable-shared --enable-static --disable-ldap --disable-ldaps \
-         --disable-rtsp --disable-dict --disable-telnet --disable-tftp \
-         --disable-pop3 --disable-imap --disable-smb --disable-smtp \
-         --without-zlib --without-brotli --without-zstd --without-libpsl \
-         --without-libidn2 --with-openssl=/opt/kindle-sdk/armel/usr \
-    && make -j"$(nproc)" && make install \
-    && rm -rf /tmp/curl.tar.xz "/tmp/curl-${CURL_VERSION}"
+RUN OPENSSL_VERSION="$OPENSSL_VERSION" CURL_VERSION="$CURL_VERSION" \
+    /usr/local/bin/build-native-deps.sh
 
 ENTRYPOINT ["/bin/sh", "/workspace/docker/entrypoint.sh"]

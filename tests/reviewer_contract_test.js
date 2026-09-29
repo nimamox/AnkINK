@@ -73,7 +73,14 @@ assert.equal(Math.max(0, 0 - 1), 0);
 // harmless in the host simulator. The launcher and simulator expose all four
 // orientations while keeping the seven action buttons uniformly sized.
 assert.match(runKindle, /'supportedOrientation','UDLR'/);
-assert.match(runKindle, /LD_PRELOAD=.*libmesquite-whisper-touch\.so \/usr\/bin\/mesquite/);
+assert.match(runKindle, /LD_PRELOAD=\$ANKINK_PRELOAD \/usr\/bin\/mesquite/);
+assert.match(runKindle, /\[ -e \/lib\/ld-linux-armhf\.so\.3 \][\s\S]*ANKINK_ABI=armhf/);
+assert.match(runKindle, /\[ -e \/lib\/ld-linux\.so\.3 \][\s\S]*ANKINK_ABI=armel/);
+assert.match(runKindle, /ANKINK_RUNTIME="\$ANKINK_ROOT\/\$ANKINK_ABI"/);
+assert.match(runKindle, /ANKINK_DAEMON="\$ANKINK_RUNTIME\/bin\/ankinkd"/);
+assert.match(runKindle, /ANKINK_PRELOAD="\$ANKINK_RUNTIME\/lib\/libmesquite-whisper-touch\.so"/);
+assert.match(runKindle, /ANKINK_LAUNCHER_TEST_ABI[\s\S]*armel\|armhf/,
+  "launcher has an internal-only ARMEL/ARMHF selection test path");
 assert.match(whisperTouch, /win_mgr_utils_new_application_name/);
 assert.match(whisperTouch, /win_mgr_utils_add_is_wisper_touch_supported/);
 assert.match(whisperTouch, /win_mgr_utils_new_name\(0, "application"\)/);

@@ -11,6 +11,13 @@ AnkINK uses Anki's official Rust backend rather than reimplementing Anki's
 scheduler. Card queues, answer intervals, review history, template rendering,
 and FSRS or legacy scheduling behavior therefore come from Anki itself.
 
+**Compatibility notice:** AnkINK is designed to support both older ARMEL Kindle
+firmware and newer ARMHF/KindleHF firmware. However, I have only been able to
+test it on my **8th-generation Kindle Oasis**. Newer Kindle firmware using the
+ARMHF ABI is not available for this older device, so I currently have no way to
+verify the ARMHF build on real hardware. ARMHF support is therefore based on
+cross-compilation and automated validation, and I rely on feedback from users
+with newer Kindles to confirm whether it works correctly on their devices.
 
 ## Features
 
@@ -33,14 +40,22 @@ Anki authoring: notes, decks, card templates, and deck options are not edited
 on the Kindle. A guarded full download is available when Anki requires one;
 full upload is deliberately not exposed.
 
+**Note:** AnkINK has not yet been verified on physical ARMHF Kindle hardware, so feedback from users with newer Kindles is especially helpful.
+
 <img src="docs/AnkINK.gif" alt="AnkINK running on a Kindle Oasis gen 8th" width="500">
 
 ## Platform support
 
-Current releases target **PW2-compatible ARMEL Kindles** with
-Amazon's Mesquite application runtime. Development and real-device behavior in
-this repository are focused on that Kindle firmware family, including Oasis
-page-button integration where available.
+Current releases contain both Kindle ARM userspace ABIs: ARMEL for older
+firmware (generally before 5.16.3) and ARMHF/KindleHF for newer firmware
+(generally 5.16.3 and later). The launcher detects the installed firmware ABI
+and selects the matching runtime; users download and install one universal
+package and do not need to determine the ABI themselves.
+
+ARMEL remains the hardware-tested path. ARMHF is cross-compiled and validated
+for its ELF ABI, loader, packaged shared-library closure, Rust/C++ integration,
+and QEMU user-mode startup. It has not yet been verified on physical ARMHF
+Kindle hardware. 
 
 The simulator includes profiles for many Kindle screen sizes, but a simulator
 profile is not a claim that the corresponding physical model has been tested.
@@ -51,8 +66,9 @@ intended in the future.
 ## Installation over USB
 
 Download and extract a packaged AnkINK release on a computer. The archive is
-laid out like the root of the Kindle USB drive. Copy the archive's **contents**
-to the top level of the mounted Kindle drive:
+named `AnkINK-<version>-kindle-universal.tar.gz` (or `.zip`) and is laid out
+like the root of the Kindle USB drive. Copy the archive's **contents** to the
+top level of the mounted Kindle drive:
 
 ```text
 ankink/                  -> /mnt/us/ankink
@@ -119,7 +135,8 @@ To build through an SSH-accessible machine that has Docker:
 
 The remote form synchronizes the working tree, runs the same Docker build on
 the remote machine, and returns the completed artifacts to the local `dist/`
-directory. In either mode, `dist/` contains the USB-ready `ankink`,
+directory. The default build produces both native ABIs in one USB-ready
+package. In either mode, `dist/` contains the `ankink`,
 `extensions`, and `documents` entries.
 
 ## Deploy over SSH

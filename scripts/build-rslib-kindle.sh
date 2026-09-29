@@ -5,13 +5,19 @@ ANKI_RELEASE=${ANKI_RELEASE:-26.08}
 ANKI_COMMIT=${ANKI_COMMIT:-666c2c64d4a1772c03948f5b667438da63ddaa76}
 ANKINK_ROOT=${ANKINK_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}
 ANKI_ROOT=${ANKI_ROOT:-"$ANKINK_ROOT/third_party/anki"}
-RUST_TARGET=${RUST_TARGET:-armv7-unknown-linux-gnueabi}
 RUST_TOOLCHAIN=${RUST_TOOLCHAIN:-1.92.0}
 RUST_MANIFEST=${ANKINK_RUST_MANIFEST:-"$ANKINK_ROOT/backend/rust/Cargo.toml"}
 KINDLE_BUILD_DIR=${KINDLE_BUILD_DIR:-"$ANKINK_ROOT/cmake-build-kindle-rslib"}
 KINDLE_ABI=${KINDLE_ABI:-armel}
 : "${KINDLE_SDK_ROOT:?Set KINDLE_SDK_ROOT to the AnkINK SDK directory}"
 : "${PROTOC:?Set PROTOC to a protoc executable}"
+. "$ANKINK_ROOT/scripts/kindle-abi.sh"
+kindle_abi_configure "$KINDLE_ABI"
+if [ -n "${RUST_TARGET:-}" ] && [ "$RUST_TARGET" != "$KINDLE_RUST_TARGET" ]; then
+  echo "RUST_TARGET=$RUST_TARGET does not match KINDLE_ABI=$KINDLE_ABI" >&2
+  exit 2
+fi
+RUST_TARGET=$KINDLE_RUST_TARGET
 
 if [ ! -d "$ANKI_ROOT/.git" ]; then
   echo "Clone Anki $ANKI_RELEASE into $ANKI_ROOT first." >&2
@@ -27,10 +33,14 @@ if [ "${ANKINK_SKIP_RUSTUP:-0}" != 1 ]; then
   rustup target add "$RUST_TARGET" --toolchain "$RUST_TOOLCHAIN"
 fi
 
-export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABI_LINKER="$KINDLE_SDK_ROOT/bin/arm-linux-gnueabi-gcc"
-export CC_armv7_unknown_linux_gnueabi="$KINDLE_SDK_ROOT/bin/arm-linux-gnueabi-gcc"
-export CXX_armv7_unknown_linux_gnueabi="$KINDLE_SDK_ROOT/bin/arm-linux-gnueabi-g++"
-export AR_armv7_unknown_linux_gnueabi="$KINDLE_SDK_ROOT/bin/arm-linux-gnueabi-ar"
+RUST_TARGET_ENV=$(printf '%s' "$RUST_TARGET" | tr '[:lower:]-' '[:upper:]_')
+RUST_TARGET_VAR=$(printf '%s' "$RUST_TARGET" | tr '-' '_')
+export "CARGO_TARGET_${RUST_TARGET_ENV}_LINKER=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-gcc"
+export "CC_${RUST_TARGET_VAR}=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-gcc"
+export "CXX_${RUST_TARGET_VAR}=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-g++"
+export "AR_${RUST_TARGET_VAR}=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-ar"
+export "CFLAGS_${RUST_TARGET_VAR}=$KINDLE_ARCH_FLAGS"
+export "CXXFLAGS_${RUST_TARGET_VAR}=$KINDLE_ARCH_FLAGS"
 
 cargo "+$RUST_TOOLCHAIN" build --release --target "$RUST_TARGET" \
   --manifest-path "$RUST_MANIFEST"

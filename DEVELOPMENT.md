@@ -114,8 +114,9 @@ The supported release build is:
 ```
 
 It builds or reuses the `kindle-dev-builder:local` image and the
-`ankink-kindle-build-cache` named volume. The image contains the Debian ARMEL
-cross-toolchain, Rust 1.92, Protobuf 29.3, pinned Anki source, and Rust crates.
+`ankink-kindle-build-cache` named volume. The image contains Debian ARMEL and
+ARMHF cross-toolchains/sysroots, Rust 1.92 with both ARM targets, Protobuf 29.3,
+pinned Anki source, and Rust crates.
 The build container is short-lived; the source tree is mounted read-only and
 only `dist/` receives packaged output.
 
@@ -138,6 +139,10 @@ The package layout is:
 ```text
 dist/
 ├── ankink/
+│   ├── armel/{bin,lib}/
+│   ├── armhf/{bin,lib}/
+│   ├── share/ankink/
+│   └── ankink.sh
 ├── extensions/AnkINK/
 └── documents/AnkINK.sh
 ```
@@ -147,6 +152,20 @@ For a release archive, archive the **contents** of `dist/`:
 ```sh
 tar -C dist -czf AnkINK-kindle.tar.gz ankink extensions documents
 ```
+
+The default build creates both runtimes. `KINDLE_ABI=armel` or
+`KINDLE_ABI=armhf` requests a single-ABI developer build. Native dependency,
+CMake, package, and runtime-library outputs remain isolated by ABI; Cargo uses
+one cache root with target-triple-specific subdirectories.
+
+`scripts/validate-kindle-runtime.sh` checks ELF machine/float ABI, interpreter,
+shared-library closure, and then runs the packaged loader plus `ankinkd --help`
+under QEMU user mode. The launcher is independently exercised with an internal
+test-only ABI override to verify its executable, loader, library path, preload,
+and shared asset choices. These checks do not emulate or validate Kindle
+firmware services. In particular, ARMHF Mesquite, appmgrd/appreg registration,
+Whisper Touch, physical buttons, touch, e-ink, and suspend/resume remain pending
+physical KindleHF testing.
 
 ## Kindle runtime and deployment
 

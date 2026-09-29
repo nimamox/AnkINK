@@ -9,6 +9,49 @@ ANKINK_LOG="$ANKINK_ROOT/ankinkd.log"
 ANKINK_DATA_DIR=/var/local/ankink
 ANKINK_MESQUITE_CURRENT=/var/local/mesquite/ankink-current
 
+# Select the userspace ABI before executing any target code. Both firmware
+# families report an ARM CPU, so uname cannot distinguish soft- from hard-float
+# userspace. The internal test override is honored only in launcher test mode.
+if [ "${ANKINK_LAUNCHER_TEST:-0}" = 1 ]; then
+  case "${ANKINK_LAUNCHER_TEST_ABI:-}" in
+    armel|armhf) ANKINK_ABI=$ANKINK_LAUNCHER_TEST_ABI ;;
+    *) echo "ANKINK_LAUNCHER_TEST_ABI must be armel or armhf" >&2; exit 2 ;;
+  esac
+elif [ -e /lib/ld-linux-armhf.so.3 ]; then
+  ANKINK_ABI=armhf
+elif [ -e /lib/ld-linux.so.3 ]; then
+  ANKINK_ABI=armel
+else
+  echo "Cannot determine a compatible Kindle userspace ABI" >> "$ANKINK_LOG"
+  exit 1
+fi
+
+ANKINK_RUNTIME="$ANKINK_ROOT/$ANKINK_ABI"
+case "$ANKINK_ABI" in
+  armhf) ANKINK_LOADER="$ANKINK_RUNTIME/lib/ld-linux-armhf.so.3" ;;
+  armel) ANKINK_LOADER="$ANKINK_RUNTIME/lib/ld-linux.so.3" ;;
+esac
+ANKINK_LIBRARY_PATH="$ANKINK_RUNTIME/lib"
+ANKINK_DAEMON="$ANKINK_RUNTIME/bin/ankinkd"
+ANKINK_PRELOAD="$ANKINK_RUNTIME/lib/libmesquite-whisper-touch.so"
+
+if [ ! -x "$ANKINK_DAEMON" ] || [ ! -x "$ANKINK_LOADER" ] ||
+   [ ! -f "$ANKINK_PRELOAD" ]; then
+  echo "Incomplete bundled $ANKINK_ABI runtime" >> "$ANKINK_LOG"
+  exit 1
+fi
+
+if [ "${ANKINK_LAUNCHER_TEST:-0}" = 1 ]; then
+  echo "ABI=$ANKINK_ABI"
+  echo "RUNTIME=$ANKINK_RUNTIME"
+  echo "EXECUTABLE=$ANKINK_DAEMON"
+  echo "LOADER=$ANKINK_LOADER"
+  echo "LIBRARY_PATH=$ANKINK_LIBRARY_PATH"
+  echo "PRELOAD=$ANKINK_PRELOAD"
+  echo "ASSETS=$ANKINK_ROOT/share/ankink"
+  exit 0
+fi
+
 # KUAL may terminate the action's process group. Registration and daemon
 # startup therefore run in a detached session.
 if [ "${ANKINK_LAUNCHER:-0}" != 1 ]; then
@@ -43,24 +86,18 @@ for ANKINK_PROC in /proc/[0-9]*; do
   ANKINK_PROC_PID=${ANKINK_PROC##*/}
   ANKINK_PROC_CMD=$(tr '\000' ' ' < "$ANKINK_PROC/cmdline" 2>/dev/null || true)
   case "$ANKINK_PROC_CMD" in
-    *"/mnt/us/ankink/bin/ankinkd "*) kill "$ANKINK_PROC_PID" 2>/dev/null || true ;;
+    *"/mnt/us/ankink/bin/ankinkd "*|*"/mnt/us/ankink/armel/bin/ankinkd "*|*"/mnt/us/ankink/armhf/bin/ankinkd "*)
+      kill "$ANKINK_PROC_PID" 2>/dev/null || true
+      ;;
   esac
 done
 sleep 1
 
 mkdir -p "$ANKINK_DATA_DIR"
 chmod 700 "$ANKINK_DATA_DIR"
-if [ -x "$ANKINK_ROOT/lib/ld-linux-armhf.so.3" ]; then
-  ANKINK_LOADER="$ANKINK_ROOT/lib/ld-linux-armhf.so.3"
-elif [ -x "$ANKINK_ROOT/lib/ld-linux.so.3" ]; then
-  ANKINK_LOADER="$ANKINK_ROOT/lib/ld-linux.so.3"
-else
-  echo "Missing bundled ARM dynamic loader" >> "$ANKINK_LOG"
-  exit 1
-fi
 : > "$ANKINK_LOG"
-setsid "$ANKINK_LOADER" --library-path "$ANKINK_ROOT/lib" \
-  "$ANKINK_ROOT/bin/ankinkd" \
+setsid "$ANKINK_LOADER" --library-path "$ANKINK_LIBRARY_PATH" \
+  "$ANKINK_DAEMON" \
   --collection "$ANKINK_DATA_DIR/collection.anki2" \
   --assets "$ANKINK_ROOT/share/ankink" \
   --data-dir "$ANKINK_DATA_DIR" \
@@ -107,7 +144,7 @@ INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('$ANKINK_APP_ID');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','lipcId','$ANKINK_APP_ID');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
-  VALUES('$ANKINK_APP_ID','command','/usr/bin/env LD_PRELOAD=$ANKINK_ROOT/lib/libmesquite-whisper-touch.so /usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/');
+  VALUES('$ANKINK_APP_ID','command','/usr/bin/env LD_PRELOAD=$ANKINK_PRELOAD /usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','supportedOrientation','UDLR');
 INSERT OR REPLACE INTO properties(handlerId,name,value)

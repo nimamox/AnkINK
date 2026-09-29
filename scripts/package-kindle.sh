@@ -1,16 +1,24 @@
 #!/bin/sh
 set -eu
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 KINDLE_SYSROOT BUILD_DIR OUTPUT_DIRECTORY" >&2
+if [ "$#" -ne 4 ]; then
+  echo "Usage: $0 ABI KINDLE_SYSROOT BUILD_DIR OUTPUT_DIRECTORY" >&2
   exit 2
 fi
-ANKINK_SYSROOT=$1
-ANKINK_BUILD_DIR=$2
-ANKINK_OUTPUT=$3
+KINDLE_ABI=$1
+ANKINK_SYSROOT=$2
+ANKINK_BUILD_DIR=$3
+ANKINK_OUTPUT=$4
 ANKINK_ROOT=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 ANKINK_ANKI_SOURCE=${ANKI_ROOT:-"$ANKINK_ROOT/third_party/anki"}
-ANKINK_READELF=${CROSS_COMPILE:-arm-linux-gnueabi-}readelf
-ANKINK_STRIP=${CROSS_COMPILE:-arm-linux-gnueabi-}strip
+. "$ANKINK_ROOT/scripts/kindle-abi.sh"
+kindle_abi_configure "$KINDLE_ABI"
+ANKINK_READELF="$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-readelf"
+ANKINK_STRIP="$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-strip"
+
+case "$ANKINK_SYSROOT" in
+  */"$KINDLE_ABI") ;;
+  *) echo "Sysroot $ANKINK_SYSROOT does not match ABI $KINDLE_ABI" >&2; exit 2 ;;
+esac
 
 if [ ! -x "$ANKINK_BUILD_DIR/ankinkd" ]; then
   echo "Missing target executable: $ANKINK_BUILD_DIR/ankinkd" >&2; exit 1

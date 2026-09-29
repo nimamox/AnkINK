@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 IMAGE=${KINDLE_DOCKER_IMAGE:-kindle-dev-builder:local}
 CACHE_VOLUME=${KINDLE_DOCKER_CACHE_VOLUME:-ankink-kindle-build-cache}
+BUILD_ABI=${KINDLE_ABI:-universal}
+case "$BUILD_ABI" in
+  universal|all|armel|armhf) ;;
+  *) echo "KINDLE_ABI must be universal, armel, or armhf." >&2; exit 2 ;;
+esac
 BUILD_COMMIT=${ANKINK_BUILD_COMMIT:-}
 if [ -z "$BUILD_COMMIT" ] && command -v git >/dev/null 2>&1 &&
    git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -56,7 +61,7 @@ if [ "$#" -eq 1 ]; then
     "$ROOT/" "$REMOTE_TARGET:$REMOTE_ROOT/"
 
   echo "Building AnkINK with Docker on $REMOTE_TARGET"
-  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && ANKINK_BUILD_COMMIT='$BUILD_COMMIT' bash build_on_docker.sh"
+  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && ANKINK_BUILD_COMMIT='$BUILD_COMMIT' KINDLE_ABI='$BUILD_ABI' bash build_on_docker.sh"
 
   echo "Copying AnkINK dist back to $ROOT/dist"
   mkdir -p "$ROOT/dist"
@@ -68,7 +73,12 @@ command -v docker >/dev/null || { echo "Docker is required." >&2; exit 127; }
 docker info >/dev/null || { echo "Docker is not running or is not accessible." >&2; exit 1; }
 
 mkdir -p "$ROOT/dist"
-FINGERPRINT=$( { cksum < "$ROOT/Dockerfile.kindle"; cksum < "$ROOT/docker/create-sdk.sh"; } | cksum | awk '{print $1}')
+FINGERPRINT=$( {
+  cksum < "$ROOT/Dockerfile.kindle"
+  cksum < "$ROOT/docker/create-sdk.sh"
+  cksum < "$ROOT/docker/build-native-deps.sh"
+  cksum < "$ROOT/scripts/kindle-abi.sh"
+} | cksum | awk '{print $1}')
 FINGERPRINT_IMAGE="kindle-dev-builder:cache-$FINGERPRINT"
 if docker image inspect "$FINGERPRINT_IMAGE" >/dev/null 2>&1; then
   docker tag "$FINGERPRINT_IMAGE" "$IMAGE"
@@ -85,6 +95,7 @@ docker run --rm \
   --env "HOST_UID=$(id -u)" \
   --env "HOST_GID=$(id -g)" \
   --env "ANKINK_BUILD_COMMIT=$BUILD_COMMIT" \
+  --env "KINDLE_ABI=$BUILD_ABI" \
   --mount "type=bind,source=$ROOT,target=/workspace,readonly" \
   --mount "type=bind,source=$ROOT/dist,target=/out" \
   --mount "type=volume,source=$CACHE_VOLUME,target=/cache" \

@@ -12,10 +12,12 @@ BUNDLE="$ROOT/dist/ankink"
 EXTENSION="$ROOT/dist/extensions/AnkINK"
 LIBRARY_LAUNCHER="$ROOT/dist/documents/AnkINK.sh"
 
-test -x "$BUNDLE/bin/ankinkd" || {
-  echo "Missing $BUNDLE/bin/ankinkd. Run ./build_on_docker.sh first." >&2
-  exit 1
-}
+for ABI in armel armhf; do
+  test -x "$BUNDLE/$ABI/bin/ankinkd" || {
+    echo "Missing $BUNDLE/$ABI/bin/ankinkd. Run the universal ./build_on_docker.sh first." >&2
+    exit 1
+  }
+done
 test -f "$EXTENSION/config.xml" || {
   echo "Missing KUAL extension. Run ./build_on_docker.sh first." >&2
   exit 1
