@@ -42,6 +42,7 @@ const rustAnswer = between(backend, "fn answer(&mut self", "fn undo(&mut self)")
 const rustCardAction = between(backend, "fn card_action(", "fn undo(&mut self)");
 const rustUndo = between(backend, "fn undo(&mut self)", "fn login(&mut self");
 const cardActions = between(frontend, "/* CARD_ACTIONS_BEGIN */", "/* CARD_ACTIONS_END */");
+const cardImageFit = between(frontend, "/* CARD_IMAGE_FIT_BEGIN */", "/* CARD_IMAGE_FIT_END */");
 
 assert.match(index,
   /id="about-version" class="about-version">Version: &hellip;<\/p>[\s\S]*Created by Nima Mohammadi/,
@@ -416,6 +417,62 @@ assert.match(frontend, /image\.setAttribute\("src", API \+ "\/api\/media\/"/);
 assert.match(frontend, /images\[i\]\.onerror = function/);
 assert.match(mediaLoading, /image\.setAttribute\("src", API \+ "\/api\/media\/"/);
 assert.doesNotMatch(mediaLoading, /api\/media-data/);
+
+// Mesquite sometimes leaves an intrinsic-size RGBA image blank until a tap
+// expands it. Nudge only that exact-size path, keep template-scaled images
+// untouched, and give the e-ink browser a distinct committed paint.
+{
+  const timers = [];
+  const context = {
+    CARD_IMAGE_COMPACT_MAX_HEIGHT: 330,
+    Math,
+    byId: function () { return {clientWidth: 900}; },
+    window: {setTimeout: function (callback, delay) {
+      timers.push({callback, delay}); return timers.length;
+    }}
+  };
+  vm.createContext(context);
+  vm.runInContext(cardImageFit, context);
+  const intrinsic = {
+    className: "", naturalWidth: 594, naturalHeight: 200,
+    offsetWidth: 594, offsetHeight: 200,
+    parentNode: {clientWidth: 900}, style: {}
+  };
+  context.fitCompactCardImage(intrinsic);
+  assert.equal(intrinsic.style.width, "595px",
+    "an intrinsic-size image gets an imperceptible scale for Mesquite");
+  assert.equal(intrinsic.style.height, "auto");
+
+  const templateScaled = {
+    className: "", naturalWidth: 594, naturalHeight: 200,
+    offsetWidth: 300, offsetHeight: 101,
+    parentNode: {clientWidth: 900}, style: {}
+  };
+  context.fitCompactCardImage(templateScaled);
+  assert.equal(templateScaled.style.width, undefined,
+    "card-template image sizing remains unchanged");
+
+  const expanded = {
+    className: "image-expanded", naturalWidth: 594, naturalHeight: 200,
+    offsetWidth: 900, offsetHeight: 303,
+    parentNode: {clientWidth: 900}, style: {}
+  };
+  context.fitCompactCardImage(expanded);
+  assert.equal(expanded.style.width, undefined,
+    "expanded images remain controlled by full-width CSS");
+
+  context.commitLoadedCardImagePaint(intrinsic);
+  assert.equal(intrinsic.style.visibility, "hidden");
+  assert.equal(timers[0].delay, 60);
+  timers[0].callback();
+  assert.equal(intrinsic.style.visibility, "",
+    "the delayed commit reveals the image after the clean layout paint");
+}
+assert.match(frontend,
+  /images\[i\]\.onload = function \(\)[\s\S]*fitCompactCardImage\(this\)[\s\S]*commitLoadedCardImagePaint\(this\)/);
+assert.match(frontend,
+  /this\.className \+= " image-expanded";[\s\S]*this\.style\.width = "";[\s\S]*this\.style\.height = "";/,
+  "expansion clears compact inline dimensions");
 
 // The backend sends final HTML-only KaTeX markup. Mesquite never loads or
 // executes KaTeX JavaScript; it only lazily repairs nearby legacy layout bugs.

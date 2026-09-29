@@ -15,6 +15,7 @@
   var ratingEraseStartedAt = 0;
   var RATING_ERASE_MS = 400;
   var UPDATE_CHECK_DELAY_MS = 60000;
+  var CARD_IMAGE_COMPACT_MAX_HEIGHT = 330;
   var fontScales = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
   function nearestFontScale(value) {
     var nearest = fontScales[0], distance = Math.abs(value - nearest), i, candidateDistance;
@@ -840,6 +841,53 @@
       }
     }
   }
+  /* CARD_IMAGE_FIT_BEGIN */
+  function fitCompactCardImage(image) {
+    var naturalWidth, naturalHeight, renderedWidth, renderedHeight,
+      parent, availableWidth;
+    if (!image ||
+        (" " + image.className + " ").indexOf(" image-expanded ") >= 0)
+      return;
+    naturalWidth = image.naturalWidth || 0;
+    naturalHeight = image.naturalHeight || 0;
+    renderedWidth = image.offsetWidth || image.width || 0;
+    renderedHeight = image.offsetHeight || image.height || 0;
+    if (!naturalWidth || !naturalHeight || !renderedWidth || !renderedHeight)
+      return;
+    parent = image.parentNode;
+    availableWidth = parent && parent.clientWidth ?
+      parent.clientWidth : (byId("card") ? byId("card").clientWidth : 0);
+    if (!availableWidth || naturalWidth >= availableWidth ||
+        naturalHeight > CARD_IMAGE_COMPACT_MAX_HEIGHT)
+      return;
+
+    /*
+     * Mesquite can leave an RGBA image blank when it is painted at exactly
+     * its intrinsic dimensions. A one-pixel scale selects its working
+     * raster path without visibly changing the image. Do not disturb images
+     * that a card template has intentionally scaled.
+     */
+    if (Math.abs(renderedWidth - naturalWidth) <= 1 &&
+        Math.abs(renderedHeight - naturalHeight) <= 1) {
+      image.style.width = Math.round(naturalWidth + 1) + "px";
+      image.style.height = "auto";
+      image._ankinkCompactImageFitted = true;
+    }
+  }
+  function commitLoadedCardImagePaint(image) {
+    var generation;
+    if (!image) return;
+    generation = (image._ankinkImagePaintGeneration || 0) + 1;
+    image._ankinkImagePaintGeneration = generation;
+    image.style.visibility = "hidden";
+    image.offsetHeight;
+    window.setTimeout(function () {
+      if (image._ankinkImagePaintGeneration !== generation) return;
+      image.style.visibility = "";
+      image.offsetHeight;
+    }, 60);
+  }
+  /* CARD_IMAGE_FIT_END */
   function prepareImages(root) {
     var images = root.getElementsByTagName("img"), i, filename;
     for (i = 0; i < images.length; ++i) {
@@ -847,7 +895,10 @@
       images[i]._ankinkMediaReady = !filename;
       images[i].onload = function () {
         this._ankinkMediaReady = true;
-        scheduleScrollButtonUpdate(); invertNightImage(this);
+        fitCompactCardImage(this);
+        invertNightImage(this);
+        commitLoadedCardImagePaint(this);
+        scheduleScrollButtonUpdate();
       };
       images[i].onerror = function () {
         var failedImage = this, failedFilename = this._ankinkMediaFilename;
@@ -860,12 +911,21 @@
           }, 0);
       };
       if (filename) loadMediaImage(images[i], filename);
-      if (!filename && images[i].complete) invertNightImage(images[i]);
+      if (!filename && images[i].complete && images[i].naturalWidth) {
+        fitCompactCardImage(images[i]);
+        invertNightImage(images[i]);
+        commitLoadedCardImagePaint(images[i]);
+      }
       images[i].onclick = function () {
-        if (this.className.indexOf("image-expanded") >= 0)
+        if (this.className.indexOf("image-expanded") >= 0) {
           this.className = this.className.replace(/(^|\s)image-expanded(?=\s|$)/g, "");
-        else {
+          this.style.width = "";
+          this.style.height = "";
+          fitCompactCardImage(this);
+        } else {
           this.className += " image-expanded";
+          this.style.width = "";
+          this.style.height = "";
           if (this.scrollIntoView) this.scrollIntoView(true);
         }
         scheduleScrollButtonUpdate();
