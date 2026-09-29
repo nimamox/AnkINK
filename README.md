@@ -2,207 +2,150 @@
 
 # AnkINK
 
-AnkINK is a C++17 Anki reader for jailbroken Kindle devices. Its UI uses the
-Kindle's built-in Mesquite application runtime; a small C++ daemon provides the
-real Anki collection over a loopback-only HTTP API:
+AnkINK is an Anki reader and review client optimized for Kindle and
+e-ink hardware. It is designed to make reviewing feel immediate on older,
+resource-constrained devices: the interface is small, touch-friendly, and
+careful about unnecessary work and e-ink refreshes.
+
+AnkINK uses Anki's official Rust backend rather than reimplementing Anki's
+scheduler. Card queues, answer intervals, review history, template rendering,
+and FSRS or legacy scheduling behavior therefore come from Anki itself.
+
+## Features
+
+- AnkiWeb sign-in and normal collection and media synchronization.
+- Official Anki scheduling, including FSRS and legacy scheduler compatibility.
+- Deck selection, live new/learning/review counts, review activity, and the
+  standard Again, Hard, Good, and Easy answers.
+- Card actions for undo, bury, suspend, and flags.
+- Card images, including a tap-to-expand view.
+- Native mathematics rendering with bundled KaTeX fonts; no browser-side TeX
+  engine or network-hosted math assets are required.
+- Reader font selection and sizing, portrait/landscape support, and configurable
+  day/night presentation.
+- Manual or periodic full e-ink refreshes to control ghosting.
+- Physical Kindle page-button support where the device and firmware provide
+  those buttons. Direction can be reversed in Settings.
+
+AnkINK is primarily a reviewing client. It does not currently provide full
+Anki authoring: notes, decks, card templates, and deck options are not edited
+on the Kindle. A guarded full download is available when Anki requires one;
+full upload is deliberately not exposed.
+
+## Platform support
+
+Current releases target **PW2-compatible ARMEL Kindles** with
+Amazon's Mesquite application runtime. Development and real-device behavior in
+this repository are focused on that Kindle firmware family, including Oasis
+page-button integration where available.
+
+The simulator includes profiles for many Kindle screen sizes, but a simulator
+profile is not a claim that the corresponding physical model has been tested.
+There is not yet a comprehensive per-model compatibility matrix. Other e-ink
+platforms are not currently supported; support for additional e-ink devices is
+intended in the future.
+
+## Installation over USB
+
+Download and extract a packaged AnkINK release on a computer. The archive is
+laid out like the root of the Kindle USB drive. Copy the archive's **contents**
+to the top level of the mounted Kindle drive:
 
 ```text
-Mesquite HTML/CSS/ES5 UI -> XMLHttpRequest -> ankinkd (C++17) -> Anki rslib (Rust)
+ankink/                  -> /mnt/us/ankink
+extensions/AnkINK/       -> /mnt/us/extensions/AnkINK
+documents/AnkINK.sh      -> /mnt/us/documents/AnkINK.sh
 ```
 
-There is no bundled WPE WebKit, Mesa, Wayland, DRM, EGL, or FBInk display path.
-Mesquite owns painting, e-ink updates, touch input, and system integration.
-The Kindle launcher marks AnkINK's window Whisper-Touch capable through the
-firmware's window-manager utility, so AwesomeWM delivers Oasis page buttons
-directly to WebKit as Page Up/Page Down key events. `ankinkd` does not monitor
-`/dev/input` or expose an input-polling endpoint.
-The manifest suppresses Mesquite's otherwise-empty navigation strip; AnkINK
-provides compact Refresh and Close controls in its own header while retaining
-the Kindle status row.
+Do not copy an enclosing release or `dist` directory. Safely eject the Kindle,
+then launch AnkINK from the Library or from KUAL. The direct Library entry
+requires PEKI, the same script-launcher support used by a Library-installed
+`KUAL.sh`; KUAL remains an optional launch route.
 
-Card mathematics is rendered by the native Rust `katex-rs` 0.2.4 library in
-`ankinkd`, before the card reaches Mesquite. Mesquite loads only the matching
-KaTeX 0.16.25 CSS and fonts; it neither loads KaTeX JavaScript nor parses TeX.
-Supported delimiters are `\\(...\\)`, `\\[...\\]`, `$$...$$`, `[$]...[/$]`,
-`[$$]...[/$$]`, and `[latex]...[/latex]`. No network connection or target-side
-Rust installation is required. A bounded native cache reuses repeated formulas,
-while small viewport-lazy DOM repairs retain compatibility with old Mesquite.
+On first launch, sign in to AnkiWeb and download the collection. Later, use the
+Sync button to exchange reviews and media with AnkiWeb. The Close button exits
+both the interface and its local backend.
 
-Kindle release builds use the official Anki 26.08 Rust backend. Card queues,
-template rendering, button intervals, FSRS/legacy scheduling, card updates and
-revlog entries therefore come from Anki itself. AnkINK supports AnkiWeb login,
-normal collection sync, and a guarded full download. It does not edit notes,
-decks, templates, or deck options. Collection sync also downloads AnkiWeb
-media into the private `/var/local/ankink/collection.media` directory.
+## Using AnkINK
 
-The review toolbar shows Anki's live new/learning/review queue counts. Images
-can be tapped to toggle a full-width view, and the header provides persistent
-font-size and day/night controls. On an Oasis, Forward shows the answer and
-then selects Good; Backward undoes the previous answer before reveal and
-selects Again after reveal. Refresh requests a full flashing update through an
-existing FBInk command (including MRInstaller's PW2 build) without using FBInk
-as AnkINK's rendering path. The rotation control switches between automatic
-sensor rotation and locking the Kindle's current orientation; the preference
-is restored on the next launch and the global lock is released when AnkINK
-closes.
+Choose a deck from the collection screen, reveal each answer, and select the
+Anki rating. The toolbar reports the current new, learning, and review counts.
+Card actions provide undo, bury, suspend, and flag controls without turning the
+application into a note editor.
 
-The AnkiWeb password is exchanged for a host key and then discarded. The host
-key is stored at `/var/local/ankink/host-key` with mode 0600, outside the
-USB-visible `/mnt/us` filesystem. Full upload is deliberately not exposed.
+On Kindles with physical page buttons, the configured forward button scrolls
+through long card content before revealing the answer and selecting Good; the
+other direction scrolls upward before offering Undo or Again. Touch controls
+remain available on every supported device. Use Refresh for a full flashing
+update when ghosting accumulates, and use Settings for fonts, night mode,
+orientation, page-button direction, and automatic refresh frequency.
 
-## Host development
+## Security and privacy
 
-The host simulator runs the same HTML/CSS/JavaScript UI and official Anki Rust
-backend as the Kindle build. It stores its private, persistent collection,
-media, host key, and log under `.ankink-simulator/`. That directory and the
-downloaded pinned Anki source under `third_party/anki/` are gitignored. After
-the first AnkiWeb login and download, stopping and starting the simulator does
-not require another login.
+The AnkiWeb password is used only to obtain an Anki host key and is then
+discarded. The host key, collection, and synchronized media are stored outside
+the USB-visible filesystem under `/var/local/ankink`; the host-key file is mode
+0600. AnkINK's application API listens only on the Kindle loopback interface.
 
-On macOS, install the native build prerequisites once:
+Card HTML is sanitized, card styling is scoped to the card area, scripts and
+external resources are blocked, and media is loaded from the local synchronized
+collection. As with Anki itself, synchronization sends collection data to the
+configured AnkiWeb service.
 
-```sh
-brew install rust protobuf
-```
+## Technical characteristics
 
-Configure and run from a terminal with:
+AnkINK uses the Kindle's built-in Mesquite browser for display and a compact
+C++17 daemon for local application services. Anki's pinned Rust backend handles
+the collection, scheduler, synchronization, and native math conversion. The
+package does not install a replacement browser, graphics stack, or Rust runtime
+on the Kindle.
 
-```sh
-cmake -S . -B cmake-build-simulator \
-  -DANKINK_BUILD_SIMULATOR=ON \
-  -DANKINK_BUILD_TESTS=OFF
-cmake --build cmake-build-simulator --target ankink_simulator
-```
+## Building from source
 
-The first build downloads the pinned Anki source and Rust crates. The target
-starts `ankinkd`, opens `http://127.0.0.1:9257/simulator/` in the default
-browser, and stops the daemon when the target is stopped. The wrapper defaults
-to the Kindle Oasis 8th generation and can switch among the supported Kindle
-profiles. Its Backward/Forward buttons and Page Up/Page Down or arrow keys call
-a simulator-only front-end hook, without involving the daemon. The orientation
-selector reflows the selected device between portrait and landscape and sends
-the same `orientationchange` event used by Mesquite.
-
-For CLion, create a CMake profile named `Host Simulator` using the local Apple
-Clang toolchain and `cmake-build-simulator` build directory. Add these CMake
-options:
-
-```text
--DANKINK_BUILD_SIMULATOR=ON -DANKINK_BUILD_TESTS=OFF
-```
-
-Reload CMake, then build/run the `ankink_simulator` target. Stop that target in
-CLion to stop the local daemon. Normal non-simulator host builds can still use
-the lightweight SQLite fallback for unit tests.
-
-## Official Anki backend build
-
-The backend is pinned to Anki 26.08 commit
-`666c2c64d4a1772c03948f5b667438da63ddaa76` and Rust 1.92.0. On the Linux build
-host:
-
-```sh
-mkdir -p third_party
-git clone --branch 26.08 https://github.com/ankitects/anki.git third_party/anki
-git -C third_party/anki submodule update --init ftl/core-repo ftl/qt-repo
-
-export KINDLE_SDK_ROOT="$HOME/ankink-sdk"
-export PROTOC=/path/to/protoc
-./scripts/build-rslib-kindle.sh
-```
-
-Ubuntu's `protobuf-compiler` package provides `protoc`. No target-side package
-installation is required; SQLite and Rustls are linked into `ankinkd`.
-
-## Kindle deployment
-
-### Docker cross-build (macOS or Linux)
-
-Install and start Docker Desktop on macOS, or Docker Engine on Linux. No remote
-Linux host or host-side ARM toolchain is required. To build with local Docker,
-run:
+With Docker installed and running locally:
 
 ```sh
 ./build_on_docker.sh
 ```
 
-Docker can optionally run on a remote machine instead. The Mac needs `ssh` and
-`rsync`; the remote machine needs `rsync`, Docker, and access to a working Docker
-daemon. Pass its SSH target to the same script:
+To build through an SSH-accessible machine that has Docker:
 
 ```sh
-./build_on_docker.sh user@build-host
+./build_on_docker.sh user@host
 ```
 
-Remote mode synchronizes the working tree to the reusable
-`/tmp/kindle-build-$USER/AnkINK` directory, excluding Git data, credentials,
-`dist/`, simulator state, and local build artifacts. It then runs
-`bash build_on_docker.sh` without arguments on that machine and copies the
-completed remote `dist/` back only if the build succeeds. The remote directory,
-fingerprinted Docker image layers, and named Docker cache volume remain
-available for later builds; the Docker caches are not stored under `/tmp`.
+The remote form synchronizes the working tree, runs the same Docker build on
+the remote machine, and returns the completed artifacts to the local `dist/`
+directory. In either mode, `dist/` contains the USB-ready `ankink`,
+`extensions`, and `documents` entries.
 
-The first build downloads the pinned Debian ARMEL cross-toolchain, Rust 1.92,
-Protobuf 29.3, the pinned Anki 26.08 source, and Rust crates including
-`katex-rs`. Later
-runs reuse Docker layers and the `ankink-kindle-build-cache` Docker volume.
-The container is short lived (`docker run --rm`); source is mounted read-only
-and only `dist/` receives build artifacts.
+## Deploy over SSH
 
-The resulting USB layout is:
-
-```text
-dist/
-├── ankink/                 # /mnt/us/ankink
-├── extensions/
-│   └── AnkINK/             # /mnt/us/extensions/AnkINK (KUAL)
-└── documents/
-    └── AnkINK.sh           # /mnt/us/documents/AnkINK.sh (Library)
-```
-
-For a user release, archive the **contents** of `dist/`, preserving those three
-top-level directories. The user extracts it on a computer, copies `ankink`,
-`extensions`, and `documents` to the top level of the mounted Kindle USB drive,
-then safely ejects. Copying the enclosing `dist` directory is incorrect. The
-Library entry requires PEKI, the same script-launcher support used by a
-Library-installed `KUAL.sh`; KUAL remains an optional second launch route.
-
-For example, after building:
+If the Kindle has SSH access, for example through USBNetwork, the built project
+can optionally be installed with:
 
 ```sh
-tar -C dist -czf AnkINK-kindle.tar.gz ankink extensions documents
+bash push_over_ssh.sh root@device_ip
 ```
 
-To install the result over SSH instead of USB:
+This installs the three components under `/mnt/us` but does not relaunch the
+application. Normal users do not need SSH and can use the USB installation
+method above.
 
-```sh
-./push_over_ssh.sh root@192.168.8.195
-```
+For simulator setup, development environment configuration, architecture
+details, cross-compilation internals, and debugging workflows, see
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
-The deployment script prefers `rsync` and falls back to `scp`. It updates
-AnkINK's app directory, KUAL extension, and Library launcher and does not
-restart the application; relaunch AnkINK from the Library or KUAL afterwards.
+## Project status and license
 
-Cross-build with `cmake/kindle-debian-toolchain.cmake`, then create the minimal
-runtime bundle using `scripts/package-kindle.sh`. On first launch, sign into
-AnkiWeb; AnkINK creates
-its private collection under `/var/local/ankink` and downloads from AnkiWeb.
-
-The single KUAL action stops any stale AnkINK UI/backend, starts a fresh
-`ankinkd`, installs the Mesquite assets under a content-versioned path in
-`/var/local/mesquite`, registers `org.ankink.app` in `/var/local/appreg.db`, and
-asks `com.lab126.appmgrd` to launch it. The UI Close button stops the backend as
-well as leaving the interface. The launcher does not stop `lab126_gui`.
-
-## License and source
+AnkINK is an independent, focused 0.x reviewing client under active
+development. It is not affiliated with or endorsed by Ankitects. Anki and
+AnkiWeb are used only to identify compatibility; AnkINK does not distribute
+Anki's official logo.
 
 AnkINK is Copyright (C) 2026 AnkINK contributors and is free software licensed
 under the [GNU Affero General Public License v3.0 or later](LICENSE). It
-statically incorporates the pinned AGPL-3.0-or-later Anki backend, so every
-binary release must identify and provide equivalent access to the exact AnkINK,
-Anki, and Rust corresponding sources. See [SOURCE.md](SOURCE.md) and
+statically incorporates the pinned AGPL-3.0-or-later Anki backend. Binary
+releases and redistributions must preserve the applicable notices and provide
+equivalent access to the corresponding source. See [SOURCE.md](SOURCE.md) and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-AnkINK is an independent project and is not affiliated with or endorsed by
-Ankitects. Anki and AnkiWeb are used only to identify compatibility; AnkINK
-does not distribute Anki's official logo.
