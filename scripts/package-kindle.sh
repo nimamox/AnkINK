@@ -22,7 +22,8 @@ if [ -e "$ANKINK_OUTPUT" ]; then
   echo "Output already exists: $ANKINK_OUTPUT" >&2; exit 1
 fi
 mkdir -p "$ANKINK_OUTPUT/bin" "$ANKINK_OUTPUT/lib" "$ANKINK_OUTPUT/share/ankink" \
-  "$ANKINK_OUTPUT/kual-extension/AnkINK" "$ANKINK_OUTPUT/library-launcher"
+  "$ANKINK_OUTPUT/etc" "$ANKINK_OUTPUT/kual-extension/AnkINK" \
+  "$ANKINK_OUTPUT/library-launcher"
 cp "$ANKINK_BUILD_DIR/ankinkd" "$ANKINK_OUTPUT/bin/ankinkd"
 cp "$ANKINK_BUILD_DIR/libmesquite-whisper-touch.so" "$ANKINK_OUTPUT/lib/"
 cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
@@ -31,6 +32,8 @@ cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
   "$ANKINK_OUTPUT/share/ankink/"
 cp -R "$ANKINK_ROOT/assets/vendor" "$ANKINK_OUTPUT/share/ankink/"
 cp "$ANKINK_ROOT/scripts/run-kindle.sh" "$ANKINK_OUTPUT/ankink.sh"
+cp /etc/ssl/certs/ca-certificates.crt \
+  "$ANKINK_OUTPUT/etc/ca-certificates.crt"
 cp "$ANKINK_ROOT/packaging/README-KINDLE.txt" "$ANKINK_OUTPUT/README.txt"
 cp "$ANKINK_ROOT/LICENSE" "$ANKINK_ROOT/THIRD_PARTY_NOTICES.md" \
   "$ANKINK_ROOT/SOURCE.md" "$ANKINK_OUTPUT/"

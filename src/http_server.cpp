@@ -187,7 +187,13 @@ std::string with_app_state(std::string body, std::uint64_t count,
 } // namespace
 
 HttpServer::HttpServer(ServerOptions options)
-    : options_(std::move(options)), app_state_(options_.data_dir) {
+    : options_(std::move(options)), app_state_(options_.data_dir),
+      update_checker_({options_.data_dir,
+                       "https://telemetry.nimamo.workers.dev/api/v1/check",
+                       options_.ca_bundle_path,
+                       "ankink", ANKINK_VERSION, ANKINK_BUILD_COMMIT,
+                       ANKINK_BUILD_TYPE, options_.simulator,
+                       options_.update_poster, options_.device_telemetry}) {
   collection_.open(options_.collection_path, collection_error_);
   if (!options_.simulator) {
     std::string rotation_error;
@@ -235,6 +241,7 @@ void HttpServer::stop() noexcept {
   if (stopping_.exchange(true)) return;
   pending_clients_condition_.notify_all();
   wake_listener();
+  update_checker_.stop();
   std::lock_guard<std::mutex> lock(clients_mutex_);
   for (const int client : active_clients_) ::shutdown(client, SHUT_RDWR);
 }
@@ -292,6 +299,17 @@ void HttpServer::handle_client(int client) noexcept {
     } else if (request.method == "GET" && request.target == "/api/settings") {
       respond(client, 200, "OK", "application/json; charset=utf-8",
               app_state_.settings_json());
+    } else if (request.method == "GET" &&
+               request.target == "/api/update-status") {
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              update_checker_.status_json());
+    } else if (request.method == "POST" &&
+               request.target == "/api/update-status/dismiss") {
+      std::string error;
+      if (!update_checker_.dismiss_latest(error))
+        throw std::runtime_error(error);
+      respond(client, 200, "OK", "application/json; charset=utf-8",
+              update_checker_.status_json());
     } else if (request.method == "POST" && request.target == "/api/settings") {
       const std::string key = form_value(request.body, "key");
       const std::string value = form_value(request.body, "value");
@@ -506,6 +524,7 @@ int HttpServer::run() {
     workers_.reserve(worker_count);
     for (std::size_t i = 0; i < worker_count; ++i)
       workers_.emplace_back(&HttpServer::worker_loop, this);
+    if (options_.update_checks_enabled) update_checker_.start();
   } catch (...) {
     stop();
     for (auto &worker : workers_) if (worker.joinable()) worker.join();

@@ -14,6 +14,7 @@
   var showAnswerControlTimer = null;
   var ratingEraseStartedAt = 0;
   var RATING_ERASE_MS = 400;
+  var UPDATE_CHECK_DELAY_MS = 60000;
   var fontScales = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6];
   function nearestFontScale(value) {
     var nearest = fontScales[0], distance = Math.abs(value - nearest), i, candidateDistance;
@@ -371,10 +372,29 @@
   function openAbout() {
     hideSettingsTooltip(); show(byId("about-dialog")); loadAboutLogo(); playAboutLogoAnimation();
   }
+  function updateAboutVersion(status) {
+    var output = byId("about-version");
+    if (!output || !status || !status.version) return;
+    clear(output);
+    output.appendChild(document.createTextNode("Version: " + status.version));
+  }
   function closeAbout() {
     aboutLogoPending = false; stopAboutLogoAnimation();
     if (aboutLogoReady) drawAboutLogoClean();
     hide(byId("about-dialog"));
+  }
+  function checkForUpdate() {
+    request("GET", "/api/update-status", null, function (error, status) {
+      var message;
+      if (error || !status || !status.checked ||
+          !status.updateAvailable || status.dismissed) return;
+      message = "Version " + status.latestVersion +
+        " is available. You are using version " + status.currentVersion +
+        ". Please consider updating.";
+      clear(byId("update-message"));
+      byId("update-message").appendChild(document.createTextNode(message));
+      show(byId("update-dialog"));
+    }, 0);
   }
   function deckName(name) { return (name || "").split("\u001f").join("::"); }
   function activeScrollTarget() {
@@ -1063,6 +1083,7 @@
     request("GET", "/api/status", null, function (error, status) {
       setBusy("startup", false);
       if (error) { warning(error); byId("status").innerHTML = "Engine unavailable"; return; }
+      updateAboutVersion(status);
       if (!status.authenticated) {
         byId("status").innerHTML = "Sign in to AnkiWeb"; showLogin(); return;
       }
@@ -1491,12 +1512,14 @@
   function reviewerReadyForInput() {
     return !!state.deck && byId("review-view").className.indexOf("hidden") < 0 &&
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
+      byId("update-dialog").className.indexOf("hidden") >= 0 &&
       byId("about-dialog").className.indexOf("hidden") >= 0 &&
       !state.cardLoading && !state.answerInFlight && !state.undoInFlight && !state.cardActionInFlight && !state.syncInFlight;
   }
   function deckListReadyForInput() {
     return !state.deck && byId("decks-view").className.indexOf("hidden") < 0 &&
       byId("settings-dialog").className.indexOf("hidden") >= 0 &&
+      byId("update-dialog").className.indexOf("hidden") >= 0 &&
       byId("about-dialog").className.indexOf("hidden") >= 0 &&
       byId("auth-panel").className.indexOf("hidden") >= 0 &&
       byId("full-sync-panel").className.indexOf("hidden") >= 0 &&
@@ -1605,6 +1628,13 @@
   byId("settings-about").onclick = openAbout;
   byId("about").onclick = openAbout;
   byId("about-done").onclick = closeAbout;
+  byId("update-later").onclick = function () { hide(byId("update-dialog")); };
+  byId("update-dismiss").onclick = function () {
+    request("POST", "/api/update-status/dismiss", "", function (error) {
+      if (error) { warning(error); return; }
+      hide(byId("update-dialog"));
+    }, 0);
+  };
   byId("settings-logout").onclick = function () {
     hide(byId("settings-dialog"));
     show(byId("account-dialog"));
@@ -1709,4 +1739,5 @@
   byId("close").onclick = closeApplication;
   byId("about-logo").onload = prepareAboutLogo;
   loadSettings();
+  window.setTimeout(checkForUpdate, UPDATE_CHECK_DELAY_MS);
 }());

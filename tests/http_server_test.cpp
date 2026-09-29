@@ -1,5 +1,6 @@
 #include "ankink/http_server.hpp"
 #include "ankink/orientation.hpp"
+#include "ankink/update_checker.hpp"
 
 #include <arpa/inet.h>
 #include <atomic>
@@ -7,6 +8,7 @@
 #include <csignal>
 #include <cstring>
 #include <future>
+#include <fstream>
 #include <iostream>
 #include <netinet/in.h>
 #include <stdexcept>
@@ -218,6 +220,82 @@ void collection_requests_are_serialized() {
   require(elapsed >= 250ms, "collection operations must not overlap");
 }
 
+void update_status_is_non_blocking_and_dismissible() {
+  auto configured = options();
+  configured.update_checks_enabled = true;
+  std::atomic<unsigned> checks{0};
+  std::atomic<bool> payload_valid{true};
+  configured.device_telemetry = [] {
+    return ankink::DeviceTelemetry{
+        "Test Kindle", "5.test", "3.test", "arm-test"};
+  };
+  configured.update_poster =
+      [&](const std::string &endpoint, const std::string &body,
+          std::string &response) {
+        if (endpoint !=
+                "https://telemetry.nimamo.workers.dev/api/v1/check" ||
+            body.find(R"("app":"ankink")") == std::string::npos ||
+            body.find(R"("appVersion":"0.3.0")") == std::string::npos ||
+            body.find(R"("deviceModel":"Test Kindle")") ==
+                std::string::npos ||
+            body.find(R"("buildType":"development")") ==
+                std::string::npos)
+          payload_valid.store(false);
+        checks.fetch_add(1);
+        response = R"({"checked":true,"currentVersion":"0.3.0","latestVersion":"0.4.0"})";
+        return true;
+      };
+
+  std::string first_id;
+  {
+    RunningServer server(configured);
+    Response status;
+    for (int i = 0; i < 100; ++i) {
+      status = request(server.port(), "GET", "/api/update-status");
+      if (status.body.find(R"("checked":true)") != std::string::npos) break;
+      std::this_thread::sleep_for(5ms);
+    }
+    require(status.status == 200 &&
+                status.body.find(R"("updateAvailable":true)") !=
+                    std::string::npos &&
+                status.body.find(R"("dismissed":false)") !=
+                    std::string::npos,
+            "newer update is exposed through the local API");
+    require(request(server.port(), "POST",
+                    "/api/update-status/dismiss").body.find(
+                        R"("dismissed":true)") != std::string::npos,
+            "newer version can be dismissed");
+  }
+  {
+    std::ifstream input(configured.data_dir + "/install-id");
+    std::getline(input, first_id);
+  }
+  require(first_id.size() == 36, "random installation UUID is persisted");
+  {
+    RunningServer server(configured);
+    Response status;
+    for (int i = 0; i < 100; ++i) {
+      status = request(server.port(), "GET", "/api/update-status");
+      if (status.body.find(R"("checked":true)") != std::string::npos) break;
+      std::this_thread::sleep_for(5ms);
+    }
+    require(status.body.find(R"("dismissed":true)") != std::string::npos,
+            "dismissal remains scoped to the reported target version");
+  }
+  std::string second_id;
+  {
+    std::ifstream input(configured.data_dir + "/install-id");
+    std::getline(input, second_id);
+  }
+  require(payload_valid.load() && checks.load() == 2,
+          "each backend start sends one valid asynchronous check");
+  require(second_id == first_id,
+          "the app-specific random installation UUID is reused");
+  ::unlink((configured.data_dir + "/install-id").c_str());
+  ::unlink((configured.data_dir + "/dismissed-update-version").c_str());
+  remove_state_directory(configured.data_dir);
+}
+
 } // namespace
 
 int main() {
@@ -254,6 +332,11 @@ int main() {
     removed_input_endpoints_are_not_registered();
     card_action_endpoint_is_registered();
     collection_requests_are_serialized();
+    require(ankink::update_version_is_newer("0.4.0", "0.3.9") &&
+                !ankink::update_version_is_newer("0.3.0", "0.3.0") &&
+                !ankink::update_version_is_newer("0.4-beta", "0.3.0"),
+            "strict semantic update version comparison");
+    update_status_is_non_blocking_and_dismissible();
     std::cout << "http server tests passed\n";
     return 0;
   } catch (const std::exception &error) {

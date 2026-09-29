@@ -100,6 +100,18 @@
     </div>
   </div>
 
+  <div id="update-dialog" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-label="AnkINK update available">
+    <div class="confirm-dialog update-dialog">
+      <h2>A newer AnkINK version is available</h2>
+      <p id="update-message"></p>
+      <p class="update-note">Updates are not installed automatically.</p>
+      <div class="update-actions">
+        <button id="update-dismiss" type="button">Don't remind me again for this version</button>
+        <button id="update-later" type="button">Remind me later</button>
+      </div>
+    </div>
+  </div>
+
   <div id="about-dialog" class="dialog-overlay hidden" role="dialog" aria-modal="true" aria-label="About AnkINK">
     <div class="about-dialog">
       <div class="about-logo-stage">
@@ -109,6 +121,7 @@
       <p class="about-mark">◈</p>
       <p class="about-message">What we revisit,<br>we make our own.</p>
       <p class="about-mark">❦</p>
+      <p id="about-version" class="about-version">Version: &hellip;</p>
       <p class="about-credit">Created by Nima Mohammadi</p>
       <p class="about-legal">Copyright &copy; 2026 AnkINK contributors &middot; No warranty</p>
       <p class="about-legal">You may share and modify AnkINK<br>under GNU AGPL v3 or later.</p>
@@ -189,6 +202,6 @@
     <button id="scroll-up" class="scroll-button scroll-up hidden" type="button" title="Scroll up">&#9650;</button>
     <button id="scroll-down" class="scroll-button scroll-down hidden" type="button" title="Scroll down">&#9660;</button>
   </div>
-  <script src="app-settings.js?v=20260910-4-rating-erase"></script>
+  <script src="app-settings.js?v=20260929-1-update-check"></script>
 </body>
 </html>

@@ -43,6 +43,15 @@ const rustCardAction = between(backend, "fn card_action(", "fn undo(&mut self)")
 const rustUndo = between(backend, "fn undo(&mut self)", "fn login(&mut self");
 const cardActions = between(frontend, "/* CARD_ACTIONS_BEGIN */", "/* CARD_ACTIONS_END */");
 
+assert.match(index,
+  /id="about-version" class="about-version">Version: &hellip;<\/p>[\s\S]*Created by Nima Mohammadi/,
+  "the About dialog reserves a version row above its creator credit");
+assert.match(frontend,
+  /function updateAboutVersion\(status\)[\s\S]*"Version: " \+ status\.version/,
+  "the About version comes from the daemon's build status");
+assert.match(startup, /updateAboutVersion\(status\)/,
+  "startup populates the About version from its existing status request");
+
 // The Mesquite frontend and Kindle launcher share AnkINK's dedicated loopback port.
 assert.match(frontend, /var API = "http:\/\/127\.0\.0\.1:9257"/);
 assert.doesNotMatch(frontend, /8765/);
@@ -271,6 +280,16 @@ assert.match(pageButtons, /document\.addEventListener\("keyup", pageButtonKeyUp,
 assert.match(pageButtons, /event\.preventDefault/);
 assert.match(pageButtons, /event\.stopPropagation/);
 assert.match(pageButtons, /pageButtonDownCode === code/);
+assert.match(index, /id="update-dialog"[\s\S]*A newer AnkINK version is available/);
+assert.match(index, /id="update-dismiss"[^>]*>Don't remind me again for this version<\/button>/);
+assert.match(index, /id="update-later"[^>]*>Remind me later<\/button>/);
+assert.match(frontend, /var UPDATE_CHECK_DELAY_MS = 60000/);
+assert.match(frontend,
+  /function checkForUpdate\(\)[\s\S]*"GET", "\/api\/update-status"[\s\S]*status\.updateAvailable[\s\S]*status\.dismissed/);
+assert.match(frontend,
+  /byId\("update-dismiss"\)\.onclick[\s\S]*"POST", "\/api\/update-status\/dismiss"/);
+assert.match(frontend,
+  /window\.setTimeout\(checkForUpdate, UPDATE_CHECK_DELAY_MS\)/);
 assert.doesNotMatch(frontend, /\/api\/input|\/api\/simulator\/input|pollPageButtons|clearPhysicalInput/);
 assert.match(simulatorJavascript, /ankinkSimulatorPageButton/);
 assert.doesNotMatch(httpServer,

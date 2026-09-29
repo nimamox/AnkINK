@@ -6,6 +6,25 @@ under GNU AGPL-3.0-or-later. The full project license is in `LICENSE`.
 The following components are linked into or distributed with the Kindle
 release. Their original licenses and notices continue to apply to them.
 
+## libcurl 8.16.0
+
+- Upstream: <https://curl.se/>
+- Source: <https://github.com/curl/curl/tree/curl-8_16_0>
+- License: curl license (MIT/X derivative), reproduced in
+  `LICENSES/curl.txt`
+- Use: statically linked into `ankinkd` for the background update check
+
+Copyright (C) Daniel Stenberg and the curl contributors.
+
+## OpenSSL 3.0.18
+
+- Upstream: <https://www.openssl.org/>
+- Source: <https://github.com/openssl/openssl/tree/openssl-3.0.18>
+- License: Apache-2.0, reproduced in `LICENSES/Apache-2.0.txt`
+- Use: statically linked into `ankinkd` through libcurl
+
+Copyright OpenSSL contributors.
+
 ## Anki 26.08 Rust backend
 
 - Upstream: <https://github.com/ankitects/anki>
@@ -58,6 +77,13 @@ The Kindle bundle includes unmodified runtime files from Debian cross packages:
 
 The applicable texts are reproduced in `LICENSES/LGPL-2.1-or-later.txt`,
 `LICENSES/GPL-3.0-or-later.txt`, and `LICENSES/GCC-exception-3.1.txt`.
+
+## Certificate authorities
+
+`etc/ca-certificates.crt` comes from Debian `ca-certificates` 20250419 and
+contains Mozilla CA certificate data. Mozilla-derived material is available
+under MPL-2.0, reproduced in `LICENSES/MPL-2.0.txt`. Source:
+<https://sources.debian.org/src/ca-certificates/20250419/>.
 Principal Apache-2.0 and MPL-2.0 texts used by the Rust dependency closure are
 also reproduced in `LICENSES/`.
 

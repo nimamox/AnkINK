@@ -63,6 +63,8 @@ setsid "$ANKINK_LOADER" --library-path "$ANKINK_ROOT/lib" \
   "$ANKINK_ROOT/bin/ankinkd" \
   --collection "$ANKINK_DATA_DIR/collection.anki2" \
   --assets "$ANKINK_ROOT/share/ankink" \
+  --data-dir "$ANKINK_DATA_DIR" \
+  --ca-bundle "$ANKINK_ROOT/etc/ca-certificates.crt" \
   --port 9257 >> "$ANKINK_LOG" 2>&1 </dev/null &
 ANKINK_DAEMON_PID=$!
 echo "$ANKINK_DAEMON_PID" > "$ANKINK_PID_FILE"

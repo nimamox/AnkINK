@@ -9,6 +9,37 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CTest)
 find_package(Threads REQUIRED)
 
+set(ANKINK_BUILD_COMMIT "$ENV{ANKINK_BUILD_COMMIT}")
+if(NOT ANKINK_BUILD_COMMIT)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" rev-parse --short=12 HEAD
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            RESULT_VARIABLE ANKINK_GIT_RESULT
+            OUTPUT_VARIABLE ANKINK_BUILD_COMMIT
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT ANKINK_GIT_RESULT EQUAL 0)
+            set(ANKINK_BUILD_COMMIT "unknown")
+        else()
+            execute_process(
+                COMMAND "${GIT_EXECUTABLE}" diff-index --quiet HEAD --
+                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                RESULT_VARIABLE ANKINK_GIT_DIRTY)
+            if(NOT ANKINK_GIT_DIRTY EQUAL 0)
+                string(APPEND ANKINK_BUILD_COMMIT "-dirty")
+            endif()
+        endif()
+    else()
+        set(ANKINK_BUILD_COMMIT "unknown")
+    endif()
+endif()
+if(CMAKE_CROSSCOMPILING)
+    set(ANKINK_BUILD_TYPE "release")
+else()
+    set(ANKINK_BUILD_TYPE "development")
+endif()
+
 set(CMAKE_INSTALL_BINDIR bin CACHE PATH "Executable installation directory")
 set(CMAKE_INSTALL_DATADIR share CACHE PATH "Data installation directory")
 
@@ -83,6 +114,10 @@ endif()
 target_compile_options(ankink_collection PRIVATE -Wall -Wextra -Wpedantic)
 
 if(ANKINK_BUILD_APP)
+    set(CURL_USE_STATIC_LIBS ON)
+    set(OPENSSL_USE_STATIC_LIBS ON)
+    find_package(CURL REQUIRED)
+    find_package(OpenSSL REQUIRED)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         # This preload runs inside system Mesquite, not under our bundled loader.
         # Leave its external references for the Kindle's native ABI.
@@ -94,10 +129,17 @@ if(ANKINK_BUILD_APP)
     endif()
 
     add_library(ankink_http_server src/http_server.cpp src/app_state.cpp
-        src/orientation.cpp)
+        src/orientation.cpp src/update_checker.cpp)
     target_include_directories(ankink_http_server PUBLIC include)
-    target_link_libraries(ankink_http_server PUBLIC ankink_collection Threads::Threads)
-    target_compile_definitions(ankink_http_server PRIVATE ANKINK_VERSION="${PROJECT_VERSION}")
+    target_link_libraries(ankink_http_server PUBLIC ankink_collection Threads::Threads
+        CURL::libcurl OpenSSL::SSL OpenSSL::Crypto)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(ankink_http_server PUBLIC dl m rt)
+    endif()
+    target_compile_definitions(ankink_http_server PRIVATE
+        ANKINK_VERSION="${PROJECT_VERSION}"
+        ANKINK_BUILD_COMMIT="${ANKINK_BUILD_COMMIT}"
+        ANKINK_BUILD_TYPE="${ANKINK_BUILD_TYPE}")
     target_compile_options(ankink_http_server PRIVATE -Wall -Wextra -Wpedantic)
 
     add_executable(ankinkd src/daemon_main.cpp)

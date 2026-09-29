@@ -13,13 +13,14 @@ void usage(const char *program) {
   std::cout << "Usage: " << program
             << " [--collection FILE] [--assets DIRECTORY] [--port PORT]\n"
                "       [--simulator] [--simulator-assets DIRECTORY]"
-               " [--data-dir DIRECTORY]\n";
+               " [--data-dir DIRECTORY] [--ca-bundle FILE]\n";
 }
 } // namespace
 
 int main(int argc, char **argv) {
   try {
     ankink::ServerOptions options;
+    options.update_checks_enabled = true;
     for (int i = 1; i < argc; ++i) {
       const std::string argument = argv[i];
       if (argument == "--help" || argument == "-h") { usage(argv[0]); return 0; }
@@ -37,6 +38,7 @@ int main(int argc, char **argv) {
         if (::setenv("ANKINK_DATA_DIR", value.c_str(), 1) != 0)
           throw std::runtime_error("could not set AnkINK data directory");
       }
+      else if (argument == "--ca-bundle") options.ca_bundle_path = value;
       else if (argument == "--port") {
         const long port = std::stol(value);
         if (port < 1 || port > 65535) throw std::runtime_error("invalid port");

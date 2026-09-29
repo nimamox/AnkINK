@@ -4,6 +4,19 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 IMAGE=${KINDLE_DOCKER_IMAGE:-kindle-dev-builder:local}
 CACHE_VOLUME=${KINDLE_DOCKER_CACHE_VOLUME:-ankink-kindle-build-cache}
+BUILD_COMMIT=${ANKINK_BUILD_COMMIT:-}
+if [ -z "$BUILD_COMMIT" ] && command -v git >/dev/null 2>&1 &&
+   git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  BUILD_COMMIT=$(git -C "$ROOT" rev-parse --short=12 HEAD)
+  if ! git -C "$ROOT" diff-index --quiet HEAD --; then
+    BUILD_COMMIT="$BUILD_COMMIT-dirty"
+  fi
+fi
+BUILD_COMMIT=${BUILD_COMMIT:-unknown}
+if [[ ! "$BUILD_COMMIT" =~ ^(unknown|[0-9a-f]{7,40}(-dirty)?)$ ]]; then
+  echo "Invalid AnkINK build commit: $BUILD_COMMIT" >&2
+  exit 2
+fi
 
 if [ "$#" -gt 1 ]; then
   echo "Usage: bash build_on_docker.sh [user@host]" >&2
@@ -43,7 +56,7 @@ if [ "$#" -eq 1 ]; then
     "$ROOT/" "$REMOTE_TARGET:$REMOTE_ROOT/"
 
   echo "Building AnkINK with Docker on $REMOTE_TARGET"
-  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && bash build_on_docker.sh"
+  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && ANKINK_BUILD_COMMIT='$BUILD_COMMIT' bash build_on_docker.sh"
 
   echo "Copying AnkINK dist back to $ROOT/dist"
   mkdir -p "$ROOT/dist"
@@ -71,6 +84,7 @@ docker volume create "$CACHE_VOLUME" >/dev/null
 docker run --rm \
   --env "HOST_UID=$(id -u)" \
   --env "HOST_GID=$(id -g)" \
+  --env "ANKINK_BUILD_COMMIT=$BUILD_COMMIT" \
   --mount "type=bind,source=$ROOT,target=/workspace,readonly" \
   --mount "type=bind,source=$ROOT/dist,target=/out" \
   --mount "type=volume,source=$CACHE_VOLUME,target=/cache" \

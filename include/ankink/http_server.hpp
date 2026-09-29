@@ -1,6 +1,7 @@
 #pragma once
 #include "ankink/app_state.hpp"
 #include "ankink/collection.hpp"
+#include "ankink/update_checker.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -18,11 +19,15 @@ struct ServerOptions {
   std::string data_dir{"/var/local/ankink"};
   std::string asset_dir{"assets"};
   std::string simulator_asset_dir{"simulator"};
+  std::string ca_bundle_path;
   std::uint16_t port{9257};
   bool simulator{};
+  bool update_checks_enabled{};
   std::size_t worker_count{4};
   // A zero-cost production default and a deterministic integration-test seam.
   std::chrono::milliseconds collection_operation_delay{};
+  UpdatePostFunction update_poster;
+  DeviceTelemetryFunction device_telemetry;
 };
 class HttpServer {
 public:
@@ -43,6 +48,7 @@ private:
   Collection collection_;
   std::string collection_error_;
   std::mutex collection_mutex_;
+  UpdateChecker update_checker_;
 
   std::atomic<bool> stopping_{false};
   std::atomic<std::uint16_t> bound_port_{0};
