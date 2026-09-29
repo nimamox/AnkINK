@@ -80,8 +80,17 @@ for BUILD_ABI in $BUILD_ABIS; do
     "EXECUTABLE=$PACKAGE_STAGE/$BUILD_ABI/bin/ankinkd" >/dev/null
   printf '%s\n' "$LAUNCH_PLAN" | grep -Fx \
     "LIBRARY_PATH=$PACKAGE_STAGE/$BUILD_ABI/lib" >/dev/null
-  printf '%s\n' "$LAUNCH_PLAN" | grep -Fx \
-    "PRELOAD=$PACKAGE_STAGE/$BUILD_ABI/lib/libmesquite-whisper-touch.so" >/dev/null
+  case "$BUILD_ABI" in
+    armel)
+      printf '%s\n' "$LAUNCH_PLAN" | grep -Fx "WHISPER_TOUCH_PRELOAD=enabled" >/dev/null
+      printf '%s\n' "$LAUNCH_PLAN" | grep -Fx \
+        "PRELOAD=$PACKAGE_STAGE/$BUILD_ABI/lib/libmesquite-whisper-touch.so" >/dev/null
+      ;;
+    armhf)
+      printf '%s\n' "$LAUNCH_PLAN" | grep -Fx "WHISPER_TOUCH_PRELOAD=disabled" >/dev/null
+      printf '%s\n' "$LAUNCH_PLAN" | grep -Fx "PRELOAD=" >/dev/null
+      ;;
+  esac
   printf '%s\n' "$LAUNCH_PLAN" | grep -Fx \
     "ASSETS=$PACKAGE_STAGE/share/ankink" >/dev/null
   case "$BUILD_ABI" in

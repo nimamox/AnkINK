@@ -163,9 +163,10 @@ shared-library closure, and then runs the packaged loader plus `ankinkd --help`
 under QEMU user mode. The launcher is independently exercised with an internal
 test-only ABI override to verify its executable, loader, library path, preload,
 and shared asset choices. These checks do not emulate or validate Kindle
-firmware services. In particular, ARMHF Mesquite, appmgrd/appreg registration,
-Whisper Touch, physical buttons, touch, e-ink, and suspend/resume remain pending
-physical KindleHF testing.
+firmware services. The ARMHF runtime, Mesquite launch, Whisper Touch
+integration, physical buttons, touch, and e-ink behavior have been verified on
+a Kindle Oasis 3, but other ARMHF models and firmware versions still require
+physical-device testing.
 
 ## Kindle runtime and deployment
 

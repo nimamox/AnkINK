@@ -73,7 +73,11 @@ assert.equal(Math.max(0, 0 - 1), 0);
 // harmless in the host simulator. The launcher and simulator expose all four
 // orientations while keeping the seven action buttons uniformly sized.
 assert.match(runKindle, /'supportedOrientation','UDLR'/);
-assert.match(runKindle, /LD_PRELOAD=\$ANKINK_PRELOAD \/usr\/bin\/mesquite/);
+assert.match(runKindle, /ANKINK_USE_WHISPER_TOUCH=0[\s\S]*ANKINK_ABI" = armel[\s\S]*ANKINK_USE_WHISPER_TOUCH=1/);
+assert.match(runKindle, /grep -Eqi '\(zelda\|stinger\)' \/etc\/version\.txt[\s\S]*ANKINK_USE_WHISPER_TOUCH=1/,
+  "ARMHF Oasis 2/3 retain the page-button helper");
+assert.match(runKindle, /ANKINK_MESQUITE_COMMAND="\/usr\/bin\/mesquite[\s\S]*ANKINK_USE_WHISPER_TOUCH" = 1[\s\S]*LD_PRELOAD=\$ANKINK_PRELOAD/,
+  "Whisper Touch is used only on page-button-capable paths");
 assert.match(runKindle, /\[ -e \/lib\/ld-linux-armhf\.so\.3 \][\s\S]*ANKINK_ABI=armhf/);
 assert.match(runKindle, /\[ -e \/lib\/ld-linux\.so\.3 \][\s\S]*ANKINK_ABI=armel/);
 assert.match(runKindle, /ANKINK_RUNTIME="\$ANKINK_ROOT\/\$ANKINK_ABI"/);

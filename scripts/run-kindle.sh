@@ -34,9 +34,17 @@ esac
 ANKINK_LIBRARY_PATH="$ANKINK_RUNTIME/lib"
 ANKINK_DAEMON="$ANKINK_RUNTIME/bin/ankinkd"
 ANKINK_PRELOAD="$ANKINK_RUNTIME/lib/libmesquite-whisper-touch.so"
+ANKINK_USE_WHISPER_TOUCH=0
+if [ "$ANKINK_ABI" = armel ]; then
+  ANKINK_USE_WHISPER_TOUCH=1
+elif [ -r /etc/version.txt ] && grep -Eqi '(zelda|stinger)' /etc/version.txt; then
+  # Oasis 2/3 use ARMHF on current firmware and retain physical page buttons.
+  # KOA3 was verified with this helper on firmware 5.18.2.1.1.
+  ANKINK_USE_WHISPER_TOUCH=1
+fi
 
 if [ ! -x "$ANKINK_DAEMON" ] || [ ! -x "$ANKINK_LOADER" ] ||
-   [ ! -f "$ANKINK_PRELOAD" ]; then
+   { [ "$ANKINK_USE_WHISPER_TOUCH" = 1 ] && [ ! -f "$ANKINK_PRELOAD" ]; }; then
   echo "Incomplete bundled $ANKINK_ABI runtime" >> "$ANKINK_LOG"
   exit 1
 fi
@@ -47,7 +55,13 @@ if [ "${ANKINK_LAUNCHER_TEST:-0}" = 1 ]; then
   echo "EXECUTABLE=$ANKINK_DAEMON"
   echo "LOADER=$ANKINK_LOADER"
   echo "LIBRARY_PATH=$ANKINK_LIBRARY_PATH"
-  echo "PRELOAD=$ANKINK_PRELOAD"
+  if [ "$ANKINK_USE_WHISPER_TOUCH" = 1 ]; then
+    echo "WHISPER_TOUCH_PRELOAD=enabled"
+    echo "PRELOAD=$ANKINK_PRELOAD"
+  else
+    echo "WHISPER_TOUCH_PRELOAD=disabled"
+    echo "PRELOAD="
+  fi
   echo "ASSETS=$ANKINK_ROOT/share/ankink"
   exit 0
 fi
@@ -137,6 +151,11 @@ fi
 echo "$ANKINK_MESQUITE_DIR" > "$ANKINK_MESQUITE_CURRENT"
 rm -rf /var/local/mesquite/ankink
 
+ANKINK_MESQUITE_COMMAND="/usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/"
+if [ "$ANKINK_USE_WHISPER_TOUCH" = 1 ]; then
+  ANKINK_MESQUITE_COMMAND="/usr/bin/env LD_PRELOAD=$ANKINK_PRELOAD $ANKINK_MESQUITE_COMMAND"
+fi
+
 sqlite3 "$ANKINK_APPREG" <<EOF
 BEGIN IMMEDIATE;
 INSERT OR IGNORE INTO interfaces(interface) VALUES('application');
@@ -144,7 +163,7 @@ INSERT OR IGNORE INTO handlerIds(handlerId) VALUES('$ANKINK_APP_ID');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','lipcId','$ANKINK_APP_ID');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
-  VALUES('$ANKINK_APP_ID','command','/usr/bin/env LD_PRELOAD=$ANKINK_PRELOAD /usr/bin/mesquite -l $ANKINK_APP_ID -c file://$ANKINK_MESQUITE_DIR/');
+  VALUES('$ANKINK_APP_ID','command','$ANKINK_MESQUITE_COMMAND');
 INSERT OR REPLACE INTO properties(handlerId,name,value)
   VALUES('$ANKINK_APP_ID','supportedOrientation','UDLR');
 INSERT OR REPLACE INTO properties(handlerId,name,value)

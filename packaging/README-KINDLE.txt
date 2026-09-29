@@ -29,8 +29,9 @@ path under /var/local/mesquite, registers org.ankink.app, and launches it throug
 Amazon's app manager. The UI Close button exits both the UI and backend.
 The same installation contains isolated ARMEL and ARMHF native runtimes. The
 launcher detects the firmware userspace ABI and selects the matching executable,
-dynamic loader, libraries, and Mesquite preload automatically; users do not need
-to choose an architecture.
+dynamic loader, and libraries automatically; users do not need to choose an
+architecture. The Whisper Touch helper is enabled on ARMEL and on detected
+ARMHF Oasis 2/3 devices with physical page buttons.
 The UI removes the otherwise-empty native navigation strip and renders Anki
 TeX equations locally using the bundled KaTeX fonts and native renderer.
 Reviews use Anki 26.08's official scheduler and are written to the collection.

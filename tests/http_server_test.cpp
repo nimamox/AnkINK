@@ -235,14 +235,14 @@ void update_status_is_non_blocking_and_dismissible() {
         if (endpoint !=
                 "https://telemetry.nimamo.workers.dev/api/v1/check" ||
             body.find(R"("app":"ankink")") == std::string::npos ||
-            body.find(R"("appVersion":"0.4.0")") == std::string::npos ||
+            body.find(R"("appVersion":"0.4.1")") == std::string::npos ||
             body.find(R"("deviceModel":"Test Kindle")") ==
                 std::string::npos ||
             body.find(R"("buildType":"development")") ==
                 std::string::npos)
           payload_valid.store(false);
         checks.fetch_add(1);
-        response = R"({"checked":true,"currentVersion":"0.4.0","latestVersion":"0.5.0"})";
+        response = R"({"checked":true,"currentVersion":"0.4.1","latestVersion":"0.5.0"})";
         return true;
       };
 
