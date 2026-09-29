@@ -11,6 +11,7 @@ AnkINK uses Anki's official Rust backend rather than reimplementing Anki's
 scheduler. Card queues, answer intervals, review history, template rendering,
 and FSRS or legacy scheduling behavior therefore come from Anki itself.
 
+
 ## Features
 
 - AnkiWeb sign-in and normal collection and media synchronization.
@@ -31,6 +32,8 @@ AnkINK is primarily a reviewing client. It does not currently provide full
 Anki authoring: notes, decks, card templates, and deck options are not edited
 on the Kindle. A guarded full download is available when Anki requires one;
 full upload is deliberately not exposed.
+
+<img src="docs/AnkINK.gif" alt="AnkINK running on a Kindle Oasis gen 8th" width="500">
 
 ## Platform support
 
