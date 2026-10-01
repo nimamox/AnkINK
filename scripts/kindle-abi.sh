@@ -25,7 +25,7 @@ kindle_abi_configure() {
       ;;
   esac
   KINDLE_FLOAT_FLAGS="-mfpu=neon -mfloat-abi=$KINDLE_FLOAT_ABI"
-  KINDLE_ARCH_FLAGS="-march=armv7-a $KINDLE_FLOAT_FLAGS"
+  KINDLE_ARCH_FLAGS="-march=armv7-a -mtune=generic-armv7-a $KINDLE_FLOAT_FLAGS"
   export KINDLE_ABI KINDLE_GNU_TRIPLET KINDLE_RUST_TARGET
   export KINDLE_FLOAT_ABI KINDLE_FLOAT_FLAGS KINDLE_ARCH_FLAGS KINDLE_LOADER
 }

@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 IMAGE=${KINDLE_DOCKER_IMAGE:-kindle-dev-builder:local}
 CACHE_VOLUME=${KINDLE_DOCKER_CACHE_VOLUME:-ankink-kindle-build-cache}
+. "$ROOT/scripts/kindle-optimization.sh"
+kindle_optimization_configure
 BUILD_ABI=${KINDLE_ABI:-universal}
 case "$BUILD_ABI" in
   universal|all|armel|armhf) ;;
@@ -61,7 +63,7 @@ if [ "$#" -eq 1 ]; then
     "$ROOT/" "$REMOTE_TARGET:$REMOTE_ROOT/"
 
   echo "Building AnkINK with Docker on $REMOTE_TARGET"
-  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && ANKINK_BUILD_COMMIT='$BUILD_COMMIT' KINDLE_ABI='$BUILD_ABI' bash build_on_docker.sh"
+  ssh "$REMOTE_TARGET" "cd '$REMOTE_ROOT' && ANKINK_BUILD_COMMIT='$BUILD_COMMIT' KINDLE_ABI='$BUILD_ABI' KINDLE_CPP_OPT_LEVEL='$KINDLE_CPP_OPT_LEVEL' KINDLE_RUST_OPT_LEVEL='$KINDLE_RUST_OPT_LEVEL' KINDLE_RUST_NEON='$KINDLE_RUST_NEON' KINDLE_IPO='$KINDLE_IPO' KINDLE_VECTOR_REPORT='$KINDLE_VECTOR_REPORT' bash build_on_docker.sh"
 
   echo "Copying AnkINK dist back to $ROOT/dist"
   mkdir -p "$ROOT/dist"
@@ -96,6 +98,11 @@ docker run --rm \
   --env "HOST_GID=$(id -g)" \
   --env "ANKINK_BUILD_COMMIT=$BUILD_COMMIT" \
   --env "KINDLE_ABI=$BUILD_ABI" \
+  --env "KINDLE_CPP_OPT_LEVEL=$KINDLE_CPP_OPT_LEVEL" \
+  --env "KINDLE_RUST_OPT_LEVEL=$KINDLE_RUST_OPT_LEVEL" \
+  --env "KINDLE_RUST_NEON=$KINDLE_RUST_NEON" \
+  --env "KINDLE_IPO=$KINDLE_IPO" \
+  --env "KINDLE_VECTOR_REPORT=$KINDLE_VECTOR_REPORT" \
   --mount "type=bind,source=$ROOT,target=/workspace,readonly" \
   --mount "type=bind,source=$ROOT/dist,target=/out" \
   --mount "type=volume,source=$CACHE_VOLUME,target=/cache" \

@@ -29,8 +29,8 @@ set(CMAKE_AR "${ANKINK_SDK_ROOT}/bin/${ANKINK_TRIPLET}-ar")
 set(CMAKE_RANLIB "${ANKINK_SDK_ROOT}/bin/${ANKINK_TRIPLET}-ranlib")
 set(CMAKE_STRIP "${ANKINK_SDK_ROOT}/bin/${ANKINK_TRIPLET}-strip")
 
-set(CMAKE_C_FLAGS_INIT "-march=armv7-a ${ANKINK_FLOAT_FLAGS}")
-set(CMAKE_CXX_FLAGS_INIT "-march=armv7-a ${ANKINK_FLOAT_FLAGS}")
+set(CMAKE_C_FLAGS_INIT "-march=armv7-a -mtune=generic-armv7-a ${ANKINK_FLOAT_FLAGS}")
+set(CMAKE_CXX_FLAGS_INIT "-march=armv7-a -mtune=generic-armv7-a ${ANKINK_FLOAT_FLAGS}")
 
 set(CMAKE_FIND_ROOT_PATH "${CMAKE_SYSROOT}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)

@@ -22,7 +22,7 @@ for KINDLE_DEP_ABI in armel armhf; do
 
   (
     cd "$OPENSSL_SOURCE"
-    CFLAGS="-Os $KINDLE_ARCH_FLAGS" \
+    CFLAGS="-O2 $KINDLE_ARCH_FLAGS" \
       ./Configure linux-armv4 no-shared no-tests no-module \
         "--cross-compile-prefix=$KINDLE_GNU_TRIPLET-" \
         "--prefix=$KINDLE_PREFIX"
@@ -35,7 +35,7 @@ for KINDLE_DEP_ABI in armel armhf; do
     PKG_CONFIG_LIBDIR="$KINDLE_PREFIX/lib/pkgconfig" \
       CPPFLAGS="-I$KINDLE_PREFIX/include" \
       LDFLAGS="-L$KINDLE_PREFIX/lib" \
-      CFLAGS="-Os $KINDLE_ARCH_FLAGS" \
+      CFLAGS="-O2 $KINDLE_ARCH_FLAGS" \
       ./configure "--host=$KINDLE_GNU_TRIPLET" \
         "--prefix=$KINDLE_PREFIX" \
         --disable-shared --enable-static --disable-ldap --disable-ldaps \

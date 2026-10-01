@@ -156,7 +156,7 @@ tar -C dist -czf AnkINK-kindle.tar.gz ankink extensions documents
 The default build creates both runtimes. `KINDLE_ABI=armel` or
 `KINDLE_ABI=armhf` requests a single-ABI developer build. Native dependency,
 CMake, package, and runtime-library outputs remain isolated by ABI; Cargo uses
-one cache root with target-triple-specific subdirectories.
+optimization-profile-specific cache roots with target-triple-specific subdirectories.
 
 `scripts/validate-kindle-runtime.sh` checks ELF machine/float ABI, interpreter,
 shared-library closure, and then runs the packaged loader plus `ankinkd --help`
@@ -212,3 +212,154 @@ The exact official source and redistribution obligations are documented in
 [SOURCE.md](SOURCE.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
 [LICENSE](LICENSE). Keep those files with every distribution and identify the
 exact AnkINK and pinned Anki source used for binary releases.
+
+## Kindle optimization validation (2026-10-01)
+
+The universal Kindle build uses **Release with explicit `-O2 -DNDEBUG`** for
+C/C++, checked CMake IPO for Release targets, and Rust `opt-level = 2`,
+`lto = "thin"`, `codegen-units = 1`. GCC flags are
+`-march=armv7-a -mtune=generic-armv7-a -mfpu=neon`, with `-mfloat-abi=softfp`
+for ARMEL and `-mfloat-abi=hard` for ARMHF. There is still exactly one runtime
+per ABI, with the existing loaders and launcher selection. No device-specific
+`-mcpu`, runtime dispatch, or `-ffast-math` was added.
+OpenSSL/curl now build with fixed `-O2` and the same generic ARM flags;
+the dependency-input fingerprint rebuilds the Docker image for these changes.
+CMake and Cargo caches additionally separate optimization levels, Rust NEON,
+and IPO by profile. Explicit flags replace cached CMake optimization flags;
+source-content fingerprints invalidate C++ objects even after rsync preserves
+old mtimes. Cargo tracks target flags and release profile changes. Kindle
+builds clear inherited global Rust flags so the selected target profile wins.
+
+Five developer configurations were compared: the original MinSizeRel/GCC `-Os`
+and Rust `"s"` baseline; O2/Rust2 with and without Rust NEON; and O3/Rust3 with
+and without Rust NEON. IPO is enabled in all four performance candidates.
+The default keeps **O2/Rust2 and no additional Rust target features**: O3 and
+Rust NEON did not improve the tested workloads consistently enough to justify
+choosing them for the broad device range. C/C++ NEON remains enabled.
+
+Rust NEON was tested, rather than inferred from compiler flags. ARMHF uses
+`-C target-feature=+neon`. On the pinned Rust 1.92 ARMEL target, `+neon` alone
+crashes LLVM during the math static-library build ("Do not know how to soften
+this operator's operand!"). The working experiment uses
+`-C target-feature=-soft-float,+vfp3,+neon`; the target's soft calling convention
+is retained. Rust's [pinned ABI feature checks](https://github.com/rust-lang/rust/blob/1.92.0/compiler/rustc_target/src/target_features.rs)
+document this ARM softfp equivalent. These experimental features generate
+compiler instability warnings, another reason to require measured benefit.
+Disassembly of `katex::build_html::build_html` contains NEON `vld1.32` and
+`vst1.32` instructions. `scripts/check-rust-float-abi.sh` checks ELF VFP argument
+attributes and C-to-Rust/Rust-to-C f32/f64 calls under both Cortex-A8 and
+Cortex-A9 QEMU CPUs for each ABI; the Docker build runs this automatically.
+
+Measurements use three runs of each configuration, reporting the median of
+per-run medians in milliseconds. Standalone benchmarks call production code
+with generated, disposable fixtures, without credentials or remote HTTP.
+All benchmark configurations use the same rebuilt O2 native dependency SDK;
+the baseline uses frozen original Rust archives and original C++ flags.
+Daemon size comparisons use the actual original and candidate distributions.
+QEMU timing is diagnostic, with shared-host scheduling noise; it is not a
+prediction of Kindle latency. Physical ARMEL measurements use an Oasis 1,
+firmware 5.16.2.1.1, temporarily held at 996 MHz for fair comparison; its
+`ondemand` governor is restored afterward. ARMHF performance was measured
+under QEMU, not on physical ARMHF hardware. Backend HTML generation does not
+measure Mesquite painting, network latency, or panel refresh.
+
+The fixture generator `backend/rust/examples/benchmark_fixture.rs` uses pinned
+Anki APIs to create 200 formatted/math notes across five decks. It refuses to
+overwrite an existing path. The benchmark opens collections, lists decks and
+review history, renders twelve distinct cards, then measures 40 card/answer/
+undo cycles against a fresh copy. It never reads the personal collection.
+
+Physical Oasis 1 (ARMEL):
+
+| Workload (ms) | Baseline | O2/Rust2 | O2/Rust2 + Rust NEON | O3/Rust3 + Rust NEON | O3/Rust3 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Collection open + decks | 49.230 | 48.160 | 47.633 | 47.727 | 47.613 |
+| Deck tree | 2.029 | 1.955 | 1.944 | 1.824 | 1.797 |
+| Review history | 9.552 | 8.354 | 8.423 | 8.154 | 8.223 |
+| Cold card | 5.223 | 4.792 | 4.676 | 4.696 | 4.682 |
+| Warm card | 1.930 | 1.743 | 1.732 | 1.756 | 1.681 |
+| Answer Good | 8.845 | 8.733 | 8.843 | 8.906 | 8.728 |
+| Undo | 8.979 | 8.957 | 8.836 | 8.877 | 8.890 |
+
+ARMHF under Cortex-A8 QEMU (diagnostic):
+
+| Workload (ms) | Baseline | O2/Rust2 | O2/Rust2 + Rust NEON | O3/Rust3 + Rust NEON | O3/Rust3 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Collection open + decks | 23.043 | 21.056 | 21.111 | 21.001 | 21.091 |
+| Deck tree | 0.766 | 0.706 | 0.774 | 0.690 | 0.670 |
+| Review history | 4.556 | 3.522 | 3.860 | 3.728 | 3.548 |
+| Cold card | 2.006 | 1.622 | 1.692 | 1.687 | 1.601 |
+| Warm card | 0.617 | 0.498 | 0.536 | 0.499 | 0.490 |
+| Answer Good | 0.620 | 0.593 | 0.603 | 0.574 | 0.572 |
+| Undo | 0.538 | 0.523 | 0.531 | 0.505 | 0.506 |
+
+Stripped packaged daemon sizes (bytes):
+
+| Configuration | ARMEL | ARMHF |
+| --- | ---: | ---: |
+| Baseline | 19,302,088 | 18,056,900 |
+| O2/Rust2 | 21,333,224 | 19,891,424 |
+| O2/Rust2 + Rust NEON | 21,136,616 | 19,694,816 |
+| O3/Rust3 + Rust NEON | 22,119,576 | 20,546,704 |
+| O3/Rust3 | 22,381,720 | 20,743,312 |
+
+Raw median/p95/sample-count records, including ARMEL QEMU, are in
+[`tests/benchmark_results/2026-10-01.csv`](tests/benchmark_results/2026-10-01.csv).
+
+Validation passed the existing three host CTest suites for this project in both
+the original build and Release/O2 with IPO, JavaScript syntax checks, and all
+ARMEL/ARMHF ELF, packaged-loader, dependency-closure, launcher-selection, and
+QEMU `/api/status` checks for baseline and all candidates. The final default
+universal package passes them again, including the new float ABI probes.
+GCC reports vectorized blocks in production code (AnkINK HTTP handling and
+Potion image-cache metadata). Math/card HTML from all 30 QEMU runs and 15
+physical runs per project matches baseline after sorting unique inline-style
+declarations and HTML attributes; text, values, and structure remain exact.
+Randomized Rust map iteration makes byte hashes of HTML unsuitable for this
+comparison. No installed application, account data, telemetry, or releases
+were changed by these tests.
+
+To reproduce candidate builds with the normal build entry point:
+
+```sh
+# Chosen default: O2 C/C++, Rust2, checked IPO, original Rust target features.
+bash build_on_docker.sh user@host
+# O3 comparison, without changing ABI or adding runtime variants:
+KINDLE_CPP_OPT_LEVEL=3 KINDLE_RUST_OPT_LEVEL=3 bash build_on_docker.sh user@host
+# Optional experimental Rust SIMD and GCC vector reports:
+KINDLE_RUST_NEON=1 KINDLE_VECTOR_REPORT=ON bash build_on_docker.sh user@host
+```
+
+`KINDLE_IPO=OFF` allows a developer IPO comparison. The scripts accept only
+optimization levels 2/3, NEON 0/1, and IPO/report ON/OFF. Each command packages
+one chosen implementation per ABI, not all benchmark candidates.
+Enable the optional CMake `ANKINK_BUILD_BENCHMARKS=ON` in a separate build
+configured with the same toolchain, flags, IPO, and imported Rust archive; build
+the `workload_benchmark` target. It is never copied into `dist/`. Run through
+the matching packaged loader and library path, on hardware or under
+`qemu-arm -r 3.0.35 -cpu cortex-a8`. Preserve each candidate's archive and
+binary before changing profiles; use a fresh private fixture directory per
+process. Keep timing runs serial and compare repeated results, not one noisy
+sample. Avoid interpreting cache/fsync p95 spikes as compiler improvements.
+
+Generate the fixture using the pinned Anki environment and native target:
+`cargo +1.92.0 run --locked --release --manifest-path backend/rust/Cargo.toml
+--example benchmark_fixture -- /tmp/benchmark.anki2`. Save the printed first
+deck ID. Pass a **fresh writable copy** and that ID to `workload_benchmark`;
+it performs actual reviews/undo on the copy. `--startup-only` isolates the
+first card without the answer-write workload. The chosen O2 package grows
+10.5% ARMEL / 10.2% ARMHF; O3 adds another 4.9% / 4.3% while the physical warm
+card gain over O2 is only about 0.06 ms. O2 improves cold/warm card medians
+8.3% / 9.7% versus baseline. Physical answer/undo medians are effectively
+unchanged with long flash-write tails, so no answer-speed improvement is claimed.
+
+First-card startup received an additional ten alternating baseline/O2 runs
+without answer writes. Median first-card time was **48.94 → 51.86 ms**; the
+observed ranges were 44.75–441.97 ms and 50.67–192.89 ms respectively. This is
+a small startup cost, not a startup speedup, and is retained as a documented
+tradeoff for faster repeated card/history workloads. Collection-open/deck
+construction in those runs improved 49.96 → 47.40 ms. The original three-run
+first-card medians were dominated by flash/scheduling outliers and are retained
+in the raw CSV rather than presented as stable performance gains. Host
+collection tests use the stub backend; the ARM workload tests exercise the
+actual official Anki backend and scheduler.

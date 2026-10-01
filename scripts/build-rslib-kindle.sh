@@ -12,7 +12,10 @@ KINDLE_ABI=${KINDLE_ABI:-armel}
 : "${KINDLE_SDK_ROOT:?Set KINDLE_SDK_ROOT to the AnkINK SDK directory}"
 : "${PROTOC:?Set PROTOC to a protoc executable}"
 . "$ANKINK_ROOT/scripts/kindle-abi.sh"
+. "$ANKINK_ROOT/scripts/kindle-optimization.sh"
+kindle_optimization_configure
 kindle_abi_configure "$KINDLE_ABI"
+kindle_rust_flags_configure
 if [ -n "${RUST_TARGET:-}" ] && [ "$RUST_TARGET" != "$KINDLE_RUST_TARGET" ]; then
   echo "RUST_TARGET=$RUST_TARGET does not match KINDLE_ABI=$KINDLE_ABI" >&2
   exit 2
@@ -39,10 +42,10 @@ export "CARGO_TARGET_${RUST_TARGET_ENV}_LINKER=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_
 export "CC_${RUST_TARGET_VAR}=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-gcc"
 export "CXX_${RUST_TARGET_VAR}=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-g++"
 export "AR_${RUST_TARGET_VAR}=$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-ar"
-export "CFLAGS_${RUST_TARGET_VAR}=$KINDLE_ARCH_FLAGS"
-export "CXXFLAGS_${RUST_TARGET_VAR}=$KINDLE_ARCH_FLAGS"
+export "CFLAGS_${RUST_TARGET_VAR}=$KINDLE_ARCH_FLAGS -O$KINDLE_CPP_OPT_LEVEL"
+export "CXXFLAGS_${RUST_TARGET_VAR}=$KINDLE_ARCH_FLAGS -O$KINDLE_CPP_OPT_LEVEL"
 
-cargo "+$RUST_TOOLCHAIN" build --release --target "$RUST_TARGET" \
+cargo "+$RUST_TOOLCHAIN" build --locked --release --target "$RUST_TARGET" \
   --manifest-path "$RUST_MANIFEST"
 
 RSLIB="${CARGO_TARGET_DIR:-$(dirname "$RUST_MANIFEST")/target}/$RUST_TARGET/release/libankink_anki_backend.a"
@@ -69,7 +72,11 @@ if [ -f "$CMAKE_FINGERPRINT_FILE" ] &&
 fi
 
 KINDLE_ABI="$KINDLE_ABI" cmake -S "$ANKINK_ROOT" -B "$KINDLE_BUILD_DIR" \
-  -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel \
+  -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="$KINDLE_ARCH_FLAGS" -DCMAKE_CXX_FLAGS="$KINDLE_ARCH_FLAGS" \
+  -DCMAKE_C_FLAGS_RELEASE="-O$KINDLE_CPP_OPT_LEVEL -DNDEBUG" \
+  -DCMAKE_CXX_FLAGS_RELEASE="-O$KINDLE_CPP_OPT_LEVEL -DNDEBUG" \
+  -DANKINK_ENABLE_IPO="$KINDLE_IPO" -DANKINK_VECTOR_REPORT="$KINDLE_VECTOR_REPORT" \
   -DCMAKE_TOOLCHAIN_FILE="$ANKINK_ROOT/cmake/kindle-debian-toolchain.cmake" \
   -DANKINK_BUILD_APP=ON -DANKINK_BUILD_TESTS=OFF -DANKINK_USE_RSLIB=ON \
   -DANKINK_RSLIB_LIBRARY="$RSLIB"

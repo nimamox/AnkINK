@@ -10,6 +10,8 @@ REQUESTED_ABI=${KINDLE_ABI:-universal}
 test -f "$WORKSPACE/CMakeLists.txt"
 test -d /opt/anki/.git
 . "$WORKSPACE/scripts/kindle-abi.sh"
+. "$WORKSPACE/scripts/kindle-optimization.sh"
+kindle_optimization_configure
 
 case "$REQUESTED_ABI" in
   universal|all) BUILD_ABIS="armel armhf" ;;
@@ -29,14 +31,16 @@ export ANKI_ROOT=/opt/anki
 export ANKINK_RUST_MANIFEST="$TEMP_ROOT/backend/rust/Cargo.toml"
 export ANKINK_SKIP_RUSTUP=1
 export CARGO_HOME="$CACHE/cargo-home"
-export CARGO_TARGET_DIR="$CACHE/cargo-target"
+export CARGO_TARGET_DIR="$CACHE/cargo-target-$KINDLE_OPT_PROFILE"
 export KINDLE_SDK_ROOT=/opt/kindle-sdk
 export PROTOC=/usr/local/bin/protoc
 mkdir -p "$CARGO_HOME" "$CARGO_TARGET_DIR"
 
 for BUILD_ABI in $BUILD_ABIS; do
   kindle_abi_configure "$BUILD_ABI"
-  export KINDLE_BUILD_DIR="$CACHE/cmake-$KINDLE_ABI"
+  kindle_rust_flags_configure
+  sh "$WORKSPACE/scripts/check-rust-float-abi.sh"
+  export KINDLE_BUILD_DIR="$CACHE/cmake-$KINDLE_ABI-$KINDLE_OPT_PROFILE"
   export CROSS_COMPILE="$KINDLE_SDK_ROOT/bin/$KINDLE_GNU_TRIPLET-"
   export RUST_TARGET="$KINDLE_RUST_TARGET"
 
