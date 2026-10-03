@@ -201,13 +201,6 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .ankink-boxed-math > .katex { display: inline-block; padding: 0.3em; border: 0.04em solid; }
 .ankink-boxed-math > .katex-display > .katex { display: inline-block; margin: 0 auto; padding: 0.3em; border: 0.04em solid; }
 .ankink-display-math { display: block; margin: 0.8em 0; text-align: center; }
-.ankink-script { display: inline-block; line-height: 1; }
-.ankink-script-sub-only { margin-right: 0.05em; vertical-align: -0.3em; }
-.ankink-script-sup-only { margin-right: 0.05em; vertical-align: 0.55em; }
-.ankink-script-both { position: relative; height: 1em; margin-right: 0.05em; vertical-align: middle; }
-.ankink-script-both .ankink-script-sup, .ankink-script-both .ankink-script-sub { position: absolute; }
-.ankink-script-both .ankink-script-sup { top: -0.45em; }
-.ankink-script-both .ankink-script-sub { top: 0.5em; }
 /* Do not let KaTeX fraction rules collapse onto fractional device pixels. */
 .katex .mfrac .frac-line { border-bottom-width: 2px; }
 .controls { position: absolute; right: 0; bottom: 4px; left: 0; width: 100%; height: 112px; padding: 12px 0 12px 100px; overflow: hidden; background: #fff; }

@@ -817,6 +817,14 @@
     }
     return source;
   }
+  /*
+   * Preserve native KaTeX geometry at every nesting depth. vlist-t2 encodes
+   * depth, not script direction; descendant depth rows may belong to an
+   * inner subscript. Rebuilding msupsub with fixed CSS offsets also changes
+   * dimensions already reserved by fractions, radicals and matrices.
+   * Correcting the native inline-table baseline is sufficient on the tested
+   * Mesquite firmwares, including ordinary side scripts.
+   */
   function directSpans(node) {
     var result = [], children = node ? node.childNodes : [], i;
     for (i = 0; i < children.length; ++i) {
@@ -835,57 +843,6 @@
       if (hasClass(spans[i], className)) result.push(spans[i]);
     }
     return result;
-  }
-  function isInsideMathStructure(node, className) {
-    while (node) {
-      if (hasClass(node, className)) return true;
-      node = node.parentNode;
-    }
-    return false;
-  }
-  function positionedContents(vlist) {
-    var result = [], children = directSpans(vlist), i, parts;
-    for (i = 0; i < children.length; ++i) {
-      parts = directSpans(children[i]);
-      if (parts.length > 1) result.push({
-        content: parts[parts.length - 1], top: parseFloat(children[i].style.top || "0")
-      });
-    }
-    return result;
-  }
-  function repairKindleScripts(root) {
-    var live = root.getElementsByClassName("msupsub"), nodes = [], i, node, vlists;
-    var positions, isSub, sup, sub, wrapper, width;
-    for (i = 0; i < live.length; ++i) nodes.push(live[i]);
-    for (i = 0; i < nodes.length; ++i) {
-      node = nodes[i];
-      // Do not reconstruct scripts inside fractions: KaTeX's fraction layout
-      // already reserved the native script box's dimensions, and the generic
-      // vlist baseline repair below fixes their position on Mesquite.
-      if (isInsideMathStructure(node, "mfrac")) continue;
-      vlists = node.getElementsByClassName("vlist");
-      if (!vlists.length) continue;
-      positions = positionedContents(vlists[0]);
-      if (!positions.length || positions.length > 2) continue;
-      isSub = node.getElementsByClassName("vlist-t2").length > 0;
-      sub = positions.length === 2 || isSub ? positions[0] : null;
-      sup = positions.length === 2 ? positions[1] : (!isSub ? positions[0] : null);
-      clear(node); node.className += " ankink-script";
-      if (sub && sup) {
-        node.className += " ankink-script-both";
-        wrapper = document.createElement("span"); wrapper.className = "ankink-script-sup";
-        wrapper.appendChild(sup.content); node.appendChild(wrapper); sup = wrapper;
-        wrapper = document.createElement("span"); wrapper.className = "ankink-script-sub";
-        wrapper.appendChild(sub.content); node.appendChild(wrapper); sub = wrapper;
-        width = Math.max(sup.offsetWidth, sub.offsetWidth); node.style.width = width + "px";
-        sup.style.left = Math.max(0, (width - sup.offsetWidth) / 2) + "px";
-        sub.style.left = Math.max(0, (width - sub.offsetWidth) / 2) + "px";
-      } else if (sub) {
-        node.className += " ankink-script-sub-only"; node.appendChild(sub.content);
-      } else if (sup) {
-        node.className += " ankink-script-sup-only"; node.appendChild(sup.content);
-      }
-    }
   }
   /*
    * KaTeX represents a vertical stack extending below the baseline as
@@ -925,9 +882,7 @@
   }
   function repairKindleMath(root) {
     if (!kindleMathLayout()) return;
-    // Reconstruct only the ordinary scripts Mesquite cannot position, then
-    // restore the baseline of every remaining native two-row KaTeX vlist.
-    repairKindleScripts(root);
+    // Change only the baseline; never move or resize native contents.
     repairKindleVlistBaselines(root);
   }
   function mathTop(node, root) {

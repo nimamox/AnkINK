@@ -215,6 +215,29 @@ if(ANKINK_BUILD_TESTS)
       add_test(NAME ankink_native_night_frontend_tests
         COMMAND "${ANKINK_NODE_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/native_night_frontend_test.js"
                 "${CMAKE_SOURCE_DIR}/assets/app-settings.js" "ankink")
+        find_program(ANKINK_CARGO_EXECUTABLE cargo REQUIRED)
+        set(ANKINK_MATH_TEST_TARGET "${CMAKE_BINARY_DIR}/math-test-target")
+        set(ANKINK_MATH_FIXTURES "${ANKINK_MATH_TEST_TARGET}/release/ankink_math_fixtures")
+        add_custom_command(
+            OUTPUT "${ANKINK_MATH_FIXTURES}"
+            COMMAND "${ANKINK_CARGO_EXECUTABLE}" build --locked --release
+                    --manifest-path "${CMAKE_SOURCE_DIR}/tests/native_math/Cargo.toml"
+                    --target-dir "${ANKINK_MATH_TEST_TARGET}"
+            DEPENDS tests/native_math/Cargo.toml tests/native_math/Cargo.lock
+                    tests/native_math/src/main.rs backend/rust/src/math.rs
+            COMMENT "Building the host-only native card-math fixture bridge"
+            VERBATIM)
+        add_custom_target(ankink_math_fixtures ALL DEPENDS "${ANKINK_MATH_FIXTURES}")
+        add_test(NAME ankink_native_math_tests
+            COMMAND "${ANKINK_CARGO_EXECUTABLE}" test --locked --release
+                    --manifest-path "${CMAKE_SOURCE_DIR}/tests/native_math/Cargo.toml"
+                    --target-dir "${ANKINK_MATH_TEST_TARGET}")
+        add_test(NAME ankink_math_layout_tests
+            COMMAND "${ANKINK_NODE_EXECUTABLE}"
+                    "${CMAKE_SOURCE_DIR}/tests/math_layout_test.js"
+                    "${CMAKE_SOURCE_DIR}/assets/app-settings.js"
+                    "${ANKINK_MATH_FIXTURES}"
+                    "${CMAKE_SOURCE_DIR}/tests/math_cases.json")
         add_test(NAME ankink_reviewer_contract_tests
             COMMAND "${ANKINK_NODE_EXECUTABLE}"
                     "${CMAKE_SOURCE_DIR}/tests/reviewer_contract_test.js"

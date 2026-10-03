@@ -499,21 +499,18 @@ for (const family of ["KaTeX_AMS", "KaTeX_Main", "KaTeX_Math",
   assert.match(katexCss, new RegExp(`font-family:["']?${family}["']?`));
 }
 
-// Mesquite repairs: reconstruct only ordinary scripts, then restore every
-// native KaTeX two-row vlist baseline generically instead of rebuilding
-// fractions, operator limits, radicals, or matrices one at a time.
-assert.match(frontend, /function repairKindleScripts\(root\)/);
+// Mesquite repairs preserve native geometry and correct only encoded depth.
+// Fixed script offsets and semantic guesses from descendants break nesting.
+assert.doesNotMatch(frontend, /repairKindleScripts|positionedContents|ankink-script/);
 assert.doesNotMatch(frontend, /function repairKindleFractions\(root\)/);
 assert.doesNotMatch(frontend, /function repairKindleLimits\(root\)/);
-assert.match(frontend, /function isInsideMathStructure\(node, className\)/);
-assert.match(frontend, /repairKindleScripts\(root\)[\s\S]*?isInsideMathStructure\(node, "mfrac"\)/);
 assert.match(frontend, /function repairKindleVlistBaselines\(root\)/);
 assert.match(frontend, /getElementsByClassName\("vlist-t2"\)/);
 assert.match(frontend, /\.style\.verticalAlign = "-" \+ depth \+ "em"/);
-assert.match(frontend, /function repairKindleMath\(root\)[\s\S]*?kindleMathLayout\(\)[\s\S]*?repairKindleScripts\(root\);[\s\S]*?repairKindleVlistBaselines\(root\);[\s\S]*?\n\s*\}/);
+assert.match(frontend, /function repairKindleMath\(root\)[\s\S]*?kindleMathLayout\(\)[\s\S]*?repairKindleVlistBaselines\(root\);[\s\S]*?\n\s*\}/);
 assert.match(appCss, /\.katex \.mfrac \.frac-line\s*{\s*border-bottom-width:\s*2px;/);
 assert.doesNotMatch(appCss, /frac-line\s*{[^}]*!important/);
-assert.doesNotMatch(appCss, /ankink-(?:fraction|frac-)/);
+assert.doesNotMatch(appCss, /ankink-(?:script|fraction|frac-)/);
 assert.match(frontend, /function repairMathNearViewport\(\)/);
 assert.match(frontend, /root\.scrollTop \+ root\.clientHeight \* 2\.5/);
 assert.match(frontend, /repaired >= 16/);

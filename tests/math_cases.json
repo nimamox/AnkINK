@@ -1,0 +1,236 @@
+[
+  {
+    "name": "sup",
+    "expression": "x^2",
+    "display": true
+  },
+  {
+    "name": "sub",
+    "expression": "x_i",
+    "display": true
+  },
+  {
+    "name": "both",
+    "expression": "x_i^2",
+    "display": true
+  },
+  {
+    "name": "wide",
+    "expression": "x_{\\mathrm{long}}^{\\mathrm{wide}}",
+    "display": true
+  },
+  {
+    "name": "nested-exponent",
+    "expression": "s_k(t)=e^{j2\\pi f_k t}",
+    "display": true
+  },
+  {
+    "name": "sup-with-sub",
+    "expression": "x^{a_b}",
+    "display": true
+  },
+  {
+    "name": "sub-with-sup",
+    "expression": "x_{a^b}",
+    "display": true
+  },
+  {
+    "name": "sup-with-sup",
+    "expression": "x^{a^{b}}",
+    "display": true
+  },
+  {
+    "name": "sub-with-sub",
+    "expression": "x_{a_b}",
+    "display": true
+  },
+  {
+    "name": "nested-both",
+    "expression": "x_{a_b}^{c^d}",
+    "display": true
+  },
+  {
+    "name": "greek-exponent",
+    "expression": "e^{-\\alpha_k t}",
+    "display": true
+  },
+  {
+    "name": "parenthesized-exponent",
+    "expression": "x^{(n_k+1)}",
+    "display": true
+  },
+  {
+    "name": "fraction-scripts",
+    "expression": "\\frac{x_i^2}{y_j^3}",
+    "display": true
+  },
+  {
+    "name": "fraction-exponent",
+    "expression": "\\frac{e^{j2\\pi f_k t}}{1+x_n^2}",
+    "display": true
+  },
+  {
+    "name": "sup-fraction",
+    "expression": "x^{\\frac{a_b}{c^d}}",
+    "display": true
+  },
+  {
+    "name": "sub-fraction",
+    "expression": "x_{\\frac{a^b}{c_d}}",
+    "display": true
+  },
+  {
+    "name": "scripted-fraction",
+    "expression": "\\left(\\frac{x_i}{y_j}\\right)^{n_k}",
+    "display": true
+  },
+  {
+    "name": "radical",
+    "expression": "\\sqrt{x_i^2+y_j^2}",
+    "display": true
+  },
+  {
+    "name": "indexed-radical",
+    "expression": "\\sqrt[n_k]{x_i^2}",
+    "display": true
+  },
+  {
+    "name": "scripted-group",
+    "expression": "\\left(x_i^2+y_j^2\\right)^{m_n}",
+    "display": true
+  },
+  {
+    "name": "sum",
+    "expression": "\\sum_{k=0}^{N-1} X_k",
+    "display": true
+  },
+  {
+    "name": "nested-sum",
+    "expression": "\\sum_{k_i=0}^{N_j-1} X_{k_i}^{m_n}",
+    "display": true
+  },
+  {
+    "name": "integral",
+    "expression": "\\int_{0}^{\\infty} e^{-\\alpha_k t}\\,dt",
+    "display": true
+  },
+  {
+    "name": "product",
+    "expression": "\\prod_{i_j=1}^{N_k} a_{i_j}^{b_k}",
+    "display": true
+  },
+  {
+    "name": "argmax",
+    "expression": "\\operatorname{argmax}_{k_i} f_k(x^2)",
+    "display": true
+  },
+  {
+    "name": "matrix-scripts",
+    "expression": "\\begin{bmatrix} x_1^2 & y_{i_j} \\\\ z^{m_n} & e^{j2\\pi f_k t} \\end{bmatrix}",
+    "display": true
+  },
+  {
+    "name": "scripted-matrix",
+    "expression": "\\left[ \\begin{matrix} a_i & b_j \\\\ c_k & d_m \\end{matrix} \\right]^{n_p}",
+    "display": true
+  },
+  {
+    "name": "boxed-nested",
+    "expression": "\\boxed{x_k[n]=\\sum_{m_i=0}^{N_j-1} X_{m_i}e^{j2\\pi m_i n/N_j}}",
+    "display": true
+  },
+  {
+    "name": "ofdm",
+    "expression": "x[n] = \\frac{1}{\\sqrt{N}} \\sum_{k=0}^{N-1} X[k] e^{j2\\pi kn/N}",
+    "display": true
+  },
+  {
+    "name": "ofdm-indexed",
+    "expression": "s_k(t)=A_k e^{j2\\pi f_k t+\\phi_k}",
+    "display": true
+  },
+  {
+    "name": "logarithm",
+    "expression": "R_k=B\\log_2\\left(1+\\gamma_k\\right)",
+    "display": true
+  },
+  {
+    "name": "engineering-indices",
+    "expression": "\\mathrm{SNR}_{k,\\mathrm{avg}}^{(m_n)} = \\frac{P_{s,k}^{(m_n)}}{P_{n,k}^{(m_n)}}",
+    "display": true
+  },
+  {
+    "name": "inline-sup",
+    "expression": "x^2",
+    "display": false
+  },
+  {
+    "name": "inline-sub",
+    "expression": "x_i",
+    "display": false
+  },
+  {
+    "name": "inline-both",
+    "expression": "x_i^2",
+    "display": false
+  },
+  {
+    "name": "inline-sup-with-sub",
+    "expression": "x^{a_b}",
+    "display": false
+  },
+  {
+    "name": "inline-sub-with-sup",
+    "expression": "x_{a^b}",
+    "display": false
+  },
+  {
+    "name": "inline-exponent",
+    "expression": "e^{j2\\pi f_k t}",
+    "display": false
+  },
+  {
+    "name": "deep-sup-depth",
+    "expression": "x^{a_{b_{c_{d_{e_f}}}}}",
+    "display": true
+  },
+  {
+    "name": "mixed-nested-both",
+    "expression": "x_{a^b}^{c_d}",
+    "display": true
+  },
+  {
+    "name": "inline-matrix",
+    "expression": "\\begin{pmatrix}x_i^2 & e^{f_k}\\\\a_b & c^d\\end{pmatrix}",
+    "display": false
+  },
+  {
+    "name": "fraction-in-radical",
+    "expression": "\\sqrt{\\frac{x_i^{a_b}}{y_j^{c_d}}}",
+    "display": true
+  },
+  {
+    "name": "dollar-display",
+    "expression": "e^{j2\\pi f_k t}",
+    "display": true,
+    "source": "<div>$$e^{j2\\pi f_k t}$$</div>"
+  },
+  {
+    "name": "anki-display",
+    "expression": "e^{j2\\pi f_k t}",
+    "display": true,
+    "source": "<div>[$$]e^{j2\\pi f_k t}[/$$]</div>"
+  },
+  {
+    "name": "latex-display",
+    "expression": "e^{j2\\pi f_k t}",
+    "display": true,
+    "source": "<div>[latex]e^{j2\\pi f_k t}[/latex]</div>"
+  },
+  {
+    "name": "anki-inline",
+    "expression": "e^{j2\\pi f_k t}",
+    "display": false,
+    "source": "<div>[$]e^{j2\\pi f_k t}[/$]</div>"
+  }
+]

@@ -1,0 +1,51 @@
+case,expression,pw12_before_y_spread_px,pw12_after_y_spread_px,koa1_after_y_spread_px
+sup,x^2,3.719,1.281,1.281
+sub,x_i,4.828,0.172,0.172
+both,x_i^2,11.469,1.281,1.281
+wide,x_{\mathrm{long}}^{\mathrm{wide}},12.469,1.469,1.469
+nested-exponent,s_k(t)=e^{j2\pi f_k t},25.281,1.281,1.281
+sup-with-sub,x^{a_b},25.625,1.656,1.656
+sub-with-sup,x_{a^b},8.078,2.078,2.078
+sup-with-sup,x^{a^{b}},9.281,1.562,1.562
+sub-with-sub,x_{a_b},6.172,1.828,1.828
+nested-both,x_{a_b}^{c^d},12.812,1.75,1.75
+greek-exponent,e^{-\alpha_k t},25.625,2.656,2.656
+parenthesized-exponent,x^{(n_k+1)},25.625,2.656,2.656
+fraction-scripts,\frac{x_i^2}{y_j^3},1.828,1.828,1.828
+fraction-exponent,\frac{e^{j2\pi f_k t}}{1+x_n^2},2.484,2.484,2.484
+sup-fraction,x^{\frac{a_b}{c^d}},27.375,3.188,3.188
+sub-fraction,x_{\frac{a^b}{c_d}},6.766,3.078,3.078
+scripted-fraction,\left(\frac{x_i}{y_j}\right)^{n_k},53.703,1.656,1.656
+radical,\sqrt{x_i^2+y_j^2},10.438,0.438,0.438
+indexed-radical,\sqrt[n_k]{x_i^2},11.953,2.438,2.438
+scripted-group,\left(x_i^2+y_j^2\right)^{m_n},32.875,2.594,2.594
+sum,\sum_{k=0}^{N-1} X_k,1.453,1.453,1.453
+nested-sum,\sum_{k_i=0}^{N_j-1} X_{k_i}^{m_n},5.0,3.969,3.969
+integral,"\int_{0}^{\infty} e^{-\alpha_k t}\,dt",37.984,2.859,2.859
+product,\prod_{i_j=1}^{N_k} a_{i_j}^{b_k},3.797,1.516,1.516
+argmax,\operatorname{argmax}_{k_i} f_k(x^2),6.844,3.156,3.156
+matrix-scripts,\begin{bmatrix} x_1^2 & y_{i_j} \\ z^{m_n} & e^{j2\pi f_k t} \end{bmatrix},24.094,4.125,4.125
+scripted-matrix,\left[ \begin{matrix} a_i & b_j \\ c_k & d_m \end{matrix} \right]^{n_p},53.516,2.453,2.453
+boxed-nested,\boxed{x_k[n]=\sum_{m_i=0}^{N_j-1} X_{m_i}e^{j2\pi m_i n/N_j}},25.281,1.453,1.453
+ofdm,x[n] = \frac{1}{\sqrt{N}} \sum_{k=0}^{N-1} X[k] e^{j2\pi kn/N},6.172,2.062,2.062
+ofdm-indexed,s_k(t)=A_k e^{j2\pi f_k t+\phi_k},25.281,1.281,1.281
+logarithm,R_k=B\log_2\left(1+\gamma_k\right),2.578,1.578,1.578
+engineering-indices,"\mathrm{SNR}_{k,\mathrm{avg}}^{(m_n)} = \frac{P_{s,k}^{(m_n)}}{P_{n,k}^{(m_n)}}",10.594,1.594,1.594
+inline-sup,x^2,5.453,1.547,1.547
+inline-sub,x_i,4.828,0.172,0.172
+inline-both,x_i^2,11.062,1.547,1.547
+inline-sup-with-sub,x^{a_b},23.891,1.656,1.656
+inline-sub-with-sup,x_{a^b},8.078,2.078,2.078
+inline-exponent,e^{j2\pi f_k t},23.891,2.656,2.656
+deep-sup-depth,x^{a_{b_{c_{d_{e_f}}}}},48.125,3.031,3.031
+mixed-nested-both,x_{a^b}^{c_d},11.469,2.188,2.188
+inline-matrix,\begin{pmatrix}x_i^2 & e^{f_k}\\a_b & c^d\end{pmatrix},30.125,2.656,2.656
+fraction-in-radical,\sqrt{\frac{x_i^{a_b}}{y_j^{c_d}}},2.359,2.359,2.359
+dollar-display,e^{j2\pi f_k t},25.625,2.656,2.656
+anki-display,e^{j2\pi f_k t},25.625,2.656,2.656
+latex-display,e^{j2\pi f_k t},25.625,2.656,2.656
+anki-inline,e^{j2\pi f_k t},23.891,2.656,2.656
+back-nested-exponent,s_k(t)=e^{j2\pi f_k t},19.594,0.406,0.406
+back-matrix-scripts,\begin{bmatrix} x_1^2 & y_{i_j} \\ z^{m_n} & e^{j2\pi f_k t} \end{bmatrix},18.234,5.312,5.312
+back-ofdm-indexed,s_k(t)=A_k e^{j2\pi f_k t+\phi_k},19.594,0.406,0.406
+back-engineering-indices,"\mathrm{SNR}_{k,\mathrm{avg}}^{(m_n)} = \frac{P_{s,k}^{(m_n)}}{P_{n,k}^{(m_n)}}",7.766,0.469,0.469
