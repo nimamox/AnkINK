@@ -79,9 +79,13 @@ public:
   }
   bool refresh(std::string &error) override { return full_refresh(false, error); }
   bool fallback_safe() const override { return framework_rejected_; }
+  bool read_effective(bool &night, std::string &error) override {
+    if (!kindle_host()) { error = "Native display control requires Kindle firmware"; return false; }
+    return framebuffer(false, night, error, true);
+  }
 private:
   bool framework_rejected_{};
-  bool framebuffer(bool write, bool &night, std::string &error) {
+  bool framebuffer(bool write, bool &night, std::string &error, bool observe = false) {
 #ifdef __linux__
     const int fd = ::open("/dev/fb0", (write ? O_RDWR : O_RDONLY) | O_CLOEXEC | O_NOFOLLOW);
     if (fd < 0) { error = "Open framebuffer: " + std::string(std::strerror(errno)); return false; }
@@ -90,9 +94,11 @@ private:
     bool ok = ::ioctl(fd, FBIOGET_FSCREENINFO, &fix) == 0 &&
               ::ioctl(fd, FBIOGET_VSCREENINFO, &var) == 0;
     if (!ok) error = "Read framebuffer: " + std::string(std::strerror(errno));
-    else if (!supports_inversion({std::string(fix.id, strnlen(fix.id, sizeof(fix.id))), var.bits_per_pixel, var.grayscale}) ||
-             fix.type != FB_TYPE_PACKED_PIXELS || fix.visual != FB_VISUAL_STATIC_PSEUDOCOLOR) {
-      ok = false; error = "Framebuffer is not a supported 8-bit grayscale EPDC display";
+    else if (!(observe && !write ? supports_observation : supports_inversion)(
+               {std::string(fix.id, strnlen(fix.id, sizeof(fix.id))), var.bits_per_pixel,
+                var.grayscale, fix.type, fix.visual})) {
+      ok = false; error = observe ? "Framebuffer inversion cannot be independently observed" :
+        "Framebuffer is not eligible for legacy grayscale inversion";
     } else if (write) {
       // Read fresh geometry for every write, including after rotation. Only
       // grayscale changes: no bit depth, offsets, activation or timing changes.
@@ -103,7 +109,7 @@ private:
     } else night = var.grayscale == 2U;
     ::close(fd); return ok;
 #else
-    (void)write; (void)night;
+    (void)write; (void)night; (void)observe;
     error = "Framebuffer inversion is unavailable on this host"; return false;
 #endif
   }
@@ -112,7 +118,15 @@ private:
 
 bool supports_inversion(const FramebufferInfo &info) noexcept {
   return info.driver == "mxc_epdc_fb" && info.bits_per_pixel == 8 &&
+         info.type == FB_TYPE_PACKED_PIXELS && info.visual == FB_VISUAL_STATIC_PSEUDOCOLOR &&
          (info.grayscale == 1 || info.grayscale == 2);
+}
+bool supports_observation(const FramebufferInfo &info) noexcept {
+  // PW12's MTK stack exposes native Y8/Y8INV as grayscale 1/2, but uses
+  // MONO10 rather than the old EPDC visual. This grants readback only.
+  return supports_inversion(info) || (info.driver == "hwtcon_v2" &&
+    info.type == FB_TYPE_PACKED_PIXELS && info.visual == FB_VISUAL_MONO10 && info.bits_per_pixel == 8 &&
+    (info.grayscale == 1 || info.grayscale == 2));
 }
 
 // Bounded, event-only subprocesses for firmware LIPC and stock eips. No shell, scheduler, timer thread, or idle polling is involved.
@@ -172,8 +186,13 @@ bool run_command(const std::vector<std::string> &args, std::string &output,
 bool supports_eips_refresh(const std::string &usage) noexcept {
   // Do not run --help: on some firmware it enters an invalid-option loop.
   // Check the executable's own documented refresh-only command instead.
-  return usage.find("to flash display with current fb content:") != std::string::npos &&
-         usage.find("eips -s w=") != std::string::npos;
+  const bool legacy = usage.find("current fb content") != std::string::npos &&
+                      usage.find("eips -s w=") != std::string::npos;
+  const bool modern = usage.find("eips_v2") != std::string::npos &&
+    usage.find("Update with current content in framebuffer") != std::string::npos &&
+    usage.find("Use FULL update") != std::string::npos &&
+    usage.find("Wait for update finish") != std::string::npos;
+  return legacy || modern;
 }
 bool refresh_with_eips(const RefreshGeometry &g, const CommandRunner &runner,
                        std::string &error) {
@@ -195,13 +214,16 @@ bool full_refresh(bool simulator, std::string &error) {
   if (::access("/usr/sbin/eips", X_OK) != 0) {
     error = "Stock Kindle eips refresh tool is unavailable"; return false;
   }
-  std::ifstream executable("/usr/sbin/eips", std::ios::binary);
-  // The tested tools are ~62 KiB. Bound capability inspection, with no shell
-  // or execution of firmware options that might clear or paint the display.
-  std::string usage(1024 * 1024, '\0');
-  executable.read(&usage[0], static_cast<std::streamsize>(usage.size()));
-  usage.resize(static_cast<std::size_t>(executable.gcount()));
-  if (!supports_eips_refresh(usage)) {
+  static const bool supported = [] {
+    std::ifstream executable("/usr/sbin/eips", std::ios::binary);
+    // The tested tools are ~62 KiB. Bound capability inspection, with no shell
+    // or execution of firmware options that might clear or paint the display.
+    std::string usage(1024 * 1024, '\0');
+    executable.read(&usage[0], static_cast<std::streamsize>(usage.size()));
+    usage.resize(static_cast<std::size_t>(executable.gcount()));
+    return supports_eips_refresh(usage);
+  }();
+  if (!supported) {
     error = "Stock eips does not document the supported refresh-only operation"; return false;
   }
   const int fd = ::open("/dev/fb0", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
@@ -253,12 +275,13 @@ void Controller::initialize() {
   bool value = false, framebuffer_value = false;
   const bool framework = device_->read(Backend::framework, value, error);
   std::string fb_error;
-  const bool framebuffer = device_->read(Backend::framebuffer, framebuffer_value, fb_error);
+  const bool observed = device_->read_effective(framebuffer_value, fb_error);
   // A framework value that disagrees with the actual framebuffer is not an
   // authority for this session (e.g. externally enabled fbdepth inversion).
-  if (framework && framebuffer && value == framebuffer_value) backend_ = Backend::framework;
-  else if (framebuffer) { backend_ = Backend::framebuffer; value = framebuffer_value; }
-  else { state_.error = error + "; " + fb_error; return; }
+  if (framework && observed && value == framebuffer_value) backend_ = Backend::framework;
+  else if (device_->read(Backend::framebuffer, framebuffer_value, fb_error)) {
+    backend_ = Backend::framebuffer; value = framebuffer_value;
+  } else { state_.error = error.empty() ? fb_error : error + "; " + fb_error; return; }
   original_ = last_ = value;
   state_.available = true; state_.known = true; state_.night = value;
   state_.error.clear();
@@ -279,7 +302,7 @@ State Controller::read_locked() {
     bool ok = device_->read(backend_, value, error);
     if (ok && backend_ == Backend::framework) {
       bool framebuffer_value;
-      ok = device_->read(Backend::framebuffer, framebuffer_value, error);
+      ok = device_->read_effective(framebuffer_value, error);
       if (ok && framebuffer_value != value) {
         ok = false; error = "Framework inversion disagrees with actual framebuffer state";
       }
@@ -298,7 +321,7 @@ bool Controller::write_verified(Backend backend, bool night, std::string &error,
   if (value != night) { error = "Display control did not retain the requested inversion state"; return false; }
   if (backend == Backend::framework) {
     bool framebuffer_value;
-    if (!device_->read(Backend::framebuffer, framebuffer_value, error)) return false;
+    if (!device_->read_effective(framebuffer_value, error)) return false;
     if (framebuffer_value != night) {
       error = "Framework control did not change actual framebuffer inversion";
       return false;
@@ -309,7 +332,7 @@ bool Controller::write_verified(Backend backend, bool night, std::string &error,
 bool Controller::rollback_framework(bool previous, std::string &error) {
   bool framebuffer_current, framework_current;
   if (!device_->read(Backend::framework, framework_current, error) ||
-      !device_->read(Backend::framebuffer, framebuffer_current, error)) return false;
+      !device_->read_effective(framebuffer_current, error)) return false;
   if (framebuffer_current != previous) {
     error = "Cannot safely fall back: framebuffer changed during native request"; return false;
   }
@@ -317,13 +340,15 @@ bool Controller::rollback_framework(bool previous, std::string &error) {
   // getter (KOA1). Never classify that as an ambiguous write: explicitly
   // restore and verify the original framework state AND unchanged framebuffer.
   if (!write_verified(Backend::framework, previous, error) ||
-      !device_->read(Backend::framebuffer, framebuffer_current, error)) return false;
+      !device_->read_effective(framebuffer_current, error)) return false;
   if (framebuffer_current != previous) {
     error = "Cannot safely roll back ineffective epdcMode"; return false;
   }
   return true;
 }
 bool Controller::select_framebuffer(bool night, std::string &error) {
+  bool current;
+  if (!device_->read(Backend::framebuffer, current, error)) return false;
   backend_ = Backend::framebuffer; state_.backend = name(backend_);
   error.clear();
   if (!save_journal(original_, night, error) || !write_verified(backend_, night, error)) return false;
@@ -357,7 +382,8 @@ bool Controller::recover(std::string &error) {
   if (boot != boot_id()) { ::unlink(options_.journal.c_str()); return true; }
   backend_ = backend == "epdcMode" ? Backend::framework : Backend::framebuffer;
   bool value;
-  if (!device_->read(backend_, value, error)) return false;
+  if (!(backend_ == Backend::framework ? device_->read_effective(value, error) :
+        device_->read(backend_, value, error))) return false;
   if (value != (last == "1") && value != (original == "1")) {
     ::unlink(options_.journal.c_str()); return true;
   }
@@ -383,7 +409,7 @@ bool Controller::set(bool night, std::string &error) {
   const bool previous = state_.night;
   bool fb_before = false; std::string fb_check;
   const bool check_native_framebuffer = backend_ == Backend::framework &&
-    device_->read(Backend::framebuffer, fb_before, fb_check) && fb_before == previous;
+    device_->read_effective(fb_before, fb_check) && fb_before == previous;
   if (!save_journal(original_, night, error)) { state_.error = error; return false; }
   owned_ = true; last_ = night;
   bool accepted = false;
@@ -392,7 +418,7 @@ bool Controller::set(bool night, std::string &error) {
     const bool rejected_unchanged = !accepted && device_->fallback_safe() &&
       backend_ == Backend::framework &&
       device_->read(backend_, framework_current, check) && framework_current == previous &&
-      device_->read(Backend::framebuffer, fb_current, check) && fb_current == previous;
+      device_->read_effective(fb_current, check) && fb_current == previous;
     // An acknowledged but reverted property is safe only after an explicit,
     // verified rollback. Timeouts, unreadable states and changed framebuffers
     // never qualify. No waiting or retry loop is needed for the firmware race.
@@ -404,7 +430,7 @@ bool Controller::set(bool night, std::string &error) {
   }
   if (backend_ == Backend::framework && check_native_framebuffer) {
     bool fb_after = false;
-    if (!device_->read(Backend::framebuffer, fb_after, error)) {
+    if (!device_->read_effective(fb_after, error)) {
       state_.error = error; read_locked(); return false;
     }
     if (fb_after != night) {
@@ -436,7 +462,8 @@ bool Controller::refresh(std::string &error) {
 bool Controller::restore_locked(std::string &error) {
   if (!owned_) return true;
   bool current;
-  if (!device_->read(backend_, current, error)) return false;
+  if (!(backend_ == Backend::framework ? device_->read_effective(current, error) :
+        device_->read(backend_, current, error))) return false;
   if (current != last_) { owned_ = false; ::unlink(options_.journal.c_str()); return true; }
   if (current != original_ && !write_verified(backend_, original_, error)) return false;
   if (!device_->refresh(error)) return false;

@@ -13,9 +13,16 @@ public:
   bool framework{true}, framebuffer{true}, night{}, fb_night{};
   bool framework_affects_framebuffer{true}, fail_rollback{}, lose_on_refresh{};
   bool framework_reverts{}, unreadable_after_write{};
+  bool modern_observer{};
   bool fail_framework{}, fail_framebuffer{}, ignore_write{}, fail_read{}, fail_refresh{}, ambiguous{};
   int reads{}, writes{}, refreshes{};
   Backend last_backend{Backend::framework};
+  bool read_effective(bool &value, std::string &error) override {
+    if (!modern_observer) return read(Backend::framebuffer, value, error);
+    ++reads;
+    if (fail_read) { error = "effective state unreadable"; return false; }
+    value = fb_night; return true;
+  }
   bool read(Backend backend, bool &value, std::string &error) override {
     ++reads;
     if (fail_read || (unreadable_after_write && writes > 0 && backend == Backend::framework) ||
@@ -55,6 +62,8 @@ int main() {
   try {
     require(supports_eips_refresh("to flash display with current fb content: eips -s w=758,h=1024 -f"), "stock refresh-only capability");
     require(!supports_eips_refresh("to clear display: eips -c"), "reject paint-only stock command");
+    require(supports_eips_refresh("eips_v2 Update with current content in framebuffer Use FULL update Wait for update finish"), "PW12 stock refresh compatibility capability");
+    require(!supports_eips_refresh("eips_v2 Use FULL update Wait for update finish"), "modern paint-only tools are not refresh capabilities");
     int refresh_commands = 0;
     CommandRunner runner = [&](const std::vector<std::string> &args, std::string &, std::string &) {
       ++refresh_commands;
@@ -77,10 +86,18 @@ int main() {
     };
     require(!refresh_with_eips({1072, 1448, 1088, 6144, 0, 0}, failed, error) && error == "stock refresh failed", "stock failure propagated without another refresh mechanism");
     require(full_refresh(true, error), "host simulator refresh safe without stock tools");
-    require(supports_inversion({"mxc_epdc_fb", 8, 1}), "normal EPDC capability");
+    require(supports_inversion({"mxc_epdc_fb", 8, 1, FB_TYPE_PACKED_PIXELS, FB_VISUAL_STATIC_PSEUDOCOLOR}), "normal EPDC capability");
     require(supports_inversion({"mxc_epdc_fb", 8, 2}), "inverted EPDC capability");
     for (auto invalid : {FramebufferInfo{"mxc_epdc_fb", 16, 1}, {"mxc_epdc_fb", 8, 0}, {"mxc_epdc_fb", 8, 3}, {"other", 8, 1}})
       require(!supports_inversion(invalid), "reject unsupported formats/drivers");
+    for (unsigned gray : {1U, 2U}) {
+      const FramebufferInfo modern{"hwtcon_v2", 8, gray, FB_TYPE_PACKED_PIXELS, FB_VISUAL_MONO10};
+      require(supports_observation(modern) && !supports_inversion(modern), "PW12 native inversion is observable but never eligible for legacy writes");
+    }
+    for (auto invalid : {FramebufferInfo{"unknown", 8, 1, FB_TYPE_PACKED_PIXELS, FB_VISUAL_MONO10}, {"hwtcon_v2", 16, 1, FB_TYPE_PACKED_PIXELS, FB_VISUAL_MONO10},
+                        {"hwtcon_v2", 8, 0, FB_TYPE_PACKED_PIXELS, FB_VISUAL_MONO10}, {"hwtcon_v2", 8, 1, FB_TYPE_PLANES, FB_VISUAL_MONO10},
+                        {"hwtcon_v2", 8, 1, FB_TYPE_PACKED_PIXELS, FB_VISUAL_TRUECOLOR}, {"mxc_epdc_fb", 8, 1, FB_TYPE_PACKED_PIXELS, FB_VISUAL_MONO10}, {"mxc_epdc_fb", 8, 1, FB_TYPE_PACKED_PIXELS, FB_VISUAL_PSEUDOCOLOR}})
+      require(!supports_observation(invalid) && !supports_inversion(invalid), "unknown observations and legacy writes fail safely");
     {
       Controller controller(options);
       auto state = controller.state();
@@ -133,6 +150,35 @@ int main() {
       require(fake->writes == 3 && fake->refreshes == 1, "ineffective native path rolls back without redundant full refreshes");
     }
     require(!fake->fb_night, "framebuffer fallback restores baseline on exit");
+    fake = std::make_shared<Fake>(); options.device = fake;
+    fake->framebuffer = false; fake->modern_observer = true;
+    {
+      Controller controller(options);
+      require(controller.state().known && controller.state().backend == "epdcMode", "PW12 uses independently verified framework state without legacy capability");
+      require(controller.set(true, error) && fake->fb_night && fake->last_backend == Backend::framework && fake->writes == 1 && fake->refreshes == 1, "PW12 native night: no direct framebuffer writes");
+      require(controller.set(true, error) && fake->writes == 1 && fake->refreshes == 1, "PW12 native no-op");
+    }
+    require(!fake->fb_night && fake->writes == 2 && fake->last_backend == Backend::framework, "PW12 clean exit restores framework state");
+    fake = std::make_shared<Fake>(); options.device = fake;
+    fake->framebuffer = false; fake->modern_observer = true; fake->night = fake->fb_night = true;
+    {
+      Controller controller(options);
+      require(controller.state().night && controller.set(false, error), "PW12 preexisting native night can be turned off");
+    }
+    require(fake->night && fake->fb_night && fake->last_backend == Backend::framework, "PW12 restores preexisting native night");
+    fake = std::make_shared<Fake>(); options.device = fake;
+    fake->framebuffer = false; fake->modern_observer = true; fake->framework_affects_framebuffer = false;
+    {
+      Controller controller(options);
+      require(!controller.set(true, error) && fake->writes == 2 && fake->last_backend == Backend::framework && fake->refreshes == 0, "ineffective modern native control rolls back but never attempts legacy writes");
+      require(!fake->night && !fake->fb_night, "ineffective modern native request left day unchanged");
+    }
+    fake = std::make_shared<Fake>(); options.device = fake;
+    fake->framebuffer = false; fake->modern_observer = true; fake->night = true;
+    {
+      Controller controller(options);
+      require(!controller.state().available && fake->writes == 0, "modern mismatched property cannot manufacture effective inversion or enable a fallback");
+    }
     fake = std::make_shared<Fake>(); options.device = fake;
     fake->framework_affects_framebuffer = false; fake->framework_reverts = true;
     {

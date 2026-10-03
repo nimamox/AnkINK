@@ -176,7 +176,8 @@ For an SSH-accessible development Kindle:
 bash push_over_ssh.sh root@device_ip
 ```
 
-The script prefers `rsync` and falls back to `scp`. It updates the app,
+The script uses `rsync` when available on both machines and falls back to
+`scp` otherwise. It updates the app,
 KUAL extension, and Library launcher, but does not restart AnkINK.
 
 On launch, the script stops stale AnkINK UI/backend instances, starts `ankinkd`
@@ -196,10 +197,17 @@ requests to `/api/night-mode`; it only changes its icon, not page/card colors or
 image pixels. Native inversion affects the entire display, including the Kindle
 status bar and images. KOA3 uses verified `epdcMode` Y8/Y8INV. KOA1's ineffective
 property is rolled back and checked before using grayscale 1/2 framebuffer
-ioctls. Actual framebuffer state is verified; driver/format checks fail safely.
+ioctls. Read-only observation and permission to write are separate: PW12
+`hwtcon_v2`/`FB_VISUAL_MONO10`, packed 8-bpp grayscale 1/2 is observable and
+verifies native `epdcMode`, but never qualifies for direct framebuffer writes.
+The fallback still requires `mxc_epdc_fb`, packed 8-bpp, static pseudocolor and
+grayscale 1/2. Unknown drivers/formats fail safely. Recovery and restoration
+also use independent effective-state observation for native sessions.
 Each real transition gets one stock `eips -s w=<visible_xres>,h=<visible_yres> -f`
 refresh using fresh geometry. No FBInk is required, and successful no-ops do not
-refresh (a previously failed refresh can be retried).
+refresh (a previously failed refresh can be retried). Stock `eips` capability
+inspection is cached once per process and accepts the PW12 `eips_v2`
+compatibility tool; geometry is still read fresh for each refresh.
 
 Both apps share `/var/local/kindledev-night-mode.restore{,.lock}` for exclusive
 ownership and durable crash recovery. Startup reads hardware rather than forcing
@@ -220,6 +228,20 @@ without stale regions. Emulator tests validate firmware controls, not physical
 waveforms, ghosting or power; private test firmware extends timeouts/disables
 suspend. Cleanup removes 661 net frontend lines across both apps, plus obsolete
 mode fields, serialization, launcher opt-in logic, tests and two night-logo assets.
+
+PW12 follow-up (2026-10-03): both actual Mesquite moon/sun buttons passed
+Night/Day transitions on `epdcMode`, independently confirmed by `hwtcon_v2`
+grayscale 2/1. Linux builds use `<linux/fb.h>` visual/type symbols; macOS tests
+have guarded host-only definitions. Host suites (8/8 AnkINK, 7/7 Potion) and both
+ABI package/loader/dependency/QEMU checks passed. Both apps also passed physical
+KOA1 transitions, no-ops, restoration and shared/crash recovery, and KOA3 native
+transitions, no-ops, stock refresh, preexisting-state and cross-app recovery.
+An extended PW12 relaunch run encountered an AnkINK startup heap error
+(`double free or corruption`); fresh-boot checks passed after restarting the
+emulator. That interrupted stress run is not counted as a pass, and its startup
+failure remains unresolved. PW12 shared ownership and cross-app SIGKILL recovery
+also passed through the running APIs; rapid normal relaunches encountered an
+`appreg.db` registration lock, so that launcher stress run remains incomplete.
 
 ## Tests and debugging
 

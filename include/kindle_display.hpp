@@ -4,21 +4,40 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#ifdef __linux__
+#include <linux/fb.h>
+#endif
 
 // Kept identical in the two independent product repositories.
 namespace kindle_display {
+#ifndef __linux__
+// macOS host tests have no Linux framebuffer headers. Kindle/Linux builds
+// always use the actual <linux/fb.h> symbols above.
+inline constexpr unsigned FB_TYPE_PACKED_PIXELS = 0;
+inline constexpr unsigned FB_TYPE_PLANES = 1;
+inline constexpr unsigned FB_VISUAL_MONO10 = 1;
+inline constexpr unsigned FB_VISUAL_TRUECOLOR = 2;
+inline constexpr unsigned FB_VISUAL_PSEUDOCOLOR = 3;
+inline constexpr unsigned FB_VISUAL_STATIC_PSEUDOCOLOR = 5;
+#endif
 enum class Backend { framework, framebuffer };
 struct FramebufferInfo {
   std::string driver;
   unsigned bits_per_pixel{}, grayscale{};
+  unsigned type{FB_TYPE_PACKED_PIXELS}, visual{FB_VISUAL_STATIC_PSEUDOCOLOR};
 };
 bool supports_inversion(const FramebufferInfo &info) noexcept;
+bool supports_observation(const FramebufferInfo &info) noexcept;
 
 // Device operations are injectable so host tests never need a framebuffer.
 class Device {
 public:
   virtual ~Device() = default;
   virtual bool read(Backend backend, bool &night, std::string &error) = 0;
+  // Independent readback may be supported even when legacy writes are unsafe.
+  virtual bool read_effective(bool &night, std::string &error) {
+    return read(Backend::framebuffer, night, error);
+  }
   virtual bool write(Backend backend, bool night, std::string &error) = 0;
   virtual bool refresh(std::string &error) = 0;
   // True only for a completed, rejected framework request. Timeouts and

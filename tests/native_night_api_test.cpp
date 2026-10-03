@@ -19,13 +19,17 @@ using Options = ankink::ServerOptions;
 namespace {
 void check(bool condition, const char *message) { if (!condition) throw std::runtime_error(message); }
 struct Fake final : kindle_display::Device {
-  bool night{}, fb_night{}, framework_reverts{}, fail_refresh{}; int writes{}, refreshes{};
-  bool read(kindle_display::Backend backend, bool &value, std::string &) override {
+  bool night{}, fb_night{}, framework_reverts{}, fail_refresh{}, modern{}; int writes{}, refreshes{}, framebuffer_writes{};
+  bool read_effective(bool &value, std::string &) override { value = fb_night; return true; }
+  bool read(kindle_display::Backend backend, bool &value, std::string &error) override {
+    if (modern && backend == kindle_display::Backend::framebuffer) {
+      error = "legacy writes unsupported"; return false;
+    }
     value = backend == kindle_display::Backend::framework ? night : fb_night; return true;
   }
   bool write(kindle_display::Backend backend, bool value, std::string &) override {
     ++writes;
-    if (backend == kindle_display::Backend::framebuffer) fb_night = value;
+    if (backend == kindle_display::Backend::framebuffer) { ++framebuffer_writes; fb_night = value; }
     else if (framework_reverts) night = false;
     else night = fb_night = value;
     return true;
@@ -116,6 +120,21 @@ int main() {
       check(running.set("1").find("200 OK") != std::string::npos, "repeated API toggle after native reversion");
     }
     check(!fake->fb_night, "fallback API cleanup restores actual initial framebuffer");
+    fake = std::make_shared<Fake>(); options.display_device = fake; fake->modern = true;
+    {
+      Running running(options);
+      const auto initial = running.get();
+      check(initial.find("\"nightKnown\":true") != std::string::npos &&
+            initial.find("\"nightBackend\":\"epdcMode\"") != std::string::npos,
+            "PW12 API reports known native Day without legacy framebuffer capability");
+      const auto result = running.set("1");
+      check(result.find("200 OK") != std::string::npos &&
+            result.find("\"nightMode\":true") != std::string::npos &&
+            result.find("\"nightBackend\":\"epdcMode\"") != std::string::npos &&
+            fake->fb_night && fake->framebuffer_writes == 0, "PW12 explicit Night is verified and uses framework only");
+      check(running.set("0").find("200 OK") != std::string::npos && !fake->fb_night &&
+            fake->framebuffer_writes == 0, "PW12 explicit Day never writes legacy framebuffer");
+    }
     options.simulator = true;
     const int writes = fake->writes;
     {
