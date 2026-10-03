@@ -253,7 +253,6 @@ assert.ok(narrowHeatmapWidth < 600,
   "all 53 week columns, including today, must fit a 600px Kindle profile");
 assert.match(frontend, /activity-today/);
 assert.match(appCss, /\.activity-today\s*{[^}]*border:\s*2px/);
-assert.match(appCss, /\.night-mode \.activity-level-4/);
 assert.match(frontend, /request\("GET", "\/api\/review-activity"/);
 assert.match(loadDecks, /loadReviewActivity\(\)/);
 assert.match(httpServer, /request\.target == "\/api\/review-activity"/);
@@ -374,7 +373,6 @@ assert.match(answer, /if \(error \|\| !result \|\| result\.type === "error"\)[\s
 assert.match(controlRepaint, /show\(controls\);[\s\S]*hide\(button\);[\s\S]*if \(!ratingEraseStartedAt\)/);
 assert.match(controlRepaint, /remaining = Math\.max\(0, RATING_ERASE_MS - elapsed\);[\s\S]*window\.setTimeout\(function \(\)[\s\S]*hide\(ratings\)[\s\S]*removeRatingEraseClass\(\)[\s\S]*show\(button\)[\s\S]*}, remaining\)/);
 assert.match(appCss, /\.ratings\.rating-erasing button\s*{[^}]*background:\s*#fff;[^}]*border-color:\s*#fff;[^}]*color:\s*#fff;/);
-assert.match(appCss, /\.night-mode \.ratings\.rating-erasing button\s*{[^}]*background:\s*#000;[^}]*border-color:\s*#000;[^}]*color:\s*#000;/);
 
 // A fixed 88px card-actions button sits beside either equal-width review
 // control bar. Its ES5 menu dispatches official, generation-bound card actions.
@@ -415,14 +413,6 @@ assert.match(rustAnswer, /pending\s*\.as_ref\(\)/);
 assert.match(rustAnswer, /pending\.token != review_token/);
 assert.ok(rustAnswer.indexOf(".answer_card") < rustAnswer.indexOf("self.pending = None"));
 
-// Night-card rendering defaults to the legacy behavior, persists the selected
-// mode, restores original styles, and uses Canvas rather than CSS filters.
-assert.match(frontend, /nightCardMode = "standard"/);
-assert.match(frontend, /nightCardMode !== "palette"[\s\S]*nightCardMode !== "palette-images"[\s\S]*nightCardMode = "standard"/);
-assert.match(frontend, /saveSetting\("nightCardMode", nightCardMode\)/);
-assert.match(frontend, /_ankinkNightOriginalStyle/);
-assert.match(frontend, /getImageData\(0, 0, width, height\)/);
-assert.match(frontend, /data\[i\] = 255 - data\[i\]/);
 assert.doesNotMatch(frontend, /style\.(?:webkitFilter|filter)\s*=/);
 assert.match(frontend, /image\.setAttribute\("src", API \+ "\/api\/media\/"/);
 assert.match(frontend, /images\[i\]\.onerror = function/);
@@ -541,7 +531,6 @@ assert.match(frontend, /"Helvetica": '\"Helvetica Neue LT\"/);
 assert.match(frontend, /saveSetting\("cardFont", cardFont\)/);
 assert.match(frontend, /byId\("front"\)\.style\.setProperty\("font-family", family, "important"\)/);
 assert.match(frontend, /byId\("back-face"\)\.style\.setProperty\("font-family", family, "important"\)/);
-assert.match(frontend, /function applyCardFont[\s\S]*restoreNightPalette\(byId\("front"\)\)[\s\S]*applyNightCardAppearance\(\)/);
 
 // Font-size previews share the selected card face and the header controls use
 // the same discrete, persistent scale choices.

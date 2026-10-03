@@ -12,7 +12,7 @@ void stop_server(int) { ankink::HttpServer::request_stop(); }
 void usage(const char *program) {
   std::cout << "Usage: " << program
             << " [--collection FILE] [--assets DIRECTORY] [--port PORT]\n"
-               "       [--simulator] [--simulator-assets DIRECTORY]"
+               "       [--recover-display] [--simulator] [--simulator-assets DIRECTORY]"
                " [--data-dir DIRECTORY] [--ca-bundle FILE]\n";
 }
 } // namespace
@@ -24,6 +24,13 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
       const std::string argument = argv[i];
       if (argument == "--help" || argument == "-h") { usage(argv[0]); return 0; }
+      if (argument == "--recover-display") {
+        kindle_display::Controller display({false, options.display_journal, {}});
+        const auto state = display.state();
+        if (!state.available) throw std::runtime_error(state.error);
+        std::cout << "Display recovery complete: " << state.backend << " " << (state.night ? "night" : "day") << '\n';
+        return 0;
+      }
       if (argument == "--simulator") {
         options.simulator = true;
         continue;

@@ -148,7 +148,7 @@ if(ANKINK_BUILD_APP)
     endif()
 
     add_library(ankink_http_server src/http_server.cpp src/app_state.cpp
-        src/orientation.cpp src/update_checker.cpp)
+        src/orientation.cpp src/kindle_display.cpp src/update_checker.cpp)
     target_include_directories(ankink_http_server PUBLIC include)
     target_link_libraries(ankink_http_server PUBLIC ankink_collection Threads::Threads
         CURL::libcurl OpenSSL::SSL OpenSSL::Crypto)
@@ -188,6 +188,13 @@ if(ANKINK_BUILD_APP)
     endif()
 
     if(ANKINK_BUILD_TESTS)
+  add_executable(ankink_display_tests tests/kindle_display_test.cpp src/kindle_display.cpp)
+  target_include_directories(ankink_display_tests PRIVATE include)
+  target_link_libraries(ankink_display_tests PRIVATE Threads::Threads)
+  add_test(NAME ankink_display_tests COMMAND ankink_display_tests)
+        add_executable(ankink_native_night_api_tests tests/native_night_api_test.cpp)
+        target_link_libraries(ankink_native_night_api_tests PRIVATE ankink_http_server Threads::Threads)
+        add_test(NAME ankink_native_night_api_tests COMMAND ankink_native_night_api_tests)
         add_executable(ankink_http_server_tests tests/http_server_test.cpp)
         target_link_libraries(ankink_http_server_tests PRIVATE ankink_http_server Threads::Threads)
         target_compile_options(ankink_http_server_tests PRIVATE -Wall -Wextra -Wpedantic)
@@ -205,6 +212,9 @@ endif()
 if(ANKINK_BUILD_TESTS)
     find_program(ANKINK_NODE_EXECUTABLE node)
     if(ANKINK_NODE_EXECUTABLE)
+      add_test(NAME ankink_native_night_frontend_tests
+        COMMAND "${ANKINK_NODE_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/native_night_frontend_test.js"
+                "${CMAKE_SOURCE_DIR}/assets/app-settings.js" "ankink")
         add_test(NAME ankink_reviewer_contract_tests
             COMMAND "${ANKINK_NODE_EXECUTABLE}"
                     "${CMAKE_SOURCE_DIR}/tests/reviewer_contract_test.js"

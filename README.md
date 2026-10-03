@@ -26,8 +26,8 @@ ARMHF. Other Kindle models remain less well tested, so feedback is welcome.
 - Card images, including a tap-to-expand view.
 - Native mathematics rendering with bundled KaTeX fonts; no browser-side TeX
   engine or network-hosted math assets are required.
-- Reader font selection and sizing, portrait/landscape support, and configurable
-  day/night presentation.
+- Reader font selection and sizing, portrait/landscape support, and Kindle
+  display Night Mode.
 - Manual or periodic full e-ink refreshes to control ghosting.
 - Physical Kindle page-button support where the device and firmware provide
   those buttons. Direction can be reversed in Settings.
@@ -92,8 +92,30 @@ On Kindles with physical page buttons, the configured forward button scrolls
 through long card content before revealing the answer and selecting Good; the
 other direction scrolls upward before offering Undo or Again. Touch controls
 remain available on every supported device. Use Refresh for a full flashing
-update when ghosting accumulates, and use Settings for fonts, night mode,
-orientation, page-button direction, and automatic refresh frequency.
+update when ghosting accumulates. The Night button controls display inversion;
+Settings provides fonts, orientation, page-button direction, and automatic
+refresh frequency.
+
+## Night Mode
+
+The moon/sun button uses Kindle hardware/display inversion for the entire
+screen, including the system status bar, dialogs and images. Content stays in
+its ordinary colors; there is no CSS palette conversion or software image
+inversion. Images intentionally invert with the rest of the display.
+
+On firmware with effective native Dark Mode control, the app uses verified
+`epdcMode`. Older compatible Kindles use framebuffer grayscale inversion;
+Oasis 1 supports this even though Amazon does not offer Dark Mode in its UI.
+Each actual polarity change is followed by one stock Kindle full refresh.
+FBInk is not required. Unsupported display control is reported as an error.
+
+Startup reflects the actual display state rather than forcing the last saved
+preference. Close restores the state that existed before the app changed it,
+including Night Mode enabled outside the app. Close one app before opening
+another because display state is global; returning to Home can leave its
+backend running. Host simulators do not emulate Night Mode or access the
+framebuffer. Emulator checks validate firmware controls, while physical panel
+behavior requires a real Kindle.
 
 ## Security and privacy
 

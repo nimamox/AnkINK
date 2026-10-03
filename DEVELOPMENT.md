@@ -185,10 +185,41 @@ under `/var/local/mesquite`, updates `/var/local/appreg.db`, and asks
 `com.lab126.appmgrd` to launch the app. The manifest suppresses Mesquite's
 otherwise-empty navigation strip. The Close button also stops the backend.
 
-The refresh action calls an existing FBInk binary, including MRInstaller's PW2
-build when present, solely to request a full display refresh. FBInk is not used
-to render the application. Orientation mode is restored across launches, and
-the global orientation lock is released when AnkINK closes.
+The manual and automatic refresh actions use the stock Kindle refresh-only
+`eips` operation; FBInk is not required. Orientation mode is restored across
+launches, and the global orientation lock is released when AnkINK closes.
+
+## Native Night Mode
+
+The moon/sun button reads effective display state and sends explicit Day/Night
+requests to `/api/night-mode`; it only changes its icon, not page/card colors or
+image pixels. Native inversion affects the entire display, including the Kindle
+status bar and images. KOA3 uses verified `epdcMode` Y8/Y8INV. KOA1's ineffective
+property is rolled back and checked before using grayscale 1/2 framebuffer
+ioctls. Actual framebuffer state is verified; driver/format checks fail safely.
+Each real transition gets one stock `eips -s w=<visible_xres>,h=<visible_yres> -f`
+refresh using fresh geometry. No FBInk is required, and successful no-ops do not
+refresh (a previously failed refresh can be retried).
+
+Both apps share `/var/local/kindledev-night-mode.restore{,.lock}` for exclusive
+ownership and durable crash recovery. Startup reads hardware rather than forcing
+the saved `nightMode`. Clean exit/SIGINT/SIGTERM restores preexisting inversion
+without overwriting external changes; the next app launch recovers an interrupted
+session. Close one app before opening the other, since Home can leave a backend
+running. `--recover-display` supports manual recovery with the matching loader.
+Old `nightPageMode`/`nightCardMode` values are ignored and dropped on resave.
+Host/simulator execution never opens /dev/fb0 or takes the global lock: Night Mode
+is unavailable there and simulator Refresh is a safe no-op.
+
+Validation (2026-10-03): Potion 7/7 and AnkINK 8/8 host tests passed, plus both
+ARMEL/ARMHF build/loader/dependency/QEMU-user checks. Both apps passed KOA3 and
+physical KOA1 automated transitions, no-ops, stock refresh, preexisting-state
+restoration, shared locking, SIGKILL recovery and cross-app journal recovery.
+The user confirmed Potion's KOA1 panel/status-bar inversion and return to Day
+without stale regions. Emulator tests validate firmware controls, not physical
+waveforms, ghosting or power; private test firmware extends timeouts/disables
+suspend. Cleanup removes 661 net frontend lines across both apps, plus obsolete
+mode fields, serialization, launcher opt-in logic, tests and two night-logo assets.
 
 ## Tests and debugging
 

@@ -36,7 +36,7 @@ cp "$ANKINK_BUILD_DIR/ankinkd" "$ANKINK_OUTPUT/bin/ankinkd"
 cp "$ANKINK_BUILD_DIR/libmesquite-whisper-touch.so" "$ANKINK_OUTPUT/lib/"
 cp "$ANKINK_ROOT/assets/index.html" "$ANKINK_ROOT/assets/app.css" \
   "$ANKINK_ROOT/assets/app-settings.js" "$ANKINK_ROOT/assets/config.xml" \
-  "$ANKINK_ROOT/assets/ankink_logo.png" "$ANKINK_ROOT/assets/ankink_logo_night.png" "$ANKINK_ROOT/logo/ankink_logo_orig_size.png" \
+  "$ANKINK_ROOT/assets/ankink_logo.png" "$ANKINK_ROOT/logo/ankink_logo_orig_size.png" \
   "$ANKINK_OUTPUT/share/ankink/"
 cp -R "$ANKINK_ROOT/assets/vendor" "$ANKINK_OUTPUT/share/ankink/"
 cp "$ANKINK_ROOT/scripts/run-kindle.sh" "$ANKINK_OUTPUT/ankink.sh"

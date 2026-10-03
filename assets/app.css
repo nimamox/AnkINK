@@ -226,49 +226,7 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
 .card-actions-menu button:last-child { border-bottom: 0; }
 .hidden { display: none; }
 #sync.hidden { display: none; }
-.night-mode, .night-mode body { background: #000; color: #eee; }
-.night-mode #card { background-color: #000 !important; color: #eee !important; }
-.night-mode button, .night-mode .header-button, .night-mode .mode-button, .night-mode .settings-button,
-.night-mode .font-controls button, .night-mode .deck, .night-mode .text-button,
-.night-mode .controls, .night-mode .controls button, .night-mode .auth-panel,
-.night-mode .auth-panel input, .night-mode .auth-actions button,
-.night-mode .card-actions-button, .night-mode .card-actions-menu,
-.night-mode .card-actions-menu button { background: #000; color: #eee; border-color: #eee; }
-.night-mode .controls .primary, .night-mode .auth-actions .dark-button { background: #eee; color: #000; }
-.night-mode .ratings.rating-erasing button { background: #000; border-color: #000; color: #000; }
-.night-mode .ratings.rating-erasing strong, .night-mode .ratings.rating-erasing small { color: #000; }
-.night-mode .app-header, .night-mode .deck-list { border-color: #eee; }
-.night-mode .deck-toggle { background: #000; color: #eee; }
-.night-mode .scroll-button { background: #000; color: #eee; border-color: #eee; }
-.night-mode #status, .night-mode .eyebrow,
-.night-mode .deck-count, .night-mode .session-count, .night-mode .answer-divider,
-.night-mode .empty-state { color: #bbb; }
-.night-mode .warning { background: #333; color: #eee; border-color: #eee; }
-.night-mode .app-header, .night-mode .review-toolbar { background: #000; }
-.night-mode .about-logo, .night-mode .about-logo-canvas { -webkit-filter: invert(1); filter: invert(1); }
-.night-mode .dialog-overlay { background: rgba(0, 0, 0, 0.94); }
-.night-mode .confirm-dialog, .night-mode .settings-dialog, .night-mode .about-dialog { background: #000; color: #eee; border-color: #eee; }
-.night-mode .update-note { color: #bbb; }
-.night-mode .update-actions button { background: #000; color: #eee; border-color: #eee; }
-.night-mode .setting-select select { background: #000; color: #eee; border-color: #eee; }
-.night-mode .font-size-choices button { color: #eee; }
-.night-mode .font-size-choices button.selected { border-color: #eee; background: #eee; color: #000; }
-.night-mode .settings-section { border-color: #777; }
-.night-mode .setting-help { color: #eee; }
-.night-mode .settings-tooltip { border-color: #eee; background: #000; color: #eee; }
-.night-mode .settings-actions button { background: #000; color: #eee; border-color: #eee; }
-.night-mode .settings-signout button { border-color: #999; color: #ccc; }
-.night-mode .about-actions button { background: #000; color: #eee; border-color: #eee; }
-.night-mode .busy-indicator { background: #eee; }
-.night-mode .review-activity { border-color: #777; }
-.night-mode .activity-table .activity-month, .night-mode .activity-table .activity-weekday-label,
-.night-mode .activity-summary { color: #bbb; }
-.night-mode .activity-level-0 { border-color: #333; background: #111; }
-.night-mode .activity-level-1 { background: #444; }
-.night-mode .activity-level-2 { background: #777; }
-.night-mode .activity-level-3 { background: #aaa; }
-.night-mode .activity-level-4 { background: #eee; }
-.night-mode .activity-square.activity-today { border-color: #eee; }
+
 .tag {
   display: inline-block;
   padding: 2px 9px;

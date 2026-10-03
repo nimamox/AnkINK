@@ -40,8 +40,8 @@
   };
   var cardFont = "Bookerly";
   var nightMode = false;
-  var nightCardMode = "standard";
-  var brandLogoDaySrc = null;
+  var nightKnown = false;
+  var nightRequestInFlight = false;
   var pageButtonMode = "normal";
   var rotationMode = "auto";
   var fullRefreshMode = "manual";
@@ -702,8 +702,6 @@
       for (i = 0; i < selectors.length; ++i) {
         selector = selectors[i].replace(/^\s+|\s+$/g, "");
         if (!selector || selector.indexOf("@") >= 0) continue;
-        selector = selector.replace(/^\.nightMode\b/, ".night-mode #card");
-        selector = selector.replace(/\.nightMode\b/g, ".night-mode");
         selector = selector.replace(/(^|[ >+~])\.card\b/g, "$1#card");
         selector = selector.replace(/(^|[ >+~])(html|body)\b/gi, "$1#card");
         if (selector.indexOf("#card") < 0) selector = "#card " + selector;
@@ -713,133 +711,6 @@
       if (scoped.length) output.push(scoped.join(",") + "{" + body + "}");
     }
     byId("card-template-style").innerHTML = output.join("\n");
-  }
-  function parsedColor(value) {
-    var match, hex, alpha;
-    value = String(value || "").replace(/^\s+|\s+$/g, "").toLowerCase();
-    if (!value || value === "transparent") return null;
-    match = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)$/);
-    if (match) {
-      alpha = typeof match[4] === "undefined" ? 1 : parseFloat(match[4]);
-      if (alpha === 0) return null;
-      return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
-    }
-    match = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
-    if (!match) return null;
-    hex = match[1];
-    if (hex.length === 3) hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
-    return [parseInt(hex.substring(0, 2), 16), parseInt(hex.substring(2, 4), 16), parseInt(hex.substring(4, 6), 16)];
-  }
-  function colorText(rgb) {
-    return "rgb(" + Math.round(rgb[0]) + "," + Math.round(rgb[1]) + "," + Math.round(rgb[2]) + ")";
-  }
-  function colorLuminance(rgb) { return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]; }
-  function nightFriendlyColor(value, background) {
-    var rgb = parsedColor(value), luminance, factor;
-    if (!rgb) return null;
-    luminance = colorLuminance(rgb);
-    if (background) {
-      if (luminance <= 55) return null;
-      factor = 55 / luminance;
-      return colorText([rgb[0] * factor, rgb[1] * factor, rgb[2] * factor]);
-    }
-    if (luminance >= 190) return null;
-    factor = (190 - luminance) / (255 - luminance);
-    return colorText([
-      rgb[0] + (255 - rgb[0]) * factor,
-      rgb[1] + (255 - rgb[1]) * factor,
-      rgb[2] + (255 - rgb[2]) * factor
-    ]);
-  }
-  function saveNightStyle(element) {
-    if (element._ankinkNightStyleSaved) return;
-    element._ankinkNightStyleSaved = true;
-    element._ankinkNightOriginalStyle = element.getAttribute("style");
-  }
-  function restoreNightPalette(root) {
-    var elements = [root], descendants = root.getElementsByTagName("*"), i, element;
-    for (i = 0; i < descendants.length; ++i) elements.push(descendants[i]);
-    for (i = 0; i < elements.length; ++i) {
-      element = elements[i];
-      if (!element._ankinkNightStyleSaved) continue;
-      if (element._ankinkNightOriginalStyle === null) element.removeAttribute("style");
-      else element.setAttribute("style", element._ankinkNightOriginalStyle);
-      try { delete element._ankinkNightStyleSaved; delete element._ankinkNightOriginalStyle; }
-      catch (ignored) { element._ankinkNightStyleSaved = false; element._ankinkNightOriginalStyle = null; }
-    }
-  }
-  function setImportantStyle(element, property, value) {
-    if (!value) return;
-    saveNightStyle(element);
-    if (element.style.setProperty) element.style.setProperty(property, value, "important");
-    else element.style[property === "background-color" ? "backgroundColor" : property] = value;
-  }
-  function applyNightPalette(root) {
-    var elements = [root], descendants = root.getElementsByTagName("*"), i, element, computed, parentComputed;
-    var foreground, background;
-    for (i = 0; i < descendants.length; ++i) elements.push(descendants[i]);
-    for (i = 0; i < elements.length; ++i) {
-      element = elements[i];
-      if (element.tagName === "IMG" || element.tagName === "VIDEO" || element.tagName === "CANVAS") continue;
-      computed = window.getComputedStyle ? window.getComputedStyle(element, null) : element.currentStyle;
-      if (!computed) continue;
-      parentComputed = element.parentNode && element.parentNode.nodeType === 1 && window.getComputedStyle ?
-        window.getComputedStyle(element.parentNode, null) : null;
-      if (!parentComputed || computed.color !== parentComputed.color) {
-        foreground = nightFriendlyColor(computed.color, false);
-        setImportantStyle(element, "color", foreground);
-      }
-      background = nightFriendlyColor(computed.backgroundColor, true);
-      setImportantStyle(element, "background-color", background);
-    }
-  }
-  function restoreNightImage(image) {
-    var original;
-    if (!image._ankinkNightImageInverted) return;
-    original = image._ankinkNightOriginalSource;
-    image._ankinkNightImageInverted = false;
-    image._ankinkNightOriginalSource = null;
-    if (original) image.setAttribute("src", original);
-  }
-  function invertNightImage(image) {
-    var width, height, scale, canvas, context, pixels, data, i, source;
-    if (!nightMode || nightCardMode !== "palette-images" || image._ankinkNightImageInverted ||
-        image._ankinkNightImageBusy || image._ankinkMediaReady === false) return;
-    width = image.naturalWidth || image.width; height = image.naturalHeight || image.height;
-    source = image.getAttribute("src") || "";
-    if (!width || !height || !source || source.indexOf("data:image/gif;base64,R0lGODlhAQABAAD/") === 0) return;
-    scale = Math.min(1, 1600 / Math.max(width, height));
-    width = Math.max(1, Math.round(width * scale)); height = Math.max(1, Math.round(height * scale));
-    image._ankinkNightImageBusy = true;
-    try {
-      canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
-      context = canvas.getContext("2d"); context.drawImage(image, 0, 0, width, height);
-      pixels = context.getImageData(0, 0, width, height); data = pixels.data;
-      for (i = 0; i < data.length; i += 4) {
-        data[i] = 255 - data[i]; data[i + 1] = 255 - data[i + 1]; data[i + 2] = 255 - data[i + 2];
-      }
-      context.putImageData(pixels, 0, 0);
-      image._ankinkNightOriginalSource = source;
-      image._ankinkNightImageInverted = true;
-      image.setAttribute("src", canvas.toDataURL("image/png"));
-    } catch (ignored) {
-      image._ankinkNightImageInverted = false;
-      image._ankinkNightOriginalSource = null;
-    }
-    image._ankinkNightImageBusy = false;
-    scheduleScrollButtonUpdate();
-  }
-  function applyNightCardAppearance() {
-    var roots = [byId("front"), byId("back-face")], images, i, j;
-    for (i = 0; i < roots.length; ++i) {
-      restoreNightPalette(roots[i]);
-      if (nightMode && nightCardMode !== "standard") applyNightPalette(roots[i]);
-      images = roots[i].getElementsByTagName("img");
-      for (j = 0; j < images.length; ++j) {
-        if (nightMode && nightCardMode === "palette-images") invertNightImage(images[j]);
-        else restoreNightImage(images[j]);
-      }
-    }
   }
   /* CARD_IMAGE_FIT_BEGIN */
   function fitCompactCardImage(image) {
@@ -892,11 +763,8 @@
     var images = root.getElementsByTagName("img"), i, filename;
     for (i = 0; i < images.length; ++i) {
       filename = images[i].getAttribute("data-ankink-media");
-      images[i]._ankinkMediaReady = !filename;
       images[i].onload = function () {
-        this._ankinkMediaReady = true;
         fitCompactCardImage(this);
-        invertNightImage(this);
         commitLoadedCardImagePaint(this);
         scheduleScrollButtonUpdate();
       };
@@ -913,7 +781,6 @@
       if (filename) loadMediaImage(images[i], filename);
       if (!filename && images[i].complete && images[i].naturalWidth) {
         fitCompactCardImage(images[i]);
-        invertNightImage(images[i]);
         commitLoadedCardImagePaint(images[i]);
       }
       images[i].onclick = function () {
@@ -935,7 +802,6 @@
   function loadMediaImage(image, filename) {
     image._ankinkMediaFilename = filename;
     image._ankinkMediaFallbackTried = false;
-    image._ankinkMediaReady = false;
     image.setAttribute("src", API + "/api/media/" + encodeURIComponent(filename) + "?v=" + MEDIA_VERSION);
   }
   function answerOnly(html) {
@@ -1106,10 +972,8 @@
     pendingReviews = Math.max(0, parseInt(settings.pendingReviews || "0", 10) || 0);
     fontScale = nearestFontScale(parseFloat(settings.fontScale || "1"));
     cardFont = cardFonts[settings.cardFont] ? settings.cardFont : "Bookerly";
-    nightMode = settings.nightMode === true;
-    nightCardMode = settings.nightCardMode;
-    if (nightCardMode !== "palette" && nightCardMode !== "palette-images")
-      nightCardMode = "standard";
+    syncNightState(settings);
+    if (settings.nightNative && settings.nightError) warning(settings.nightError);
     pageButtonMode = settings.pageButtonMode === "reversed" ? "reversed" : "normal";
     rotationMode = settings.rotationMode === "locked" ? "locked" : "auto";
     fullRefreshMode = settings.fullRefreshMode;
@@ -1121,7 +985,7 @@
     catch (ignored) { parsed = {}; }
     collapsedDecks = parsed && typeof parsed === "object" ? parsed : {};
     chooseRotationMode(rotationMode, false);
-    applyFontScale(false); applyCardFont(false); applyNightMode(false);
+    applyFontScale(false); applyCardFont(false); updateNightButton();
     updateSyncStatus();
   }
   function loadSettings() {
@@ -1210,8 +1074,6 @@
   }
   function applyCardFont(persist) {
     var family = cardFonts[cardFont];
-    restoreNightPalette(byId("front"));
-    restoreNightPalette(byId("back-face"));
     if (byId("front").style.setProperty) {
       byId("front").style.setProperty("font-family", family, "important");
       byId("back-face").style.setProperty("font-family", family, "important");
@@ -1221,29 +1083,43 @@
     }
     if (persist !== false) saveSetting("cardFont", cardFont);
     updateFontSizeChoices();
-    applyNightCardAppearance();
     scheduleScrollButtonUpdate();
   }
-  function applyNightMode(persist) {
-    var html = document.documentElement;
-    var brandLogo = byId("brand-logo"), brandNightSrc;
-    if (brandLogo) {
-      if (!brandLogoDaySrc) brandLogoDaySrc = brandLogo.getAttribute("src");
-      brandNightSrc = brandLogo.getAttribute("data-night-src");
-      if (brandNightSrc) brandLogo.src = nightMode ? brandNightSrc : brandLogoDaySrc;
-    }
-    if (nightMode) {
-      if (html.className.indexOf("night-mode") < 0) html.className += " night-mode";
-      byId("night-mode").innerHTML = "&#9788;";
-      byId("night-mode").title = "Day mode";
-    } else {
-      html.className = html.className.replace(/(^|\s)night-mode(?=\s|$)/g, "");
-      byId("night-mode").innerHTML = "&#9789;";
-      byId("night-mode").title = "Night mode";
-    }
-    if (persist !== false) saveSetting("nightMode", nightMode ? "1" : "0");
-    applyNightCardAppearance();
+  /* NATIVE_NIGHT_MODE_BEGIN */
+  function updateNightButton() {
+    var button = byId("night-mode");
+    button.innerHTML = nightKnown ? (nightMode ? "&#9788;" : "&#9789;") : "?";
+    button.title = nightKnown ? (nightMode ? "Day mode" : "Night mode") : "Display state unavailable";
+    button.setAttribute("aria-pressed", nightKnown && nightMode ? "true" : "false");
   }
+  function syncNightState(settings) {
+    if (!settings || typeof settings.nightKnown !== "boolean") return;
+    nightKnown = settings.nightKnown === true;
+    nightMode = settings.nightMode === true;
+    updateNightButton();
+  }
+  function toggleNightMode() {
+    if (nightRequestInFlight) return;
+    nightRequestInFlight = true;
+    byId("night-mode").disabled = true;
+    // Read first: framework/fbdepth may have changed the global state outside
+    // this app. The write is explicit, never a blind daemon toggle.
+    request("GET", "/api/settings", null, function (readError, settings) {
+      if (readError || !settings || !settings.nightKnown) {
+        syncNightState(settings);
+        nightRequestInFlight = false; byId("night-mode").disabled = false;
+        warning(readError || (settings && settings.nightError) || "Display state is unavailable.");
+        return;
+      }
+      syncNightState(settings);
+      request("POST", "/api/night-mode", "value=" + (nightMode ? "0" : "1"), function (error, result) {
+        nightRequestInFlight = false; byId("night-mode").disabled = false;
+        syncNightState(result);
+        if (error) warning(error);
+      }, 0);
+    }, 0);
+  }
+  /* NATIVE_NIGHT_MODE_END */
   function updateCounts(counts) {
     counts = counts || { "new": 0, learning: 0, review: 0 };
     byId("session-count").innerHTML = counts["new"] + " new &middot; " +
@@ -1386,7 +1262,7 @@
         state.card = card; applyCardCss(card.css); safeHtml(byId("front"), card.front, "Empty front field");
         updateCardFlag(card.flag);
         safeHtml(byId("back-face"), answerOnly(card.back), "No additional fields");
-        collectCardMath(); applyNightCardAppearance(); resetCardScroll(); scheduleMathRepair(0);
+        collectCardMath(); resetCardScroll(); scheduleMathRepair(0);
         updateCounts(card.counts);
         if (card.buttons && card.buttons.length === 4) {
           for (var i = 0; i < 4; ++i) {
@@ -1667,7 +1543,7 @@
   };
   byId("font-plus").onclick = function () { changeFontScale(1); };
   byId("font-minus").onclick = function () { changeFontScale(-1); };
-  byId("night-mode").onclick = function () { nightMode = !nightMode; applyNightMode(); };
+  byId("night-mode").onclick = toggleNightMode;
   byId("scroll-up").onclick = function () { pageScroll(-1); };
   byId("scroll-down").onclick = function () { pageScroll(1); };
   byId("decks-view").onscroll = updateScrollButtons;
@@ -1677,7 +1553,6 @@
   byId("settings").onclick = function () {
     selectedRadio("page-buttons", pageButtonMode);
     selectedRadio("full-refresh", fullRefreshMode);
-    selectedRadio("night-card-mode", nightCardMode);
     byId("card-font").value = cardFont;
     hideSettingsTooltip(); hideCardActionsMenu();
     show(byId("settings-dialog"));
@@ -1726,7 +1601,6 @@
   (function () {
     var pageButtons = document.getElementsByName("page-buttons");
     var fullRefreshButtons = document.getElementsByName("full-refresh");
-    var nightCardModes = document.getElementsByName("night-card-mode");
     var i;
     for (i = 0; i < pageButtons.length; ++i) pageButtons[i].onclick = function () {
       pageButtonMode = this.value;
@@ -1736,11 +1610,6 @@
       fullRefreshMode = this.value;
       saveSetting("fullRefreshMode", fullRefreshMode);
       saveFullRefreshProgress(0);
-    };
-    for (i = 0; i < nightCardModes.length; ++i) nightCardModes[i].onclick = function () {
-      nightCardMode = this.value;
-      saveSetting("nightCardMode", nightCardMode);
-      applyNightCardAppearance();
     };
   }());
   byId("account-cancel").onclick = function () { hide(byId("account-dialog")); };

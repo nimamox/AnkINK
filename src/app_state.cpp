@@ -84,7 +84,6 @@ AppState::AppState(std::string data_directory)
       settings_({{"fontScale", "1"},
                  {"cardFont", "Bookerly"},
                  {"nightMode", "0"},
-                 {"nightCardMode", "standard"},
                  {"pageButtonMode", "normal"},
                  {"rotationMode", "auto"},
                  {"fullRefreshMode", "manual"},
@@ -103,8 +102,6 @@ bool AppState::valid_setting(const std::string &key,
                           "Caecilia", "Caecilia Condensed", "Futura",
                           "Helvetica", "OpenDyslexic", "Palatino"});
   if (key == "nightMode") return value == "0" || value == "1";
-  if (key == "nightCardMode")
-    return one_of(value, {"standard", "palette", "palette-images"});
   if (key == "pageButtonMode")
     return value == "normal" || value == "reversed";
   if (key == "rotationMode")
@@ -163,7 +160,6 @@ std::string AppState::settings_json() const {
          << R"(,"fontScale":)" << json_string(settings_.at("fontScale"))
          << R"(,"cardFont":)" << json_string(settings_.at("cardFont"))
          << R"(,"nightMode":)" << (settings_.at("nightMode") == "1" ? "true" : "false")
-         << R"(,"nightCardMode":)" << json_string(settings_.at("nightCardMode"))
          << R"(,"pageButtonMode":)" << json_string(settings_.at("pageButtonMode"))
          << R"(,"rotationMode":)" << json_string(settings_.at("rotationMode"))
          << R"(,"fullRefreshMode":)" << json_string(settings_.at("fullRefreshMode"))

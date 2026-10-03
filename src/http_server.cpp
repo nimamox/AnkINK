@@ -187,7 +187,8 @@ std::string with_app_state(std::string body, std::uint64_t count,
 } // namespace
 
 HttpServer::HttpServer(ServerOptions options)
-    : options_(std::move(options)), app_state_(options_.data_dir),
+    : options_(std::move(options)),
+      display_({options_.simulator, options_.display_journal, options_.display_device}), app_state_(options_.data_dir),
       update_checker_({options_.data_dir,
                        "https://telemetry.nimamo.workers.dev/api/v1/check",
                        options_.ca_bundle_path,
@@ -211,6 +212,26 @@ HttpServer::~HttpServer() {
   }
 }
 
+std::string HttpServer::effective_settings_json() {
+  std::lock_guard<std::mutex> guard(display_settings_mutex_);
+  return display_.settings_json(app_state_.settings_json());
+}
+std::string HttpServer::set_night_mode(const std::string &value, bool &ok) {
+  std::lock_guard<std::mutex> guard(display_settings_mutex_);
+  std::string error;
+  ok = value == "0" || value == "1";
+  if (!ok) error = "Night Mode requires explicit value 0 or 1";
+  else
+    ok = display_.set(value == "1", error);
+  if (ok) ok = app_state_.set_setting("nightMode", value, error);
+  auto json = display_.settings_json(app_state_.settings_json());
+  if (!ok) {
+    std::cerr << "Night Mode request: " << error << '\n';
+    json.pop_back();
+    json += ",\"message\":" + json_string(error) + "}";
+  }
+  return json;
+}
 void HttpServer::request_stop() noexcept {
   stop_requested = 1;
   const int fd = stop_wake_fd;
@@ -298,7 +319,7 @@ void HttpServer::handle_client(int client) noexcept {
       respond(client, 200, "OK", "application/json; charset=utf-8", body);
     } else if (request.method == "GET" && request.target == "/api/settings") {
       respond(client, 200, "OK", "application/json; charset=utf-8",
-              app_state_.settings_json());
+              effective_settings_json());
     } else if (request.method == "GET" &&
                request.target == "/api/update-status") {
       respond(client, 200, "OK", "application/json; charset=utf-8",
@@ -310,6 +331,11 @@ void HttpServer::handle_client(int client) noexcept {
         throw std::runtime_error(error);
       respond(client, 200, "OK", "application/json; charset=utf-8",
               update_checker_.status_json());
+    } else if (request.method == "POST" && (request.target == "/api/night-mode" ||
+        (request.target == "/api/settings" && form_value(request.body, "key") == "nightMode"))) {
+      bool ok;
+      const auto body = set_night_mode(form_value(request.body, "value"), ok);
+      respond(client, ok ? 200 : 503, ok ? "OK" : "Service Unavailable", "application/json", body);
     } else if (request.method == "POST" && request.target == "/api/settings") {
       const std::string key = form_value(request.body, "key");
       const std::string value = form_value(request.body, "value");
@@ -325,7 +351,7 @@ void HttpServer::handle_client(int client) noexcept {
         throw std::runtime_error(error);
       }
       respond(client, 200, "OK", "application/json; charset=utf-8",
-              app_state_.settings_json());
+              effective_settings_json());
     } else if (request.method == "GET" && request.target == "/api/decks") {
       const auto result = collection_call([this] {
         const bool open = collection_.is_open();
@@ -391,19 +417,10 @@ void HttpServer::handle_client(int client) noexcept {
       respond(client, 200, "OK", "application/json; charset=utf-8", R"({"type":"quitting"})");
       stop();
     } else if (request.method == "POST" && request.target == "/api/refresh") {
-      if (options_.simulator) {
-        respond(client, 200, "OK", "application/json; charset=utf-8",
-                R"({"type":"refreshed","simulated":true})");
-      } else {
-        const int result = std::system(
-            "if [ -x /usr/bin/fbink ]; then /usr/bin/fbink -q -f -s; "
-            "elif [ -x /mnt/us/extensions/MRInstaller/bin/PW2/fbink ]; then "
-            "/mnt/us/extensions/MRInstaller/bin/PW2/fbink -q -f -s; "
-            "else exit 1; fi >/dev/null 2>&1");
-        if (result != 0)
-          throw std::runtime_error("Full refresh requires a working /usr/bin/fbink command");
-        respond(client, 200, "OK", "application/json; charset=utf-8", R"({"type":"refreshed"})");
-      }
+      std::string error;
+      if (!display_.refresh(error)) throw std::runtime_error(error);
+      respond(client, 200, "OK", "application/json", options_.simulator ?
+              R"({"type":"refreshed","simulated":true})" : R"({"type":"refreshed"})");
     } else if (request.method == "POST" && request.target == "/api/auth/login") {
       const std::string username = form_value(request.body, "username");
       const std::string password = form_value(request.body, "password");
