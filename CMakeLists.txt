@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(AnkINK VERSION 0.5.0 LANGUAGES C CXX)
+project(AnkINK VERSION 0.5.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -212,6 +212,9 @@ endif()
 if(ANKINK_BUILD_TESTS)
     find_program(ANKINK_NODE_EXECUTABLE node)
     if(ANKINK_NODE_EXECUTABLE)
+        add_test(NAME ankink_card_css_tests
+            COMMAND "${ANKINK_NODE_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/card_css_test.js"
+                    "${CMAKE_SOURCE_DIR}/assets/app-settings.js")
       add_test(NAME ankink_native_night_frontend_tests
         COMMAND "${ANKINK_NODE_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/native_night_frontend_test.js"
                 "${CMAKE_SOURCE_DIR}/assets/app-settings.js" "ankink")

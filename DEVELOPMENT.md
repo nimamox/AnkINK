@@ -243,6 +243,28 @@ failure remains unresolved. PW12 shared ownership and cross-app SIGKILL recovery
 also passed through the running APIs; rapid normal relaunches encountered an
 `appreg.db` registration lock, so that launcher stress run remains incomplete.
 
+## Rich card styles
+
+AnkINK keeps sanitized `<style>` blocks embedded in card fields as well as
+notetype CSS. Embedded rules are scoped independently to the front and answer
+faces; selectors cannot target the surrounding controls. Imports, font/resource
+loads, script expressions and fixed/sticky overlays remain blocked. Media
+queries and quoted/function-valued declarations survive preprocessing.
+
+On WebKit without CSS variables, grid or unprefixed flex, an ES5 compatibility
+pass resolves inherited variables and ordinary selector precedence, including
+`!important`, before laying out simple column diagrams using CSS tables or the
+legacy WebKit box model. This is a limited reading fallback, not a complete
+modern CSS implementation. Complex grid placement, flex wrapping and modern
+selectors can still require simpler card styling. Native KaTeX conversion and
+the existing narrow Kindle math repairs are unchanged. An offscreen AMS glyph
+warms the bundled font at startup to avoid first-use blank expectation symbols
+observed on physical KOA1 Mesquite.
+
+`ankink_card_css_tests` uses synthetic content to cover scoping, media rules,
+unsafe CSS, variable inheritance/cycles/fallbacks, shorthand precedence and
+legacy layouts. Keep personal card HTML and collections out of test fixtures.
+
 ## Tests and debugging
 
 A normal native validation cycle is:

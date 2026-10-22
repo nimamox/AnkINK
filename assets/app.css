@@ -242,3 +242,6 @@ h2 { font: bold 38px/1.15 "Amazon Ember", Arial, sans-serif; }
   .app-header { right: 1%; left: 1%; width: 98%; }
   .brand-button, #status, .busy-indicator, .busy-indicator.active { visibility: hidden; }
 }
+
+/* Resolve the bundled AMS font before the first card needs its symbols. */
+.math-font-warmup { position: absolute; top: 0; left: -10000px; font-size: 16px; }

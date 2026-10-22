@@ -641,13 +641,16 @@
     else { settingsDrainedCallback = callback; flushSettingWrites(); }
   }
   function safeHtml(element, html, fallback) {
-    var container = document.createElement("div");
+    var container = document.createElement("div"), embeddedCss = [];
     var blocked = { SCRIPT:1, STYLE:1, IFRAME:1, OBJECT:1, EMBED:1, LINK:1, META:1 };
     function clean(node) {
       var child = node.firstChild, next, i, attribute, name, value;
       while (child) {
         next = child.nextSibling;
-        if (child.nodeType === 1 && blocked[child.tagName]) node.removeChild(child);
+        if (child.nodeType === 1 && blocked[child.tagName]) {
+          if (child.tagName === "STYLE") embeddedCss.push(child.textContent || child.innerText || "");
+          node.removeChild(child);
+        }
         else {
           if (child.nodeType === 1) {
             for (i = child.attributes.length - 1; i >= 0; --i) {
@@ -677,41 +680,246 @@
     }
     container.innerHTML = html || ("<em>" + fallback + "</em>"); clean(container);
     clear(element); while (container.firstChild) element.appendChild(container.firstChild);
+    var rules = cardCssRules(embeddedCss.join("\n"), "#card #" + element.id);
+    writeCardCss("card-embedded-" + element.id, rules);
+    legacyCardStyles(element, cardCssRules(cardTemplateCss, "#card").concat(rules));
     prepareImages(element);
   }
+  /* CARD_CSS_BEGIN */
+  var cardTemplateCss = "";
+  var cardCssFeatures = (function () {
+    var style = document.createElement("div").style;
+    return { variables: !!(window.CSS && window.CSS.supports && window.CSS.supports("--ankink", "0")),
+      grid: typeof style.gridTemplateColumns !== "undefined", flex: typeof style.flex !== "undefined" };
+  }());
+  // Split only at the top level: CSS strings/functions can contain commas,
+  // semicolons and braces. Kindle has no CSS parser API that preserves vars.
+  function splitCardCss(source, separator) {
+    var parts = [], start = 0, quote = "", depth = 0, i, c;
+    for (i = 0; i < source.length; ++i) {
+      c = source.charAt(i);
+      if (quote) { if (c === quote) quote = ""; }
+      else if (c === '"' || c === "'") quote = c;
+      else if (c === "(" || c === "[") depth += 1;
+      else if (c === ")" || c === "]") depth -= 1;
+      else if (!depth && c === separator) { parts.push(source.substring(start, i)); start = i + 1; }
+    }
+    parts.push(source.substring(start));
+    return parts;
+  }
   function safeInlineStyle(value) {
-    var declarations = String(value || "").split(";"), safe = [], i, part, colon, property, content, lower;
+    var declarations = splitCardCss(String(value || "").replace(/\/\*[\s\S]*?\*\//g, ""), ";"),
+      safe = [], i, part, colon, property, content, lower;
     for (i = 0; i < declarations.length; ++i) {
       part = declarations[i]; colon = part.indexOf(":");
       if (colon < 1) continue;
-      property = part.substring(0, colon).replace(/^\s+|\s+$/g, "").toLowerCase();
+      property = part.substring(0, colon).replace(/^\s+|\s+$/g, "");
+      if (property.indexOf("--") !== 0) property = property.toLowerCase();
       content = part.substring(colon + 1).replace(/^\s+|\s+$/g, ""); lower = content.toLowerCase();
-      if (!property || lower.indexOf("url(") >= 0 || lower.indexOf("expression") >= 0 ||
-          property === "behavior" || property === "-moz-binding" || property === "z-index" ||
-          (property === "position" && (lower === "fixed" || lower === "sticky"))) continue;
+      // Reject escapes/control characters as well as literal resource loads.
+      // This also covers escaped url(), bindings and declaration breakouts.
+      if (!/^(--[a-zA-Z0-9_-]+|[a-z-]+)$/.test(property) || /[\\\x00-\x1f<>@{}]/.test(content) ||
+          /url\s*\(|image-set\s*\(|expression|behavior|-moz-binding/i.test(property + ":" + content) ||
+          property === "z-index" || (property === "position" && /fixed|sticky/i.test(lower))) continue;
       safe.push(property + ":" + content);
     }
     return safe.join(";");
   }
-  function applyCardCss(css) {
-    var source = String(css || "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/@import[^;]*;/gi, "");
-    var output = [], block = /([^{}]+)\{([^{}]*)\}/g, match, selectors, scoped, i, selector, body;
-    while ((match = block.exec(source))) {
-      selectors = match[1].split(","); body = safeInlineStyle(match[2]); scoped = [];
-      if (!body || /^\s*@/.test(match[1])) continue;
-      for (i = 0; i < selectors.length; ++i) {
-        selector = selectors[i].replace(/^\s+|\s+$/g, "");
-        if (!selector || selector.indexOf("@") >= 0) continue;
-        selector = selector.replace(/(^|[ >+~])\.card\b/g, "$1#card");
-        selector = selector.replace(/(^|[ >+~])(html|body)\b/gi, "$1#card");
-        if (selector.indexOf("#card") < 0) selector = "#card " + selector;
-        if (/#card\s*[+~]/.test(selector)) continue;
-        scoped.push(selector);
+  function cardCssRules(css, scope) {
+    var source = String(css || "").replace(/\/\*[\s\S]*?\*\//g, ""), rules = [];
+    function parse(source, media) {
+      var start = 0, i = 0, open, depth, quote, c, header, body, selectors, j, selector, declarations;
+      while (i < source.length) {
+        // Skip statement at-rules instead of letting @import consume a rule.
+        open = source.indexOf("{", i);
+        if (open < 0) break;
+        header = source.substring(start, open).replace(/^\s+|\s+$/g, "");
+        if (header.charAt(0) === "@" && header.indexOf(";") >= 0) {
+          i = start = source.indexOf(";", start) + 1; continue;
+        }
+        depth = 1; quote = ""; i = open + 1;
+        for (; i < source.length && depth; ++i) {
+          c = source.charAt(i);
+          if (quote) { if (c === quote && source.charAt(i - 1) !== "\\") quote = ""; }
+          else if (c === '"' || c === "'") quote = c;
+          else if (c === "{") depth += 1;
+          else if (c === "}") depth -= 1;
+        }
+        if (depth) break;
+        body = source.substring(open + 1, i - 1); start = i;
+        if (/^@media(?:\s|\()/i.test(header) && !/[\\<>@{};]/.test(header.substring(6))) {
+          parse(body, media.concat([header.substring(6)])); continue;
+        }
+        if (header.charAt(0) === "@") continue;
+        declarations = safeInlineStyle(body);
+        if (!declarations) continue;
+        selectors = splitCardCss(header, ",");
+        for (j = 0; j < selectors.length; ++j) {
+          selector = selectors[j].replace(/^\s+|\s+$/g, "");
+          // Always anchor selectors to this face/card. No arbitrary #card
+          // substring exemption, root sibling escapes or escaped selectors.
+          if (!selector || /[\\<>@{};]/.test(selector)) continue;
+          selector = selector.replace(/(^|[ >+~])(?:\.card|#card|html|body|:root)(?![\w-])/gi, "$1" + scope);
+          if (selector.indexOf(scope) !== 0 || /[\w-]/.test(selector.charAt(scope.length)))
+            selector = scope + " " + selector;
+          if (selector.substring(scope.length).replace(/^\s+/, "").match(/^[+~]/)) continue;
+          rules.push({ selector: selector, body: declarations, media: media });
+        }
       }
-      if (scoped.length) output.push(scoped.join(",") + "{" + body + "}");
     }
-    byId("card-template-style").innerHTML = output.join("\n");
+    parse(source, []);
+    return rules;
   }
+  function writeCardCss(id, rules) {
+    var style = byId(id), output = [], i, j, rule, text;
+    if (!style) {
+      style = document.createElement("style"); style.id = id;
+      document.getElementsByTagName("head")[0].appendChild(style);
+    }
+    for (i = 0; i < rules.length; ++i) {
+      rule = rules[i]; text = rule.selector + "{" + rule.body + "}";
+      for (j = rule.media.length - 1; j >= 0; --j) text = "@media " + rule.media[j] + "{" + text + "}";
+      output.push(text);
+    }
+    clear(style); style.appendChild(document.createTextNode(output.join("\n")));
+  }
+  function applyCardCss(css) {
+    cardTemplateCss = String(css || "");
+    writeCardCss("card-template-style", cardCssRules(cardTemplateCss, "#card"));
+  }
+  function resolveCardVars(value, variables, path) {
+    var start, i, depth, args, name, replacement;
+    path = path || [];
+    while ((start = value.indexOf("var(")) >= 0) {
+      depth = 1; i = start + 4;
+      for (; i < value.length && depth; ++i) {
+        if (value.charAt(i) === "(") depth += 1;
+        if (value.charAt(i) === ")") depth -= 1;
+      }
+      if (depth) return "";
+      args = splitCardCss(value.substring(start + 4, i - 1), ",");
+      name = args.shift().replace(/^\s+|\s+$/g, "");
+      replacement = path.indexOf(name) < 0 && Object.prototype.hasOwnProperty.call(variables, name) ?
+        resolveCardVars(variables[name], variables, path.concat([name])) : "";
+      if (!replacement && args.length) replacement = resolveCardVars(args.join(","), variables, path);
+      if (!replacement) return "";
+      value = value.substring(0, start) + replacement + value.substring(i);
+    }
+    return value;
+  }
+  function legacyCardStyles(element, rules) {
+    if (cardCssFeatures.variables && cardCssFeatures.grid && cardCssFeatures.flex) return;
+    var cardRoot = byId("card");
+    var nodes = cardRoot && cardRoot !== element ? [cardRoot, element] : [element], descendants = element.getElementsByTagName("*"), entries = [], i, j, k, rule,
+      matches, pseudo, specificity, declarations, declaration, colon, property, value, important, rank;
+    for (i = 0; i < descendants.length; ++i) nodes.push(descendants[i]);
+    for (i = 0; i < nodes.length; ++i) entries.push({ node: nodes[i], values: {}, pseudos: {} });
+    function put(values, property, value, rank) {
+      if (!values[property] || rank >= values[property].rank) values[property] = { value: value, rank: rank };
+    }
+    for (i = 0; i < rules.length; ++i) {
+      rule = rules[i];
+      if (rule.media.some(function (query) { return !window.matchMedia || !window.matchMedia(query).matches; })) continue;
+      pseudo = rule.selector.match(/::?(before|after)$/);
+      try { matches = document.querySelectorAll(pseudo ? rule.selector.replace(/::?(before|after)$/, "") : rule.selector); }
+      catch (ignored) { continue; }
+      // Ordering for the supported ordinary card selectors; inline wins below.
+      specificity = (rule.selector.match(/#[\w-]+/g) || []).length * 10000 +
+        (rule.selector.match(/\.[\w-]+|\[[^\]]*\]|:(?!:)[\w-]+/g) || []).length * 100 +
+        (rule.selector.match(/(^|[ >+~])[a-z][\w-]*/gi) || []).length;
+      declarations = splitCardCss(rule.body, ";");
+      for (j = 0; j < matches.length; ++j) {
+        k = nodes.indexOf(matches[j]); if (k < 0) continue;
+        if (pseudo && !entries[k].pseudos[pseudo[1]]) entries[k].pseudos[pseudo[1]] = {};
+        for (var d = 0; d < declarations.length; ++d) {
+          declaration = declarations[d]; colon = declaration.indexOf(":");
+          property = declaration.substring(0, colon); value = declaration.substring(colon + 1);
+          important = /\s*!important\s*$/i.test(value); value = value.replace(/\s*!important\s*$/i, "");
+          rank = (important ? 1000000000 : 0) + specificity + (i + d / (declarations.length + 1)) / (rules.length + 1);
+          put(pseudo ? entries[k].pseudos[pseudo[1]] : entries[k].values, property, value, rank);
+        }
+      }
+    }
+    var extra = [];
+    for (i = 0; i < entries.length; ++i) {
+      var entry = entries[i], inherited = {}, parent = nodes.indexOf(entry.node.parentNode), key, current, resolved;
+      if (parent >= 0) for (key in entries[parent].variables) inherited[key] = entries[parent].variables[key];
+      declarations = splitCardCss(safeInlineStyle(entry.node.getAttribute("style")), ";");
+      for (j = 0; j < declarations.length; ++j) {
+        colon = declarations[j].indexOf(":"); if (colon < 0) continue;
+        value = declarations[j].substring(colon + 1); important = /\s*!important\s*$/i.test(value);
+        put(entry.values, declarations[j].substring(0, colon), value.replace(/\s*!important\s*$/i, ""),
+          (important ? 1000000000 : 0) + 1000000 + j / (declarations.length + 1));
+      }
+      for (key in entry.values) if (key.indexOf("--") === 0) inherited[key] = entry.values[key].value;
+      // Resolve definitions at their owning element, before descendants override them.
+      entry.variables = {};
+      for (key in inherited) entry.variables[key] = resolveCardVars(inherited[key], inherited);
+      if (entry.node === cardRoot && entry.node !== element) continue;
+      var ordered = [];
+      for (key in entry.values) if (key.indexOf("--") !== 0) ordered.push(key);
+      ordered.sort(function (left, right) { return entry.values[left].rank - entry.values[right].rank; });
+      // Apply in cascade order so shorthands (border) cannot erase a later
+      // longhand (border-width) when replacing a variable on old WebKit.
+      for (j = 0; j < ordered.length; ++j) {
+        key = ordered[j]; current = entry.values[key];
+        resolved = resolveCardVars(current.value, entry.variables);
+        if (resolved) entry.node.style.setProperty(key, resolved, current.rank >= 1000000000 ? "important" : "");
+      }
+      for (pseudo in entry.pseudos) {
+        var body = [], pseudoValues = entry.pseudos[pseudo];
+        ordered = [];
+        for (key in pseudoValues) ordered.push(key);
+        ordered.sort(function (left, right) { return pseudoValues[left].rank - pseudoValues[right].rank; });
+        for (j = 0; j < ordered.length; ++j) {
+          key = ordered[j]; current = pseudoValues[key]; resolved = resolveCardVars(current.value, entry.variables);
+          if (resolved) body.push(key + ":" + resolved + (current.rank >= 1000000000 ? "!important" : ""));
+        }
+        entry.node.setAttribute("data-ankink-css", String(i));
+        extra.push({ selector: "#card #" + element.id + ' [data-ankink-css="' + i + '"]:' + pseudo, body: body.join(";"), media: [] });
+      }
+    }
+    // Finish inheritance/cascade before layout inserts table row wrappers.
+    for (i = 0; i < entries.length; ++i) {
+      if (entries[i].node !== cardRoot) legacyCardLayout(entries[i].node, entries[i].values, entries[i].variables);
+    }
+    writeCardCss("card-legacy-" + element.id, extra);
+  }
+  function legacyCardLayout(node, values, variables) {
+    function get(name) { return values[name] ? resolveCardVars(values[name].value, variables) : ""; }
+    var display = get("display"), children = [], child, i, columns, widths, match, gap = get("gap"), row, table;
+    if (!cardCssFeatures.flex && get("flex")) node.style.webkitBoxFlex = String(parseFloat(get("flex")) || 1);
+    if ((display !== "grid" || cardCssFeatures.grid) && (display !== "flex" || cardCssFeatures.flex)) return;
+    for (child = node.firstChild; child; child = child.nextSibling) if (child.nodeType === 1) children.push(child);
+    if (display === "flex") {
+      node.style.display = "-webkit-box";
+      node.style.webkitBoxOrient = get("flex-direction") === "column" ? "vertical" : "horizontal";
+      node.style.webkitBoxAlign = get("align-items") === "center" ? "center" : "stretch";
+      for (i = 0; i < children.length; ++i) {
+        child = children[i];
+        // Flex shorthand lives on the child, not the container.
+        if (child.style.flex || /(^|;)flex\s*:/.test(child.getAttribute("style") || "")) child.style.webkitBoxFlex = "1";
+        if (gap && i) child.style.setProperty(get("flex-direction") === "column" ? "margin-top" : "margin-left", gap);
+      }
+      return;
+    }
+    columns = get("grid-template-columns"); match = columns.match(/^repeat\(\s*(\d+)\s*,/);
+    widths = match ? [] : splitCardCss(columns.replace(/\s+/g, " "), " ");
+    columns = match ? parseInt(match[1], 10) : widths.length;
+    if (!columns || columns > 12) return;
+    // Simple column diagrams become ordinary CSS tables on old WebKit.
+    table = document.createElement("div"); table.style.cssText = "display:table;table-layout:fixed;width:100%;border-collapse:separate";
+    if (gap) table.style.borderSpacing = gap;
+    for (i = 0; i < children.length; ++i) {
+      if (i % columns === 0) { row = document.createElement("div"); row.style.display = "table-row"; table.appendChild(row); }
+      children[i].style.display = "table-cell";
+      children[i].style.width = match ? (100 / columns) + "%" :
+        (/^[0-9.]+(px|em|%)$/.test(widths[i % columns]) ? widths[i % columns] : "auto");
+      children[i].style.verticalAlign = "top"; row.appendChild(children[i]);
+    }
+    node.style.display = "block"; node.appendChild(table);
+  }
+  /* CARD_CSS_END */
   /* CARD_IMAGE_FIT_BEGIN */
   function fitCompactCardImage(image) {
     var naturalWidth, naturalHeight, renderedWidth, renderedHeight,
